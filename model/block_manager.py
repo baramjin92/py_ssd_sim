@@ -267,19 +267,23 @@ class super_block :
 
 			self.name = name
 
-	def open(self, block_addr, meta_info, cell_mode = NAND_MODE_MLC) :	
+	def open(self, block_addr, way_list, meta_info, cell_mode = NAND_MODE_MLC) :	
 		self.block_addr = block_addr	
 		# in order to start from 0, way_index is initialized by last value
 		self.way_index = self.num_way - 1 		
-	
-		for way in range(self.num_way) :
+		
+		if len(way_list) == self.num_way :
+			self.ways = way_list
+								
+		for index in range(self.num_way) :
 			# normal super block concept, each block address is same
 			# this value can be changed by non super block concept.
-			self.block[way] = block_addr
-			self.page[way] = 0	
+			self.block[index] = block_addr
+			self.page[index] = 0	
 	
-			if self.op_mode == SB_OP_WRITE :
+			if self.op_mode == SB_OP_WRITE and meta_info != None :
 				# initialize valid bitmap and count
+				way = self.ways[index]
 				meta_info.reset_valid_info(way, block_addr) 
 		
 		self.allocated_num = self.num_way
@@ -318,38 +322,38 @@ class super_block :
 		# look for unclosed way and return physical address
 		for index in range(self.num_way) :
 			self.way_index = (self.way_index + 1) % self.num_way
-			way  = self.ways[self.way_index]
 			
-			if self.block[way] != 0xFFFFFFFF :
-				return way, self.block[way], self.page[way]
+			index = self.way_index
+			
+			way  = self.ways[index]
+			if self.block[index] != 0xFFFFFFFF :
+				return way, self.block[index], self.page[index]
 		
 	# it is called after sending the program command																	
-	def update_page(self) :		
-		way = self.ways[self.way_index]
+	def update_page(self) :
+		index = self.way_index		
+	
+		# get way
+		way = self.ways[index]
 		
 		# increase page addr
-		self.page[way] = self.page[way] + 1
+		self.page[index] = self.page[index] + 1
 				 							 			
 		# check last page
-		if self.page[way] == self.end_page :
+		if self.page[index] == self.end_page :
 			# close block
-			self.block[way] = 0xFFFFFFFF
+			self.block[index] = 0xFFFFFFFF
 			self.allocated_num = self.allocated_num - 1
 
 			#print('\n%s sb way %d close'%(self.name, way))							
 			# to do for updating valid count														 			
 
 		if self.allocated_num == 0 :
-			print('\n%s sb close : %d, end page : %d, valid num : %d'%(self.name, self.block_addr, self.end_page, meta.get_valid_sum(self.block_addr)))
-			
-			# the block number should be moved to closed block list in block manager
-			if self.op_mode == SB_OP_WRITE :
-				blk_manager = blk_grp.get_block_manager(self.block_addr)
-				blk_manager.set_close_block(self.block_addr)
-				
-			return True
+			print('\n%s sb close : %d, end page : %d'%(self.name, self.block_addr, self.end_page))
+							
+			return True, self.block_addr
 		
-		return False
+		return False, self.block_addr
 
 	def debug(self, meta_info = None) :
 		block_size = self.num_way * PAGES_PER_BLOCK * BYTES_PER_PAGE
@@ -359,10 +363,11 @@ class super_block :
 										
 		last_page = []
 		valid_count = 0
-		for index in range(self.num_way) :
-			last_page.append(self.page[index])
+		for index in range(self.num_way) :			
+			last_page.append(self.page[index] - 1)
 			if meta_info != None :
-				valid_count = valid_count + meta_info.valid_count[index][self.block_addr]
+				way = self.ways[index]
+				valid_count = valid_count + meta_info.valid_count[way][self.block_addr]
 		
 		print('valid count of SB : %d'%valid_count)
 		print('last page of SB')
@@ -378,7 +383,6 @@ if __name__ == '__main__' :
 	blk_grp.add('slc_cache', block_manager(NUM_WAYS, 10, 20))
 	blk_grp.add('user', block_manager(NUM_WAYS, 20, 100))
 	
-	
 	blk_grp.print_info()
 	blk_grp.debug()
 	
@@ -389,6 +393,18 @@ if __name__ == '__main__' :
 	block = blk_manager.get_victim_block()
 	print(block)
 	
+	print('test super block operation')
+	sb = super_block(4, 'host')
+	if sb.is_open() == False :
+		sb.open(10, [1, 5, 3, 10],  None, NAND_MODE_MLC)
+		
+	print('chunk num to write of SB : %d'%sb.get_num_chunks_to_write(10))
+
+	for index in range(24) :
+		way, block, page = sb.get_physical_addr()
+		print('current write position - way : %d, block : %d, page : %d'%(way,block, page))
+		
+		sb.update_page()
 	
-	
+	sb.debug(None)	
 																			

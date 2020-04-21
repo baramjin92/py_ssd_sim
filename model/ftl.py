@@ -518,8 +518,13 @@ class ftl_manager :
 				bm.release_buffer(buffer_id)
 							
 		# update super page index and check status of closing block (end of super block)
-		sb.update_page()
-																										
+		is_close, block_addr = sb.update_page()
+		
+		# the block number should be moved to closed block list in block manager
+		if is_close == True  :
+			blk_manager = blk_grp.get_block_manager(block_addr)
+			blk_manager.set_close_block(block_addr)
+																														
 		log_print('do write')
 
 	def do_trim(self, lba, sector_count) :
@@ -534,7 +539,8 @@ class ftl_manager :
 	
 	def select_victim_block(self, block_addr, cell_mode) :
 		if self.gc_src_sb.is_open() == False :
-			self.gc_src_sb.open(block_addr, meta, cell_mode)
+			way_list = []
+			self.gc_src_sb.open(block_addr, way_list, meta, cell_mode)
 			log_print('select victim block : %d'%(block_addr))
 			return True
 			
@@ -630,7 +636,7 @@ class ftl_manager :
 #				if self.gc_issue_credit == 0 :
 #					break
 				
-			src_sb.update_page()						
+			is_close, block_addr = src_sb.update_page()						
 								
 	def do_gc_read_completion(self) :
 		
@@ -760,8 +766,13 @@ class ftl_manager :
 		ftl2fil_queue.push(cmd_index)
 							
 		# update super page index and check status of closing block (end of super block)
-		sb.update_page()
-																										
+		is_close, block_addr = sb.update_page()
+
+		# the block number should be moved to closed block list in block manager
+		if is_close == True  :
+			blk_manager = blk_grp.get_block_manager(block_addr)
+			blk_manager.set_close_block(block_addr)
+																																																				
 		log_print('do gc write')
 		log_print(buffer_ids)	
 
@@ -780,12 +791,14 @@ class ftl_manager :
 				cell_mode = NAND_MODE_MLC
 				
 			blk_no = blk_manager.get_free_block(erase_request = True)
-			self.host_sb.open(blk_no, meta, cell_mode)
+			way_list = []
+			self.host_sb.open(blk_no, way_list, meta, cell_mode)
 		
 		if self.gc_sb.is_open() == False :
 			blk_manager = blk_grp.get_block_manager_by_name('user')
 			blk_no = blk_manager.get_free_block(erase_request = True)
-			self.gc_sb.open(blk_no, meta)
+			way_list = []
+			self.gc_sb.open(blk_no, way_list, meta)
 
 		# do host workload operation		
 		# fetch command
