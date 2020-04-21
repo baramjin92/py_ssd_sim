@@ -242,7 +242,132 @@ class block_group :
 	def debug(self, meta_info = None) :
 		for index, blk_manager in enumerate(self.blk) :
 			blk_manager.debug(meta_info, self.name[index])				
-																								
+
+SB_OP_WRITE = 0
+SB_OP_READ = 1		
+						
+# in order to gurantee nand parallem, ftl use super block context]
+class super_block :
+	def __init__(self, num_way, name, op_mode = SB_OP_WRITE) :
+		self.way_index = num_way - 1		# set last way in order to next operation	
+		self.num_way = num_way
+		self.allocated_num = 0
+		self.cell_mode = NAND_MODE_MLC
+		self.op_mode = op_mode
+		
+		# in order to consider block replacement policy, blocks are managed by array 		
+		self.block_addr = 0
+		self.ways = []		
+		self.block = []
+		self.page = []
+		for index in range(num_way) :
+			self.ways.append(index)
+			self.block.append(0xFFFFFFFF)
+			self.page.append(0)	
+
+			self.name = name
+
+	def open(self, block_addr, meta_info, cell_mode = NAND_MODE_MLC) :	
+		self.block_addr = block_addr	
+		# in order to start from 0, way_index is initialized by last value
+		self.way_index = self.num_way - 1 		
+	
+		for way in range(self.num_way) :
+			# normal super block concept, each block address is same
+			# this value can be changed by non super block concept.
+			self.block[way] = block_addr
+			self.page[way] = 0	
+	
+			if self.op_mode == SB_OP_WRITE :
+				# initialize valid bitmap and count
+				meta_info.reset_valid_info(way, block_addr) 
+		
+		self.allocated_num = self.num_way
+		self.cell_mode = cell_mode
+		if self.cell_mode == NAND_MODE_MLC or self.cell_mode == NAND_MODE_TLC :
+			self.end_page = PAGES_PER_BLOCK
+		elif self.cell_mode == NAND_MODE_SLC :
+			self.end_page = PAGES_PER_BLOCK / 2		# this calculation is based on MLC nand
+
+		print('\n%s sb open : %d, allocated num : %d'%(self.name, block_addr, self.allocated_num))
+
+	def is_open(self) :
+		if self.allocated_num == 0 :
+			return False
+		else :
+			return True
+
+	def get_cell_mode(self) :
+		return self.cell_mode
+
+	def get_num_chunks_to_write(self, num_chunks_to_write) :
+		# when we decide num_chunks with CHUNKS_PER_PAGE, it is basic policy based on MLC multi-plane nand. 
+		# in order to consider TLC we need to change num_chunks decision logic
+		if self.cell_mode == NAND_MODE_MLC or self.cell_mode == NAND_MODE_SLC :
+		 	num_chunks = min(num_chunks_to_write, CHUNKS_PER_PAGE)
+		else :
+		 	num_chunks = min(num_chunks_to_write, (CHUNKS_PER_PAGE  * 3))			# one shot program
+
+		return num_chunks
+		                 
+	def get_block_addr(self) :
+		return self.block_addr  
+
+	# return value : way, block, page (plane will be added later)
+	def get_physical_addr(self) :
+		# look for unclosed way and return physical address
+		for index in range(self.num_way) :
+			self.way_index = (self.way_index + 1) % self.num_way
+			way  = self.ways[self.way_index]
+			
+			if self.block[way] != 0xFFFFFFFF :
+				return way, self.block[way], self.page[way]
+		
+	# it is called after sending the program command																	
+	def update_page(self) :		
+		way = self.ways[self.way_index]
+		
+		# increase page addr
+		self.page[way] = self.page[way] + 1
+				 							 			
+		# check last page
+		if self.page[way] == self.end_page :
+			# close block
+			self.block[way] = 0xFFFFFFFF
+			self.allocated_num = self.allocated_num - 1
+
+			#print('\n%s sb way %d close'%(self.name, way))							
+			# to do for updating valid count														 			
+
+		if self.allocated_num == 0 :
+			print('\n%s sb close : %d, end page : %d, valid num : %d'%(self.name, self.block_addr, self.end_page, meta.get_valid_sum(self.block_addr)))
+			
+			# the block number should be moved to closed block list in block manager
+			if self.op_mode == SB_OP_WRITE :
+				blk_manager = blk_grp.get_block_manager(self.block_addr)
+				blk_manager.set_close_block(self.block_addr)
+				
+			return True
+		
+		return False
+
+	def debug(self, meta_info = None) :
+		block_size = self.num_way * PAGES_PER_BLOCK * BYTES_PER_PAGE
+		
+		print('\n%s super block (size of SB : %d MB)'%(self.name, block_size/1024/1024))
+		print('current block addr  : %d'%self.block_addr)
+										
+		last_page = []
+		valid_count = 0
+		for index in range(self.num_way) :
+			last_page.append(self.page[index])
+			if meta_info != None :
+				valid_count = valid_count + meta_info.valid_count[index][self.block_addr]
+		
+		print('valid count of SB : %d'%valid_count)
+		print('last page of SB')
+		print(last_page)
+																																																
 if __name__ == '__main__' :
 	print ('module block manager of ftl (flash translation layer)')
 
