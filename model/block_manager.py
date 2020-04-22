@@ -58,11 +58,18 @@ class block_manager :
 		self.threshold_low = threshold_low
 		self.threshold_high = threshold_high
 		
+		# when we use super block concept in conventional ssd, we only need representative value for blk_status and way_list
+		# we extend then to list type, in order to use sub block policy for zns or sata ssd. 
 		self.num_way = num_way
-		self.blk_status = block_status(BLOCKS_PER_WAY)
+		self.blk_status = []
+		self.way_list = []
+		for index in range(num_way) :
+			self.blk_status.append(block_status(BLOCKS_PER_WAY))
+			self.way_list.append(index)
 		
 		# in the python, list is used for managing blocks
 		# in the c code, bitmap is better than array in order to reduce size of memory 
+		# free_blocks, close_blocks, defect_blocks should be update in order to distinguish same block number with having different ways
 		self.free_blocks = []
 		self.close_blocks = []
 		for index in range(start_block, end_block+1) :
@@ -73,7 +80,7 @@ class block_manager :
 	def get_free_block_num(self) :
 		return self.num_free_block						
 																	
-	def get_free_block(self, erase_request = False, way = 0) :
+	def get_free_block(self, erase_request = False) :
 		block = self.free_blocks.pop(0)
 		self.num_free_block = self.num_free_block - 1
 		
@@ -84,25 +91,31 @@ class block_manager :
 			# send event to host for throttling 
 			log_print('block manager : low free blocks')
 					
-		# erase block by the request		
-		if erase_request == True :
-			for index in range(self.num_way) :
+		for way in self.way_list :
+			# erase block by the request		
+			if erase_request == True :
 				cmd_index = nandcmd_table.get_free_slot()
 				cmd_desc = nandcmd_table.table[cmd_index]
 				cmd_desc.op_code = FOP_ERASE
-				cmd_desc.way = index
+				cmd_desc.way = way
 				cmd_desc.nand_addr = block
 				cmd_desc.chunk_num = 0
 				cmd_desc.seq_num = 0				
 	
 				ftl2fil_queue.push(cmd_index)
 
-		self.blk_status.set(block, BLK_STATUS_OPEN)
+			blk_status = self.blk_status[way]
+			blk_status.set(block, BLK_STATUS_OPEN)
 
-		return block
+		return block, self.way_list
 		
-	def release_block(self, block) :
-		self.blk_status.set(block, BLK_STATUS_ERASED)
+	def release_block(self, block, way_list = None) :
+		if way_list == None :
+			way_list = self.way_list
+			
+		for way in way_list :
+			blk_status = self.blk_status[way]
+			blk_status.set(block, BLK_STATUS_ERASED)
 		
 		if block in self.close_blocks : 
 			self.close_blocks.remove(block)
@@ -118,30 +131,48 @@ class block_manager :
 			# send event to host for throttling 
 			log_print('block manager : enough free blocks')
 
-	def set_close_block(self, block) :
-		self.blk_status.set(block, BLK_STATUS_CLOSE)
+	def set_close_block(self, block, way_list = None) :
+		if way_list == None :
+			way_list = self.way_list
+
+		for way in way_list :
+			blk_status = self.blk_status[way]
+			blk_status.set(block, BLK_STATUS_CLOSE)
+			
 		self.close_blocks.append(block)
 		self.num_close_block = self.num_close_block + 1
 		log_print('close block %d'%(block))
 			
-	def set_defect_block(self, block) :
-		self.blk_status.set(block, BLK_STATUS_DEFECTED)
+	def set_defect_block(self, block, way_list = None) :
+		if way_list == None :
+			way_list = self.way_list
+		
+		for way in way_list :
+			blk_status = self.blk_status[way]
+			blk_status.set(block, BLK_STATUS_DEFECTED)
+			
 		self.defect_blocks.append(block)
 		self.num_defect_block = self.num_defect_block + 1
 		
 	def get_victim_block(self) :
 		# in this function, wear-level is not considered. it select victim from closed block list by round-robin policy
 		if len(self.close_blocks) == 0 :
-			return -1, False
+			return -1, self.way_list, False
 		
 		# for test, we didn't check minimum valid count, get first closed block
 		block = self.close_blocks[0]
-		if self.blk_status.get(block) == BLK_STATUS_CLOSE :
-			self.blk_status.set(block, BLK_STATUS_VICTIM)
-			return block, True
-		else :
-			return -1, False
-
+		
+		for way in self.way_list :
+			blk_status = self.blk_status[way]
+			if blk_status.get(block) == BLK_STATUS_CLOSE :
+				blk_status.set(block, BLK_STATUS_VICTIM)				
+				ret_val = True
+			else :
+				ret_val = False
+				block = -1
+		
+		return block, self.way_list, ret_val
+	
 	def set_exhausted_status(self, status) :
 		self.exhausted = status
 
@@ -172,9 +203,12 @@ class block_manager :
 			str = 'SB %04d :'%(self.start_block % unit)
 		else :
 			str = ''
-		  		  
+		 
+		 # check first way only for super block
+		way = 0 		   		  
 		for block in range(self.start_block, self.end_block+1) :
-			status = self.blk_status.get(block)
+			blk_status = self.blk_status[way]
+			status = blk_status.get(block)
 			if status == BLK_STATUS_ERASED :
 				valid_sum = 0
 			else :
@@ -351,9 +385,9 @@ class super_block :
 		if self.allocated_num == 0 :
 			print('\n%s sb close : %d, end page : %d'%(self.name, self.block_addr, self.end_page))
 							
-			return True, self.block_addr
+			return True, self.block_addr, self.ways
 		
-		return False, self.block_addr
+		return False, self.block_addr, self.ways
 
 	def debug(self, meta_info = None) :
 		block_size = self.num_way * PAGES_PER_BLOCK * BYTES_PER_PAGE
@@ -390,7 +424,7 @@ if __name__ == '__main__' :
 	blk_manager = blk_grp.get_block_manager(5)
 	blk_manager.debug()
 	
-	block = blk_manager.get_victim_block()
+	block, way_list, ret_val = blk_manager.get_victim_block()
 	print(block)
 	
 	print('test super block operation')

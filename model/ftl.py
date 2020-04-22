@@ -441,7 +441,7 @@ class ftl_manager :
 			# if we use buffer cache, we should check and evict buffer id from cache, in order to avoid mismatch of data
 			if ENABLE_BUFFER_CACHE == True :		 
 				bm_cache.evict(lba_index)
-																																																								
+																																																					
 			# validate "valid chunk bitmap", "valid chunk count", "map table" with new physical address
 			meta.map_table[lba_index] = map_entry + index
 
@@ -518,7 +518,7 @@ class ftl_manager :
 				bm.release_buffer(buffer_id)
 							
 		# update super page index and check status of closing block (end of super block)
-		is_close, block_addr = sb.update_page()
+		is_close, block_addr, way_list = sb.update_page()
 		
 		# the block number should be moved to closed block list in block manager
 		if is_close == True  :
@@ -537,9 +537,8 @@ class ftl_manager :
 			meta.map_table[chunk_addr_start] = 0xFFFFFFFF	
 			chunk_addr_start = chunk_addr_start + 1
 	
-	def select_victim_block(self, block_addr, cell_mode) :
+	def select_victim_block(self, block_addr, way_list, cell_mode) :
 		if self.gc_src_sb.is_open() == False :
-			way_list = []
 			self.gc_src_sb.open(block_addr, way_list, meta, cell_mode)
 			log_print('select victim block : %d'%(block_addr))
 			return True
@@ -636,7 +635,7 @@ class ftl_manager :
 #				if self.gc_issue_credit == 0 :
 #					break
 				
-			is_close, block_addr = src_sb.update_page()						
+			is_close, block_addr, way_list = src_sb.update_page()						
 								
 	def do_gc_read_completion(self) :
 		
@@ -766,7 +765,7 @@ class ftl_manager :
 		ftl2fil_queue.push(cmd_index)
 							
 		# update super page index and check status of closing block (end of super block)
-		is_close, block_addr = sb.update_page()
+		is_close, block_addr, way_list = sb.update_page()
 
 		# the block number should be moved to closed block list in block manager
 		if is_close == True  :
@@ -790,14 +789,12 @@ class ftl_manager :
 				blk_manager = blk_grp.get_block_manager_by_name('user')
 				cell_mode = NAND_MODE_MLC
 				
-			blk_no = blk_manager.get_free_block(erase_request = True)
-			way_list = []
+			blk_no, way_list = blk_manager.get_free_block(erase_request = True)
 			self.host_sb.open(blk_no, way_list, meta, cell_mode)
 		
 		if self.gc_sb.is_open() == False :
 			blk_manager = blk_grp.get_block_manager_by_name('user')
-			blk_no = blk_manager.get_free_block(erase_request = True)
-			way_list = []
+			blk_no, way_list = blk_manager.get_free_block(erase_request = True)
 			self.gc_sb.open(blk_no, way_list, meta)
 
 		# do host workload operation		
@@ -817,15 +814,15 @@ class ftl_manager :
 		if True :
 			blk_manager = blk_grp.get_block_manager_by_name('slc_cache')
 			if blk_manager.get_exhausted_status() == True  and self.gc_src_sb.is_open() == False :
-				block, ret_val = blk_manager.get_victim_block()
+				block, way_list, ret_val = blk_manager.get_victim_block()
 				if ret_val == True :
-					self.select_victim_block(block, NAND_MODE_SLC)
+					self.select_victim_block(block, way_list, NAND_MODE_SLC)
 			
 			blk_manager = blk_grp.get_block_manager_by_name('user')
 			if blk_manager.get_exhausted_status() == True and self.gc_src_sb.is_open() == False :
-				block, ret_val = blk_manager.get_victim_block()
+				block, way_list, ret_val = blk_manager.get_victim_block()
 				if ret_val == True :
-					self.select_victim_block(block, NAND_MODE_MLC)
+					self.select_victim_block(block, way_list, NAND_MODE_MLC)
 				
 			# collect valid chunk from source super block
 			if self.run_mode == True :		
@@ -840,9 +837,9 @@ class ftl_manager :
 		else :
 			blk_manager = blk_grp.get_block_manager_by_name('user')
 			if blk_manager.get_exhausted_status() == True :
-				block, ret_val = blk_manager.get_victim_block()
+				block, way_list, ret_val = blk_manager.get_victim_block()
 				if ret_val == True :
-					self.select_victim_block(block, NAND_MODE_MLC)
+					self.select_victim_block(block, way_list, NAND_MODE_MLC)
 				
 				# collect valid chunk from source super block
 				if self.gc_src_sb.is_open() == True :		
@@ -929,5 +926,6 @@ if __name__ == '__main__' :
 	meta.print_valid_data(0, 20)
 	
 	print('......select victim block')
-	ftl.select_victim_block(10, NAND_MODE_MLC)	
+	way_list = []
+	ftl.select_victim_block(10, way_list, NAND_MODE_MLC)	
 																			
