@@ -476,9 +476,6 @@ class ftl_manager :
 		if ftl_cmd.sector_count > 0 :
 			self.write_cmd_queue.push_first(ftl_cmd)
 			
-		# update num_chunks_to_write
-		self.num_chunks_to_write = self.num_chunks_to_write - num_chunks			
-
 		self.seq_num = self.seq_num + 1
 
 		if ENABLE_RAMDISK_MODE == False :
@@ -524,7 +521,10 @@ class ftl_manager :
 		if is_close == True  :
 			blk_manager = blk_grp.get_block_manager(block_addr)
 			blk_manager.set_close_block(block_addr)
-																														
+
+		# update num_chunks_to_write
+		self.num_chunks_to_write = self.num_chunks_to_write - num_chunks			
+																																																											
 		log_print('do write')
 
 	def do_trim(self, lba, sector_count) :
@@ -729,9 +729,6 @@ class ftl_manager :
 		if gc_cmd.count > 0 :
 			self.gc_cmd_queue.push_first(gc_cmd)
 			
-		# update num_chunks_to_gc_write
-		self.num_chunks_to_gc_write = self.num_chunks_to_gc_write - num_chunks			
-
 		self.seq_num = self.seq_num + 1
 
 		address = int(map_entry % CHUNKS_PER_WAY)
@@ -771,7 +768,10 @@ class ftl_manager :
 		if is_close == True  :
 			blk_manager = blk_grp.get_block_manager(block_addr)
 			blk_manager.set_close_block(block_addr)
-																																																				
+
+		# update num_chunks_to_gc_write
+		self.num_chunks_to_gc_write = self.num_chunks_to_gc_write - num_chunks			
+																																																									
 		log_print('do gc write')
 		log_print(buffer_ids)	
 
