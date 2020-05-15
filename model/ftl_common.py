@@ -47,5 +47,4 @@ fil2ftl_queue = queue(32)
  																																				 																																				
 if __name__ == '__main__' :
 	print ('module ftl (flash translation layer) common')
-	
-																			
+																																							
