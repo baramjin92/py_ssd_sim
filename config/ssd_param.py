@@ -98,6 +98,11 @@ NUM_LBA = 97696368 + (1953504 * (SSD_CAPACITY - 50))
 # OP 7% capacity
 #SSD_CAPACITY_ACTUAL = SSD_CAPACITY * 1953125 / 2097152
 
+# ZNS definition
+ZONE_SIZE = 128 * 1024 * 1024
+NUM_OPEN_ZONES = 6
+NUM_ZONES = int((NUM_LBA * BYTES_PER_SECTOR) / ZONE_SIZE)
+
 def ssd_info(report = None) :
 	print('ssd capacity : %d GB'%SSD_CAPACITY)
 #	print('ssd actual capacity : %d'%SSD_CAPACITY_ACTUAL)
