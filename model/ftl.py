@@ -874,8 +874,7 @@ class ftl_statistics :
 																															
 	def print(self) :
 		print('statstics')
-
-blk_grp = block_group()				
+				
 meta = ftl_meta()				
 								
 if __name__ == '__main__' :

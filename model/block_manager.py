@@ -406,13 +406,11 @@ class super_block :
 		print('valid count of SB : %d'%valid_count)
 		print('last page of SB')
 		print(last_page)
-																																																
+
+blk_grp = block_group()																																																																																																
 if __name__ == '__main__' :
 	print ('module block manager of ftl (flash translation layer)')
-
-	#blk_manager = block_manager(NUM_WAYS, 10, 100)	
 	
-	blk_grp = block_group()
 	blk_grp.add('meta', block_manager(NUM_WAYS, 1, 9))
 	blk_grp.add('slc_cache', block_manager(NUM_WAYS, 10, 20))
 	blk_grp.add('user', block_manager(NUM_WAYS, 20, 100))
