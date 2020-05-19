@@ -17,6 +17,7 @@ from config.ssd_param import *
 
 from sim_event import *
 
+from model.zone import *
 from model.workload import *
 from model.pcie_if import *
 
@@ -372,7 +373,7 @@ class host_manager :
 			else :
 				# generate and send command by the workload type
 				queue_id, cmd, ret_val = self.generate_command()
-				
+								
 				if ret_val == True :
 					self.send_command(queue_id, cmd)
 					next_downlink_state = DOWNLINK_CMD	

@@ -54,13 +54,13 @@ class zone :
 		if index in self.empty_zones : 
 			self.empty_zones.remove(index)
 			self.open_zones.append(index)
-			print('open zone : %d'%index)
+			log_print('open zone : %d'%index)
 	
 	def close(self, index) : 
 		if index in self.open_zones :
 			self.open_zones.remove(index)
 			self.close_zones.append(index)		
-			print('close zone : %d'%index)
+			log_print('close zone : %d'%index)
 	
 	def set_range(self, start_zone, end_zone) :
 		self.zone_range = [start_zone, end_zone]						
@@ -85,12 +85,14 @@ class zone :
 						
 				count  = count - 1
 				
-			self.open(index)			
+			self.open(index)
+			is_open = True			
 		else :
 			open_index = random.randrange(0, NUM_OPEN_ZONES)
 			index = self.open_zones[open_index]
+			is_open = False
 									
-		return index, self.zones[index]
+		return index, self.zones[index], is_open
 
 	def print_open_zone(self) :
 		print('\nopen zones')
@@ -103,7 +105,7 @@ if __name__ == '__main__' :
 	z = zone(ZONE_SIZE, NUM_ZONES)
 	
 	for index in range(100) :
-		zone_no, zone = z.get_zone()
+		zone_no, zone, is_open = z.get_zone()
 		
 		sectors = random.randrange(1, 32)
 		if zone.update(sectors) == True :
@@ -112,7 +114,7 @@ if __name__ == '__main__' :
 	z.print_open_zone()
 	
 	for index in range(2) :
-		zone_no, zone = z.get_zone()
+		zone_no, zone, is_open = z.get_zone()
 		
 		sectors = ZONE_SIZE / BYTES_PER_SECTOR - zone.write_pointer
 		if zone.update(sectors) == True :

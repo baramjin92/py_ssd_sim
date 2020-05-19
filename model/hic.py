@@ -108,6 +108,8 @@ class hic_manager :
 		self.tx_buffer_list.append(buffer_id)
 																																																																					
 	def receive_host_command(self, event) :
+		# Cmd for conventional SSD : host_id, lba, num_sectors
+		# Cmd for Zone Management Send : host_id, lba, zsa'
 		log_print('receive_host_command : %d, %d, %d'%(event.host_id, event.host_lba, event.num_sectors))
 							
 		# get queue_id and cmd_tag from host command
@@ -131,7 +133,7 @@ class hic_manager :
 		self.cmd_exec_queue.push([queue_id, cmd_tag])
 														
 		return True
-																																																											
+	
 	def start_read_transfer(self) :
 		buffer_id = self.tx_buffer_list.pop(0)
 		queue_id, cmd_tag = bm.get_cmd_id(buffer_id)
@@ -311,7 +313,7 @@ class hic_manager :
 			next_event.code = event_id.EVENT_ADD_COMPLETION
 									
 		return True
-		
+				
 	def event_handler(self, event) :
 		# log_print('event_handler : '  + event_mgr.debug_info(event.code))
 		
