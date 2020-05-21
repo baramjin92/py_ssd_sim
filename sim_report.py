@@ -265,9 +265,12 @@ class report_manager :
 		blk_manager = blk_grp.get_block_manager_by_name('user')
 		blk_manager.debug_valid_block_info(meta)
 		
-		if self.ftl_module != None and self.ftl_module.name == 'conventional' :				
-			self.ftl_module.host_sb.debug()
-			self.ftl_module.gc_sb.debug()
+		if self.ftl_module != None :
+			if self.ftl_module.name == 'conventional' :				
+				self.ftl_module.host_sb.debug()
+				self.ftl_module.gc_sb.debug()
+			elif self.ftl_module.name == 'zns' :
+				self.ftl_module.zone_debug()
 	
 	def show_debug_info(self) :
 		if self.ftl_module != None and self.ftl_module.name == 'conventional' :

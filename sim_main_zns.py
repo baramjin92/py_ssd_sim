@@ -38,7 +38,7 @@ def build_workload_zns() :
 	wlm.set_capacity(range_16GB)
 		
 	wlm.set_workload(workload(WL_ZNS_WRITE, 0, range_16GB, 128, 128, 16, WL_SIZE_MB, 0, True, False))
-	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16MB, 128, 128, 16, WL_SIZE_MB, 0, True, False))
+	wlm.set_workload(workload(WL_ZNS_READ, 0, range_16GB, 128, 128, 16, WL_SIZE_MB, 0, True, False))
 		
 def host_run() :
 	node = event_mgr.alloc_new_event(0)
