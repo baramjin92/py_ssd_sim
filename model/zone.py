@@ -12,19 +12,23 @@ sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 from config.sim_config import unit
 from config.ssd_param import *
 
-#from sim_event import event_mgr
-#from sim_event import event_dst
-#from sim_event import event_id
-
 def log_print(message) :
 	print('[zone] ' + message)
 
+ZONE_STATE_EMPTY = 0
+ZONE_STATE_OPEN = 1
+ZONE_STATE_CLOSE = 2
+
 class zone_desc :
-	def __init__(self, slba, elba) :
+	def __init__(self, no, slba, elba) :
+		self.no = no
 		self.slba = slba
 		self.elba = elba
 		self.write_pointer = 0
-		self.state = 0
+		self.state = ZONE_STATE_EMPTY
+		
+	def set_state(self, state) :
+		self.state = state	
 		
 	def update(self, sectors) :
 		self.write_pointer = self.write_pointer + sectors
@@ -44,7 +48,7 @@ class zone :
 		for index in range(num_zones) :
 			slba = int(index * zone_size / BYTES_PER_SECTOR)
 			elba = int((index + 1) * zone_size / BYTES_PER_SECTOR) - 1
-			self.zones.append(zone_desc(slba, elba)) 
+			self.zones.append(zone_desc(index, slba, elba)) 
 			self.empty_zones.append(index)	
 		
 		self.zone_range = None
@@ -54,13 +58,17 @@ class zone :
 		if index in self.empty_zones : 
 			self.empty_zones.remove(index)
 			self.open_zones.append(index)
-			log_print('open zone : %d'%index)
+			
+			self.zones[index].set_state(ZONE_STATE_OPEN)
+			log_print('open  : %d'%index)
 	
 	def close(self, index) : 
 		if index in self.open_zones :
 			self.open_zones.remove(index)
 			self.close_zones.append(index)		
-			log_print('close zone : %d'%index)
+
+			self.zones[index].set_state(ZONE_STATE_CLOSE)
+			log_print('close  : %d'%index)
 	
 	def set_range(self, start_zone, end_zone) :
 		self.zone_range = [start_zone, end_zone]						
@@ -86,14 +94,32 @@ class zone :
 				count  = count - 1
 				
 			self.open(index)
-			is_open = True			
+			zone_state = 0			# open now			
 		else :
 			open_index = random.randrange(0, NUM_OPEN_ZONES)
 			index = self.open_zones[open_index]
-			is_open = False
+			
+			zone_state = 1			# run
 									
-		return index, self.zones[index], is_open
+		return self.zones[index], zone_state
 
+	def get_zone_for_read(self) :
+		select_zones = random.randrange(0, 2)
+		
+		if select_zones == 1 and len(self.close_zones) == 0 :
+			select_zones = 0
+		
+		if select_zones == 0 :
+			# get zone info from open zone
+			open_index = random.randrange(0, len(self.open_zones))
+			index = self.open_zones[open_index]
+		elif select_zones  == 1 :
+			# get zone info from close zone
+			close_index = random.randrange(0, len(self.close_zones))
+			index = self.close_zones[close_index]
+	
+		return self.zones[index]		
+	
 	def print_open_zone(self) :
 		print('\nopen zones')
 		for index in self.open_zones :
@@ -102,24 +128,24 @@ class zone :
 if __name__ == '__main__' :
 	log_print ('module zone main')			
 	
-	z = zone(ZONE_SIZE, NUM_ZONES)
+	zn = zone(ZONE_SIZE, NUM_ZONES)
 	
 	for index in range(100) :
-		zone_no, zone, is_open = z.get_zone()
+		zone, zone_state = zn.get_zone()
 		
 		sectors = random.randrange(1, 32)
 		if zone.update(sectors) == True :
-			z.close(zone_no)
+			zn.close(zone.no)
 		
-	z.print_open_zone()
+	zn.print_open_zone()
 	
 	for index in range(2) :
-		zone_no, zone, is_open = z.get_zone()
+		zone, zone_state = zn.get_zone()
 		
 		sectors = ZONE_SIZE / BYTES_PER_SECTOR - zone.write_pointer
 		if zone.update(sectors) == True :
-			z.close(zone_no)
+			zn.close(zone.no)
 		
-	z.print_open_zone()		
+	zn.print_open_zone()		
 		
 																			

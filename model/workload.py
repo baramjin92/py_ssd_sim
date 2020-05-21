@@ -28,6 +28,7 @@ WL_RAND_RW = 4
 #WL_JEDEC_ENTERPRISE = 5
 #WL_JEDEC_CLIENT = 6
 WL_ZNS_WRITE = 7
+WL_ZNS_READ = 8
 
 WL_SIZE_MB = 1
 WL_SIZE_GB = 2
@@ -44,7 +45,9 @@ range_16GB = 16 * unit.scale_GiB / BYTES_PER_SECTOR
 
 def log_print(message) :
 	print('[workload] ' + message)
-	
+
+workload_zone = zone(ZONE_SIZE, NUM_ZONES)	
+			
 class workload :
 	def __init__(self, type, lba, range, kb_min, kb_max, amount, amount_type, read_ratio, align, gc = False) :
 		
@@ -92,12 +95,11 @@ class workload :
 		self.progress = 0		
 		self.workload_done = False
 	
-		if type == WL_ZNS_WRITE :
+		if type == WL_ZNS_WRITE or type == WL_ZNS_READ :
 			self.zone_start = int((self.lba_base * BYTES_PER_SECTOR) / ZONE_SIZE)
 			self.zone_end = int(((self.lba_base + self.range) * BYTES_PER_SECTOR - 1) / ZONE_SIZE)
 
-			self.zn = zone(ZONE_SIZE, NUM_ZONES)
-			self.zn.set_range(self.zone_start, self.zone_end)
+			workload_zone.set_range(self.zone_start, self.zone_end)
 				
 	def check_workload_done(self, submit_time) :
 		# check end of workload by size 
@@ -170,13 +172,14 @@ class workload :
 		 			 
 		return lba, sectors
 
-	def generate_zns_workload(self, submit_time) : 		
-		zone_no, zone, is_open = self.zn.get_zone()	
+	def generate_zns_write_workload(self, submit_time) : 		
+		zone, zone_state = workload_zone.get_zone()	
 	
 		# check explicit open
-		if is_open == True :
+		if zone_state == 0 :
 			is_explicit = random.randrange(0, 2)
 			if is_explicit == 1 :
+				# if we return sector count 0 in the zone workload, it translate with explicit open  
 				return zone.slba, 0
 				
 		# do implicit open or main operation		
@@ -186,7 +189,7 @@ class workload :
 		# increase write_pointer for next generation
 		if zone.update(sectors) == True : 
 			print('zone close')
-			zn.close(zone_no)		
+			zn.close(zone.no)		
 		
 		# increase total size of workload (unit is kb)
 		self.cur_amount_count = self.cur_amount_count + self.kb_min
@@ -195,7 +198,24 @@ class workload :
 		self.check_workload_done(submit_time)		 	
 				 					 					 			 
 		return lba, sectors
-		
+
+	def generate_zns_read_workload(self, submit_time) : 		
+		zone = workload_zone.get_zone_for_read()	
+	
+		sectors = self.sectors_min
+		if zone.state == ZONE_STATE_CLOSE :
+			lba = random.randrange(zone.slba, zone.elba, sectors)
+		elif zone.state == ZONE_STATE_OPEN :
+			lba = random.randrange(zone.slba, zone.slba+zone.write_pointer, sectors)
+												 		
+		# increase total size of workload (unit is kb)
+		self.cur_amount_count = self.cur_amount_count + self.kb_min
+
+		# check workload done
+		self.check_workload_done(submit_time)		 	
+				 					 					 			 
+		return lba, sectors
+				
 	def generate(self, submit_time) : 
 		if self.workload_type == WL_SEQ_READ :
 			lba, sectors = self.generate_seq_workload(submit_time)
@@ -210,12 +230,17 @@ class workload :
 			lba, sectors = self.generate_rnd_workload(submit_time)
 			return HOST_CMD_WRITE, lba, sectors
 		elif self.workload_type == WL_ZNS_WRITE : 
-			lba, sectors = self.generate_zns_workload(submit_time)
+			lba, sectors = self.generate_zns_write_workload(submit_time)
 			
 			if sectors == 0 :
 				return HOST_CMD_ZONE_SEND, lba, HOST_ZSA_OPEN
+			elif sectors == -1 :
+				return HOST_CMD_ZONE_SNED, lba, HOST_ZSA_CLOSE
 			else :	
-				return HOST_CMD_WRITE, lba, sectors												
+				return HOST_CMD_WRITE, lba, sectors
+		elif self.workload_type == WL_ZNS_READ :
+			lba, sectors = self.generate_zns_read_workload(submit_time)
+			return HOST_CMD_READ, lba, sectors												
 		else :
 			print('it will be implemented later')
 			return HOST_CMD_READ, 0, 0				
@@ -332,7 +357,8 @@ class workload_manager() :
 			WL_RAND_RW : 'Random Mixed',
 			#WL_JEDEC_ENTERPRISE : 'Jedec enterprise',
 			#WL_JEDEC_CLIENT : 'Jedec client',
-			WL_ZNS_WRITE : 'ZNS Write'
+			WL_ZNS_WRITE : 'ZNS Write',
+			WL_ZNS_READ : 'ZNS Read'
 		}		
 		
 		amount_type = {
@@ -352,10 +378,11 @@ class workload_manager() :
 		wl_name_zone = {'name' : ['type', 'start zone', 'end zone', 'min kb', 'max kb', 'total size', 'unit', 'read ratio', 'align', 'force gc']}
 
 		# only check first group
-		if self.group[0].wl[wl_index].workload_type != WL_ZNS_WRITE :
-			wl_pd = pd.DataFrame(wl_name)				
+		type = self.group[0].wl[wl_index].workload_type
+		if type == WL_ZNS_WRITE or type == WL_ZNS_READ:
+			wl_pd = pd.DataFrame(wl_name_zone)				
 		else :
-			wl_pd = pd.DataFrame(wl_name_zone)
+			wl_pd = pd.DataFrame(wl_name)
 			
 		for group_id, wl_group in enumerate(self.group) :																																		
 		
@@ -368,12 +395,12 @@ class workload_manager() :
 					
 			wl_columns = []
 			wl_columns.append(wl_type[workload.workload_type])
-			if workload.workload_type != WL_ZNS_WRITE :
-				wl_columns.append(workload.lba_base)
-				wl_columns.append(int(workload.range))
-			else :
+			if workload.workload_type == WL_ZNS_WRITE or workload.workload_type == WL_ZNS_READ :
 				wl_columns.append(workload.zone_start)
-				wl_columns.append(workload.zone_end)				
+				wl_columns.append(workload.zone_end)
+			else :
+				wl_columns.append(workload.lba_base)
+				wl_columns.append(int(workload.range))								
 			wl_columns.append(workload.kb_min)
 			wl_columns.append(workload.kb_max)
 			wl_columns.append(workload.amount)
@@ -397,7 +424,8 @@ class workload_manager() :
 			WL_RAND_RW : 'Random Mixed',
 			#WL_JEDEC_ENTERPRISE : 'Jedec enterprise',
 			#WL_JEDEC_CLIENT : 'Jedec client',
-			WL_ZNS_WRITE : 'ZNS Write'
+			WL_ZNS_WRITE : 'ZNS Write',
+			WL_ZNS_READ : 'ZNS Read'
 		}		
 		
 		amount_type = {
@@ -418,10 +446,11 @@ class workload_manager() :
 																
 		for group_id, wl_group in enumerate(self.group) :		
 			# only check first workload in group
-			if wl_group.wl[0].workload_type != WL_ZNS_WRITE :
-				wl_pd = pd.DataFrame(wl_name)				
+			type = wl_group.wl[0].workload_type
+			if type == WL_ZNS_WRITE or type == WL_ZNS_READ:
+				wl_pd = pd.DataFrame(wl_name_zone)				
 			else :
-				wl_pd = pd.DataFrame(wl_name_zone)
+				wl_pd = pd.DataFrame(wl_name)
 								
 			grp_workloads = wl_group.wl							
 	
@@ -430,12 +459,13 @@ class workload_manager() :
 			for index, workload in enumerate(grp_workloads) :						
 				wl_columns = []
 				wl_columns.append(wl_type[workload.workload_type])
-				if workload.workload_type != WL_ZNS_WRITE :
+				if workload.workload_type == WL_ZNS_WRITE or workload.workload_type == WL_ZNS_READ :
+					wl_columns.append(workload.zone_start)
+					wl_columns.append(workload.zone_end)
+				else :
 					wl_columns.append(workload.lba_base)
 					wl_columns.append(int(workload.range))
-				else :
-					wl_columns.append(workload.zone_start)
-					wl_columns.append(workload.zone_end)				
+								
 				wl_columns.append(workload.kb_min)
 				wl_columns.append(workload.kb_max)
 				wl_columns.append(workload.amount)
@@ -462,15 +492,18 @@ if __name__ == '__main__' :
 	wlm.set_workload(workload(WL_RAND_WRITE, 0, range_16GB, 4, 4, 60, WL_SIZE_SEC, 0, True), 1)
 	wlm.set_workload(workload(WL_RAND_READ, 0, range_16GB, 4, 4, 60, WL_SIZE_SEC, 0, True), 1)
 	wlm.set_workload(workload(WL_ZNS_WRITE, 0, range_16GB, 128, 128, 16, WL_SIZE_GB, 0, True), 2)
+	wlm.set_workload(workload(WL_ZNS_READ, 0, range_16GB, 128, 128, 16, WL_SIZE_GB, 0, True), 2)
 
 	wlm.print_all()
 
 	index, total_num = wlm.get_info()
+	print('wlm get info - index : %d, total_num : %d'%(index, total_num))
+	
 	group = 1
-	print('test group %d'%group)
-	for loop in range(total_num) :
-		print('workload test %d'%loop)
-		wlm.print_current(loop)
+	print('\ntest group %d'%group)
+	for wl_index in range(total_num) :
+		print('workload test %d'%wl_index)
+		wlm.print_current(wl_index)
 
 		for index in range(5) :
 			cmd_code, lba, sectors = wlm.generate_workload(index, group)
@@ -479,13 +512,18 @@ if __name__ == '__main__' :
 		wlm.goto_next_workload(group)
 		
 	group = 2
-	print('test group %d'%group)
-	for loop in range(20) :
-		cmd_code, lba, sectors = wlm.generate_workload(index, group)
-		
-		if cmd_code == HOST_CMD_ZONE_SEND :
-			print('workload : explicit open slba %d'%(lba))	
-		else :
-			print('workload : %d, %d, %d'%(cmd_code, lba, sectors))
+	print('\ntest group %d'%group)
+	for wl_index in range(total_num) :
+		print('workload test %d'%wl_index)
+
+		for index in range(20) :
+			cmd_code, lba, sectors = wlm.generate_workload(index, group)
 			
+			if cmd_code == HOST_CMD_ZONE_SEND :
+				print('workload : explicit open slba %d'%(lba))	
+			else :
+				print('workload : %d, %d, %d'%(cmd_code, lba, sectors))
+				
+		wlm.goto_next_workload(group)
+				
 																			
