@@ -17,7 +17,8 @@ def log_print(message) :
 
 ZONE_STATE_EMPTY = 0
 ZONE_STATE_OPEN = 1
-ZONE_STATE_CLOSE = 2
+ZONE_STATE_FULL = 2
+ZONE_STATE_CLOSE = 3
 
 class zone_desc :
 	def __init__(self, no, slba, elba) :
@@ -34,10 +35,8 @@ class zone_desc :
 		self.write_pointer = self.write_pointer + sectors
 		
 		if self.slba + self.write_pointer >= self.elba :
-			return True
-		else :
-			return False
-
+			self.state = ZONE_STATE_FULL
+					
 class zone :
 	def __init__(self, zone_size, num_zones) :
 		self.zones = []
@@ -51,6 +50,7 @@ class zone :
 			self.zones.append(zone_desc(index, slba, elba)) 
 			self.empty_zones.append(index)	
 		
+		self.zone_size = zone_size
 		self.zone_range = None
 		self.max_zone = num_zones - 1 				
 											
@@ -61,6 +61,10 @@ class zone :
 			
 			self.zones[index].set_state(ZONE_STATE_OPEN)
 			log_print('open  : %d'%index)
+	
+	def close_by_lba(self, lba) :
+		index = int((lba * BYTES_PER_SECTOR) / self.zone_size)
+		self.close(index)
 	
 	def close(self, index) : 
 		if index in self.open_zones :
@@ -94,14 +98,14 @@ class zone :
 				count  = count - 1
 				
 			self.open(index)
-			zone_state = 0			# open now			
+			zone_open_state = 0			# open now			
 		else :
 			open_index = random.randrange(0, NUM_OPEN_ZONES)
 			index = self.open_zones[open_index]
 			
-			zone_state = 1			# run
+			zone_open_state = 1			# run
 									
-		return self.zones[index], zone_state
+		return self.zones[index], zone_open_state
 
 	def get_zone_for_read(self) :
 		select_zones = random.randrange(0, 2)
@@ -134,7 +138,9 @@ if __name__ == '__main__' :
 		zone, zone_state = zn.get_zone()
 		
 		sectors = random.randrange(1, 32)
-		if zone.update(sectors) == True :
+		zone.update(sectors)
+		
+		if zone.state == ZONE_STATE_FULL :
 			zn.close(zone.no)
 		
 	zn.print_open_zone()
@@ -143,7 +149,9 @@ if __name__ == '__main__' :
 		zone, zone_state = zn.get_zone()
 		
 		sectors = ZONE_SIZE / BYTES_PER_SECTOR - zone.write_pointer
-		if zone.update(sectors) == True :
+		zone.update(sectors)
+		
+		if zone.state == ZONE_STATE_FULL :
 			zn.close(zone.no)
 		
 	zn.print_open_zone()		

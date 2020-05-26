@@ -49,9 +49,18 @@ class zone_desc :
 		self.num_chunks_to_write = 0
 		
 		self.write_buffer = []
-		
+	
+	def is_idle(self) :
+		if self.num_chunks_to_write == 0 :
+			return True
+		else :
+			return False
+				
 	def is_ready_to_write(self) :
 		if self.num_chunks_to_write >= CHUNKS_PER_PAGE and len(self.write_buffer) >= CHUNKS_PER_PAGE :
+			if self.write_cmd_queue.length() == 0 :
+				print('error zone : %d, num_chunks_to_write : %d, length write buffer : %d'%(self.no, self.num_chunks_to_write, len(self.write_buffer)))
+
 			return True
 		else :
 			return False							
@@ -66,6 +75,7 @@ class zone_desc :
 		if self.write_pointer >= self.max_num_chunks :
 			self.state = ZONE_STATE_FULL
 		
+			print('update_write_info : close by full')
 			# close zone block
 					
 		return self.state
@@ -82,28 +92,23 @@ class zone_manager :
 		self.close_list = []
 		self.open_list = []
 		
-		self.open_index = 0
+		self.open_index = -1
 		
 		for index in range(num_zone) :
-			self.table.append(zone_desc(index))
+			self.table.append(zone_desc(index, 0))
 			self.empty_list.append(index)
 
 	def get_open_zone_num(self) :
 		return self.num_open_zone
 
-	def get_open_zone(self) :
-		if self.num_open_zone > 0 :
-			zone_no = self.open_list[self.open_index]
-			zone = self.table[zone_no]
-
-			# go to next pointer
-			if self.open_index < self.num_open_zone - 1 :
-				self.open_index = self.open_index + 1
-			else :
-				self.open_index = 0
+	def get_open_zone(self, lba) :
+		zone_no = int((lba * BYTES_PER_SECTOR) / ZONE_SIZE)
+		
+		if zone_no in self.open_list :
+			zone =  self.table[zone_no]
 		else :
 			zone = None
-			
+									
 		return zone
 																														
 	def get(self, lba) :
@@ -111,10 +116,10 @@ class zone_manager :
 		
 		if zone_no in self.open_list :
 			zone =  self.table[zone_no]
-			log_print('\nget zone %d - state %d'%(zone.no, zone.state))
+			#log_print('\nget zone %d - state %d'%(zone.no, zone.state))
 		else :
 			# implict open zone
-			log_print('\nget zone %d by implict open'%(zone_no))			
+			print('\nget zone %d by implict open'%(zone_no))			
 			zone = self.open(lba, ZONE_STATE_IOPEN)
 													
 		return zone
@@ -122,7 +127,7 @@ class zone_manager :
 	def open(self, lba, state = ZONE_STATE_EOPEN) :
 		zone_no = int((lba * BYTES_PER_SECTOR) / ZONE_SIZE)
 
-		log_print('open zone : %d, lba : %d, state :%d'%(zone_no, lba, state))
+		print('open zone : %d, lba : %d, state :%d'%(zone_no, lba, state))
 
 		# explict open zone
 		if self.num_open_zone < self.max_open_zone :
@@ -152,13 +157,15 @@ class zone_manager :
 													
 				return zone
 			else :
-				log_print('error : zone %d is not in empty'%(zone_no))
+				print('error : zone %d is not in empty'%(zone_no))
 		else :
-			log_print('error : max open zone - %d, %d'%(self.num_open_zone, self.max_open_zone))
+			print('error : max open zone - %d, %d'%(self.num_open_zone, self.max_open_zone))
 			
 		return None
 		
-	def close(self, zone_no) :			
+	def close(self, lba) :			
+		zone_no = int((lba * BYTES_PER_SECTOR) / ZONE_SIZE)
+	
 		if zone_no in self.open_list :
 			zone = self.table[zone_no]
 			
@@ -269,14 +276,15 @@ class ftl_zns_manager :
 				# write cmd should be saved for gathering write chunks in order to meet physical size of nand
 				zone = zone_mgr.get(ftl_cmd.lba)
 				if zone == None :
-					log_print('error : can not get zone')
+					#hil2ftl_low_queue.push_first(ftl_cmd)
+					print('error : can not get zone')
 				else :					
 					zone.write_cmd_queue.push(ftl_cmd)
 					zone.num_chunks_to_write = zone.num_chunks_to_write + ftl_cmd.sector_count
 
+					self.hic_model.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)
+					
 				log_print('host cmd write')
-
-				self.hic_model.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)
 			else :
 				if ftl_cmd.code == HOST_CMD_TRIM :
 					log_print('host cmd trim')	
@@ -290,7 +298,11 @@ class ftl_zns_manager :
 					log_print('zone management send command - slba : %d, zsa : %d'%(ftl_cmd.lba, ftl_cmd.sector_count))
 					
 					if ftl_cmd.sector_count == HOST_ZSA_CLOSE :
-						log_print('close')
+						zone = zone_mgr.get_open_zone(ftl_cmd.lba)
+						if zone.is_idle() == True :						
+							zone_mgr.close(ftl_cmd.lba)
+						else :
+							print('error : can close zone')
 					elif ftl_cmd.sector_count == HOST_ZSA_OPEN :
 						zone = zone_mgr.open(ftl_cmd.lba)
 						if zone == None :
@@ -405,13 +417,19 @@ class ftl_zns_manager :
 
 	def check_write_buffer_done(self) :												
 		# check for arrival of data and move buffer pointer to buffer list of zone
+		zone = None
+		
 		for index in range(len(self.hic_model.rx_buffer_done))  :
 			buffer_id = self.hic_model.rx_buffer_done.pop(0)
 			lca = bm.get_meta_data(buffer_id)
 			lba = lca * SECTORS_PER_CHUNK
 						
 			zone = zone_mgr.get(lba)
+			if zone == None :
+				print ('error check write buffer done - lba : %d'%lba)
 			zone.write_buffer.append(buffer_id)
+			
+		return zone
 																																							
 	def do_write(self, zone) :
 		# do_write try to program data to nand
@@ -425,6 +443,8 @@ class ftl_zns_manager :
 			return
 							
 		# get write cmd
+		if zone.write_cmd_queue.length() == 0 :
+			print('error zone : %d'%zone.no)
 		ftl_cmd = zone.write_cmd_queue.pop()
 			
 		# get new physical address from open block	
@@ -540,21 +560,32 @@ class ftl_zns_manager :
 		# do host workload operation		
 		# fetch command
 		self.try_to_fetch_cmd()
-			
+				
 		for index in range(zone_mgr.get_open_zone_num()) :															
 			# do write
-			self.check_write_buffer_done()
+			zone = self.check_write_buffer_done()
 			
-			zone = zone_mgr.get_open_zone()
 			if zone != None :
+				# check open logical block
+				if zone.logical_blk.is_open() == False :
+					# this code is required when size of zone is larger than size of super block
+					# in this simulation, size of zone is aligned by multiplication of size of super block
+					blk_manager = blk_grp.get_block_manager_by_name('user')
+					cell_mode = NAND_MODE_MLC
+				
+					blk_no, way_list = blk_manager.get_free_block(erase_request = True)
+
+					# meta is global variable, it is required for reseting during open, current setting is None
+					zone.logical_blk.open(blk_no, way_list, None, cell_mode)
+				
 				# check ready to write to zone
 				if zone.is_ready_to_write() == True:
 					self.do_write(zone)
 					
 					if zone.state == ZONE_STATE_FULL :
-						zone_mgr.close(zone.no)
+						print('zone %d is full'%(zone.no))
 					break
-	
+			
 		# do read
 		if self.num_chunks_to_read > 0 :
 			self.do_read()
@@ -616,8 +647,10 @@ if __name__ == '__main__' :
 	zone_mgr.debug()
 	
 	zone = zone_mgr.get(262144*4)
-		
-	zone_mgr.close(zone.no)
+	
+	if zone != None :
+		print('close zone %d'%zone.no)	
+	zone_mgr.close(262144*4)
 	
 	zone_mgr.debug()
 	

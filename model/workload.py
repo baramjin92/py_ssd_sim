@@ -173,27 +173,32 @@ class workload :
 		return lba, sectors
 
 	def generate_zns_write_workload(self, submit_time) : 		
-		zone, zone_state = workload_zone.get_zone()	
+		zone, zone_open_state = workload_zone.get_zone()	
 	
 		# check explicit open
-		if zone_state == 0 :
+		if zone_open_state == 0 :
 			is_explicit = random.randrange(0, 2)
 			if is_explicit == 1 :
 				# if we return sector count 0 in the zone workload, it translate with explicit open  
 				return zone.slba, 0
-				
-		# do implicit open or main operation		
-		lba = zone.slba + zone.write_pointer
-		sectors = self.sectors_min
-		 
-		# increase write_pointer for next generation
-		if zone.update(sectors) == True : 
-			print('zone close')
-			zn.close(zone.no)		
 		
-		# increase total size of workload (unit is kb)
-		self.cur_amount_count = self.cur_amount_count + self.kb_min
-
+		if zone.state == ZONE_STATE_OPEN :				
+			# do implicit open or main operation		
+			lba = zone.slba + zone.write_pointer
+			sectors = self.sectors_min
+			 
+			# increase write_pointer for next generation
+			zone.update(sectors) 
+			
+			# increase total size of workload (unit is kb)
+			self.cur_amount_count = self.cur_amount_count + self.kb_min
+		elif zone.state == ZONE_STATE_FULL :
+			# if sectors is -1, it translate with ZONE_HSA_CLOSE
+			lba = zone.slba
+			sectors = -1
+			
+			workload_zone.close(zone.no)
+				
 		# check workload done
 		self.check_workload_done(submit_time)		 	
 				 					 					 			 
@@ -203,7 +208,7 @@ class workload :
 		zone = workload_zone.get_zone_for_read()	
 	
 		sectors = self.sectors_min
-		if zone.state == ZONE_STATE_CLOSE :
+		if zone.state == ZONE_STATE_CLOSE or zone.state == ZONE_STATE_FULL :
 			lba = random.randrange(zone.slba, zone.elba, sectors)
 		elif zone.state == ZONE_STATE_OPEN :
 			lba = random.randrange(zone.slba, zone.slba+zone.write_pointer, sectors)
@@ -235,7 +240,7 @@ class workload :
 			if sectors == 0 :
 				return HOST_CMD_ZONE_SEND, lba, HOST_ZSA_OPEN
 			elif sectors == -1 :
-				return HOST_CMD_ZONE_SNED, lba, HOST_ZSA_CLOSE
+				return HOST_CMD_ZONE_SEND, lba, HOST_ZSA_CLOSE
 			else :	
 				return HOST_CMD_WRITE, lba, sectors
 		elif self.workload_type == WL_ZNS_READ :
@@ -308,6 +313,9 @@ class workload_manager() :
 			return workload.generate(submit_time)
 		else :
 			return HOST_CMD_IDLE, 0, 0
+
+	def close_zone(self, lba) :
+		workload_zone.close_by_lba(lba)	
 
 	def get_info(self) :
 		workload_index = []

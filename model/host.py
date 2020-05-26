@@ -175,14 +175,23 @@ class host_manager :
 		self.num_pending_cmds = self.num_pending_cmds - 1		
 
 		log_print('command done : pending(%d), free(%d), latency(%d)'%(self.num_pending_cmds, self.host_cmd_queue[queue_id].get_num_free_slot(), latency))
-																																								
+		
+		# check HOST_CMD_ZONE_SEND
+		if cmd_code == HOST_CMD_ZONE_SEND :
+			if host_cmd.num_sectors_requested == HOST_ZSA_OPEN :
+				print('host cmd zone send (lba %d open) is done'%host_cmd.lba)
+			elif host_cmd.num_sectors_requested == HOST_ZSA_CLOSE :
+				wlm.close_zone(host_cmd.lba)
+				print('host cmd zone send (lba %d close) is done'%host_cmd.lba)
+			else :
+				print('host cmd zone send')
+																																									
 		# update statistics
 		if cmd_code == HOST_CMD_READ :
 			self.host_stat.perf[queue_id].update_read(num_sectors, latency)											
 		elif cmd_code == HOST_CMD_WRITE :
 			self.host_stat.perf[queue_id].update_write(num_sectors, latency)
-						
-		elif cmd_code == HOST_CMD_TRIM :																																																																																			
+		elif cmd_code == HOST_CMD_TRIM :																																																																													
 			log_print('trim cmd done and check operation result')
 		
 		# save to VCD file if option is activated
