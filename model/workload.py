@@ -44,9 +44,7 @@ range_1GB = 1 * unit.scale_GiB / BYTES_PER_SECTOR
 range_16GB = 16 * unit.scale_GiB / BYTES_PER_SECTOR
 
 def log_print(message) :
-	print('[workload] ' + message)
-
-workload_zone = zone(ZONE_SIZE, NUM_ZONES)	
+	print('[workload] ' + message)	
 			
 class workload :
 	def __init__(self, type, lba, range, kb_min, kb_max, amount, amount_type, read_ratio, align, gc = False) :
@@ -173,8 +171,8 @@ class workload :
 		return lba, sectors
 
 	def generate_zns_write_workload(self, submit_time) : 		
-		zone, zone_open_state = workload_zone.get_zone()	
-	
+		zone, zone_open_state = workload_zone.get_zone_for_write()	
+		
 		# check explicit open
 		if zone_open_state == 0 :
 			is_explicit = random.randrange(0, 2)
@@ -193,12 +191,14 @@ class workload :
 			# increase total size of workload (unit is kb)
 			self.cur_amount_count = self.cur_amount_count + self.kb_min
 		elif zone.state == ZONE_STATE_FULL :
-			# if sectors is -1, it translate with ZONE_HSA_CLOSE
-			lba = zone.slba
-			sectors = -1
-			
-			workload_zone.close(zone.no)
-				
+			if zone.issue_cmds == 0 :
+				# if sectors is -1, it translate with ZONE_HSA_CLOSE
+				lba = zone.slba
+				sectors = -1
+			else :
+				lba = -1
+				sectors = -1
+								
 		# check workload done
 		self.check_workload_done(submit_time)		 	
 				 					 					 			 
@@ -237,6 +237,8 @@ class workload :
 		elif self.workload_type == WL_ZNS_WRITE : 
 			lba, sectors = self.generate_zns_write_workload(submit_time)
 			
+			if lba == -1 :
+				return HOST_CMD_IDLE, 0, 0
 			if sectors == 0 :
 				return HOST_CMD_ZONE_SEND, lba, HOST_ZSA_OPEN
 			elif sectors == -1 :
@@ -313,9 +315,6 @@ class workload_manager() :
 			return workload.generate(submit_time)
 		else :
 			return HOST_CMD_IDLE, 0, 0
-
-	def close_zone(self, lba) :
-		workload_zone.close_by_lba(lba)	
 
 	def get_info(self) :
 		workload_index = []

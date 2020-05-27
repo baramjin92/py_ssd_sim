@@ -54,6 +54,7 @@ class zone_desc :
 		if self.num_chunks_to_write == 0 :
 			return True
 		else :
+			self.debug()
 			return False
 				
 	def is_ready_to_write(self) :
@@ -79,6 +80,13 @@ class zone_desc :
 			# close zone block
 					
 		return self.state
+		
+	def debug(self) :
+		print('zone : %d'%self.no)
+		print('state : %d'%self.state)
+		print('write_pointer : %d'%self.write_pointer)
+		print('num_chunks_to_write : %d'%self.num_chunks_to_write)
+		print('length write buffer : %d'%len(self.write_buffer))
 			
 class zone_manager :
 	def __init__(self, num_zone, max_open_zone) :
@@ -280,7 +288,7 @@ class ftl_zns_manager :
 					print('error : can not get zone')
 				else :					
 					zone.write_cmd_queue.push(ftl_cmd)
-					zone.num_chunks_to_write = zone.num_chunks_to_write + ftl_cmd.sector_count
+					zone.num_chunks_to_write = zone.num_chunks_to_write + int(ftl_cmd.sector_count / SECTORS_PER_CHUNK)
 
 					self.hic_model.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)
 					
@@ -299,10 +307,12 @@ class ftl_zns_manager :
 					
 					if ftl_cmd.sector_count == HOST_ZSA_CLOSE :
 						zone = zone_mgr.get_open_zone(ftl_cmd.lba)
-						if zone.is_idle() == True :						
+						if zone.state == ZONE_STATE_FULL :
+							print('close zone in FTL')
+							zone.debug()						
 							zone_mgr.close(ftl_cmd.lba)
 						else :
-							print('error : can close zone')
+							print('error : can not close zone in FTL')
 					elif ftl_cmd.sector_count == HOST_ZSA_OPEN :
 						zone = zone_mgr.open(ftl_cmd.lba)
 						if zone == None :

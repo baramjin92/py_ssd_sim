@@ -123,6 +123,9 @@ class host_manager :
 					
 				self.num_pending_cmds = self.num_pending_cmds + 1
 			
+				if cmd_code == HOST_CMD_WRITE or cmd_code == HOST_CMD_READ :
+					workload_zone.issue_cmd(host_cmd.lba)				
+			
 				# save to VCD file if option is activated
 	
 				# rotate qid for racing operation.
@@ -176,15 +179,17 @@ class host_manager :
 
 		log_print('command done : pending(%d), free(%d), latency(%d)'%(self.num_pending_cmds, self.host_cmd_queue[queue_id].get_num_free_slot(), latency))
 		
-		# check HOST_CMD_ZONE_SEND
+		# ZNS manages command operation
 		if cmd_code == HOST_CMD_ZONE_SEND :
 			if host_cmd.num_sectors_requested == HOST_ZSA_OPEN :
 				print('host cmd zone send (lba %d open) is done'%host_cmd.lba)
 			elif host_cmd.num_sectors_requested == HOST_ZSA_CLOSE :
-				wlm.close_zone(host_cmd.lba)
+				workload_zone.close_by_lba(host_cmd.lba)
 				print('host cmd zone send (lba %d close) is done'%host_cmd.lba)
 			else :
 				print('host cmd zone send')
+		elif cmd_code == HOST_CMD_WRITE or cmd_code == HOST_CMD_READ :
+			workload_zone.done_cmd(host_cmd.lba)
 																																									
 		# update statistics
 		if cmd_code == HOST_CMD_READ :

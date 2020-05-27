@@ -18,7 +18,8 @@ def log_print(message) :
 ZONE_STATE_EMPTY = 0
 ZONE_STATE_OPEN = 1
 ZONE_STATE_FULL = 2
-ZONE_STATE_CLOSE = 3
+ZONE_STATE_WAIT = 3
+ZONE_STATE_CLOSE = 4
 
 class zone_desc :
 	def __init__(self, no, slba, elba) :
@@ -28,8 +29,14 @@ class zone_desc :
 		self.write_pointer = 0
 		self.state = ZONE_STATE_EMPTY
 		
+		self.issue_cmds = 0
+					
 	def set_state(self, state) :
 		self.state = state	
+		
+	def reset(self) :
+		self.write_pointer = 0
+		self.issue_cmds = 0
 		
 	def update(self, sectors) :
 		self.write_pointer = self.write_pointer + sectors
@@ -59,12 +66,34 @@ class zone :
 			self.empty_zones.remove(index)
 			self.open_zones.append(index)
 			
-			self.zones[index].set_state(ZONE_STATE_OPEN)
+			zone = self.zones[index]
+			
+			zone.reset()
+			zone.set_state(ZONE_STATE_OPEN)
+			
 			log_print('open  : %d'%index)
 	
+	def issue_cmd(self, lba) :
+		index = int((lba * BYTES_PER_SECTOR) / self.zone_size)
+		
+		zone = self.zones[index]
+		zone.issue_cmds = zone.issue_cmds + 1
+	
+	def done_cmd(self, lba) :
+		index = int((lba * BYTES_PER_SECTOR) / self.zone_size)
+
+		zone = self.zones[index]
+		zone.issue_cmds = zone.issue_cmds - 1
+		
 	def close_by_lba(self, lba) :
 		index = int((lba * BYTES_PER_SECTOR) / self.zone_size)
-		self.close(index)
+		
+		zone = self.zones[index]
+		if zone.issue_cmds > 0 :
+			print('zone issued cmd is remained : %d'%zone.issue_cmds)
+			zone.set_state(ZONE_STATE_WAIT)
+		else :
+			self.close(index)
 	
 	def close(self, index) : 
 		if index in self.open_zones :
@@ -80,32 +109,34 @@ class zone :
 	def get_open_num(self) :
 		return len(self.open_zones)
 		
-	def get_zone(self) :
+	def get_zone_for_write(self) :
 		if len(self.open_zones) < NUM_OPEN_ZONES :
+			# open new zone and return it 
 			if self.zone_range != None :
 				range = self.zone_range
 			else :
 				range = [0, self.max_zone]
+				
 			count = range[1] - range[0] + 1
-			
 			while count > 0 :
-				empty_index = random.randrange(0, len(self.empty_zones))
-				index = self.empty_zones[empty_index]
+				index = random.choice(self.empty_zones)
 									
 				if index >= range[0] and index <= range[1] :
-						break
-						
+						break						
 				count  = count - 1
 				
 			self.open(index)
-			zone_open_state = 0			# open now			
-		else :
-			open_index = random.randrange(0, NUM_OPEN_ZONES)
-			index = self.open_zones[open_index]
 			
-			zone_open_state = 1			# run
-									
-		return self.zones[index], zone_open_state
+			zone = self.zones[index]
+			zone_open_state = 0				# open now			
+		else :
+			# return opend zone 
+			index = random.choice(self.open_zones)
+				
+			zone = self.zones[index]
+			zone_open_state = 1		# run
+															
+		return zone, zone_open_state
 
 	def get_zone_for_read(self) :
 		select_zones = random.randrange(0, 2)
@@ -128,14 +159,17 @@ class zone :
 		print('\nopen zones')
 		for index in self.open_zones :
 			zone = self.zones[index]
-			print('zone %d, slba : %d, elba : %d, write point : %d'%(index, zone.slba, zone.elba, zone.write_pointer))																																																																							
+			print('zone %d, slba : %d, elba : %d, write point : %d'%(index, zone.slba, zone.elba, zone.write_pointer))																															
+
+workload_zone = zone(ZONE_SIZE, NUM_ZONES)
+																																											
 if __name__ == '__main__' :
 	log_print ('module zone main')			
 	
 	zn = zone(ZONE_SIZE, NUM_ZONES)
 	
 	for index in range(100) :
-		zone, zone_state = zn.get_zone()
+		zone, zone_state = zn.get_zone_for_write()
 		
 		sectors = random.randrange(1, 32)
 		zone.update(sectors)
@@ -146,7 +180,7 @@ if __name__ == '__main__' :
 	zn.print_open_zone()
 	
 	for index in range(2) :
-		zone, zone_state = zn.get_zone()
+		zone, zone_state = zn.get_zone_for_write()
 		
 		sectors = ZONE_SIZE / BYTES_PER_SECTOR - zone.write_pointer
 		zone.update(sectors)
