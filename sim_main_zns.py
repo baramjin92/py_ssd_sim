@@ -37,8 +37,8 @@ from progress.bar import Bar
 def build_workload_zns() :
 	wlm.set_capacity(range_16GB)
 		
-	wlm.set_workload(workload(WL_ZNS_WRITE, 0, range_16GB, 128, 128, 16, WL_SIZE_MB, 0, True, False))
-	wlm.set_workload(workload(WL_ZNS_READ, 0, range_16GB, 128, 128, 16, WL_SIZE_MB, 0, True, False))
+	wlm.set_workload(workload(WL_ZNS_WRITE, 0, range_16GB, 128, 128, 128, WL_SIZE_MB, 0, True, False))
+	wlm.set_workload(workload(WL_ZNS_READ, 0, range_16GB, 128, 128, 128, WL_SIZE_MB, 0, True, False))
 		
 def host_run() :
 	node = event_mgr.alloc_new_event(0)
@@ -47,18 +47,7 @@ def host_run() :
 																								
 if __name__ == '__main__' :
 	log.open(None, False)
-	
-	#global NUM_HOST_QUEUE
-	#NUM_HOST_QUEUE = 1
-
-	global NUM_CHANNELS
-	global WAYS_PER_CHANNELS
-	global NUM_WAYS
 		
-	NUM_CHANNELS = 8
-	WAYS_PER_CHANNELS = 1
-	NUM_WAYS = (NUM_CHANNELS * WAYS_PER_CHANNELS) 
-	
 	report = report_manager()
 	
 	print('initialize model')
@@ -74,8 +63,8 @@ if __name__ == '__main__' :
 	fil_module = fil_manager(nfc_model, hic_model)
 
 	meta.config(NUM_WAYS)
-	blk_grp.add('slc_cache', block_manager(NUM_WAYS, 10, 19, 1, 2))
-	blk_grp.add('user', block_manager(NUM_WAYS, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))
+	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, 1, 2))
+	blk_grp.add('user', block_manager(NUM_WAYS, None, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))
 
 	ftl_module.start()
 
