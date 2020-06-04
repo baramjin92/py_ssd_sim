@@ -48,7 +48,7 @@ class block_status :
 # if we use super block concept, one block manager is needed
 # if we want to separate block concept, it extend to number of way
 class block_manager :
-	def __init__(self, num_way, start_block, end_block, threshold_low = 1, threshold_high = 2) :
+	def __init__(self, num_way, way_list, start_block, end_block, threshold_low = 1, threshold_high = 2) :
 		self.exhausted = False
 		self.start_block = start_block
 		self.end_block = end_block
@@ -63,10 +63,11 @@ class block_manager :
 		self.num_way = num_way
 		self.blk_status = []
 		self.way_list = []
-		for index in range(num_way) :
-			self.blk_status.append(block_status(BLOCKS_PER_WAY))
-			self.way_list.append(index)
-		
+		if way_list == None :
+			for index in range(num_way) :
+				self.blk_status.append(block_status(BLOCKS_PER_WAY))
+				self.way_list.append(index)
+			
 		# in the python, list is used for managing blocks
 		# in the c code, bitmap is better than array in order to reduce size of memory 
 		# free_blocks, close_blocks, defect_blocks should be update in order to distinguish same block number with having different ways
@@ -189,13 +190,9 @@ class block_manager :
 				sum = meta_info.get_valid_sum(block)
 			print('block no : %d, valid sum : %d'%(block, sum))
 			
-	def debug(self, meta_info = None, name = 'default') :
-		print('\nblock manager : %s'%(name))
-		print('start block no : %d, end block no : %d'%(self.start_block, self.end_block))
-		print('num of free block : %d'%self.num_free_block)
-		print('num of close block : %d'%self.num_close_block)
-		print('free block threshold1 : %d, threshold2 : %d'%(self.threshold_high, self.threshold_low))
-												
+	def print_sb_valid_info(self, meta_info = None, name = 'default') :																								
+		print('SB status : valid info')
+		
 		unit = 10
 		str_status = ['E', 'O', 'C', 'D']
 		
@@ -226,8 +223,26 @@ class block_manager :
 			if block % unit == (unit-1) :
 				print(str)
 				str = ''			
-		print(str)
-	
+		print(str + '\n')
+
+	def report_get_label(self) :
+		return {'block manager' : ['start block no', 'end block no', 'num of free block', 'num of close block', 'threshold1', 'threshold2']}
+
+	def report_get_columns(self) :
+		return [self.start_block, self.end_block, self.num_free_block, self.num_close_block, self.threshold_high, self.threshold_low]
+
+	def debug(self, meta_info = None, name = 'default') :
+		# report form
+		info_label = self.report_get_label()
+		info_columns = self.report_get_columns()						
+						
+		info_pd = pd.DataFrame(info_label)				
+		info_pd[name] = pd.Series(info_columns, index=info_pd.index)
+
+		print(info_pd)
+		
+		self.print_sb_valid_info(meta_info, name)
+		
 class block_group :								
 	def __init__(self) :
 		self.name = []
@@ -255,10 +270,10 @@ class block_group :
 		return None 
 						
 	def print_info(self) :		
-		blk_name = {'name' : ['name', 'start block', 'end_block']}				
+		blk_name = {'block manager' : ['name', 'start block', 'end_block', 'ways']}				
 						
 		blk_pd = pd.DataFrame(blk_name)																
-		for index in range(len(self.blk)) :				
+		for index, blk in enumerate(self.blk) :				
 			blk_name = self.name[index]
 			blk_range = self.range[index]							
 							
@@ -266,6 +281,7 @@ class block_group :
 			blk_columns.append(blk_name)
 			blk_columns.append(blk_range[0])
 			blk_columns.append(blk_range[1])
+			blk_columns.append(blk.way_list)
 																				
 			blk_pd['%d'%(index)] = pd.Series(blk_columns, index=blk_pd.index)
 				
@@ -283,7 +299,7 @@ SB_OP_READ = 1
 # in order to gurantee nand parallem, ftl use super block context]
 class super_block :
 	def __init__(self, num_way, name, op_mode = SB_OP_WRITE) :
-		self.way_index = num_way - 1		# set last way in order to next operation	
+		self.cur_way_index = num_way - 1		# set last way in order to next operation	
 		self.num_way = num_way
 		self.allocated_num = 0
 		self.cell_mode = NAND_MODE_MLC
@@ -303,8 +319,8 @@ class super_block :
 
 	def open(self, block_addr, way_list, meta_info, cell_mode = NAND_MODE_MLC) :	
 		self.block_addr = block_addr	
-		# in order to start from 0, way_index is initialized by last value
-		self.way_index = self.num_way - 1 		
+		# in order to start from 0, cur_way_index is initialized by last value
+		self.cur_way_index = self.num_way - 1 		
 		
 		if len(way_list) == self.num_way :
 			self.ways = way_list
@@ -354,18 +370,17 @@ class super_block :
 	# return value : way, block, page (plane will be added later)
 	def get_physical_addr(self) :
 		# look for unclosed way and return physical address
-		for index in range(self.num_way) :
-			self.way_index = (self.way_index + 1) % self.num_way
+		for loop in range(self.num_way) :
+			self.cur_way_index = (self.cur_way_index + 1) % self.num_way
 			
-			index = self.way_index
+			index = self.cur_way_index
 			
-			way  = self.ways[index]
 			if self.block[index] != 0xFFFFFFFF :
-				return way, self.block[index], self.page[index]
+				return self.ways[index], self.block[index], self.page[index]
 		
 	# it is called after sending the program command																	
 	def update_page(self) :
-		index = self.way_index		
+		index = self.cur_way_index		
 	
 		# get way
 		way = self.ways[index]
@@ -389,12 +404,12 @@ class super_block :
 		
 		return False, self.block_addr, self.ways
 
-	def debug(self, meta_info = None) :
-		block_size = self.num_way * PAGES_PER_BLOCK * BYTES_PER_PAGE
+	def report_get_label(self) :
+		return {'super block' : ['name', 'size', 'block addr', 'way_list', 'valid count', 'last page']}
 		
-		print('\n%s super block (size of SB : %d MB)'%(self.name, block_size/1024/1024))
-		print('current block addr  : %d'%self.block_addr)
-										
+	def report_get_columns(self, meta_info = None) :
+		block_size = self.num_way * PAGES_PER_BLOCK * BYTES_PER_PAGE
+												
 		last_page = []
 		valid_count = 0
 		for index in range(self.num_way) :			
@@ -402,29 +417,44 @@ class super_block :
 			if meta_info != None :
 				way = self.ways[index]
 				valid_count = valid_count + meta_info.valid_count[way][self.block_addr]
-		
-		print('valid count of SB : %d'%valid_count)
-		print('last page of SB')
-		print(last_page)
 
-blk_grp = block_group()																																																																																																
-if __name__ == '__main__' :
-	print ('module block manager of ftl (flash translation layer)')
-	
-	blk_grp.add('meta', block_manager(NUM_WAYS, 1, 9))
-	blk_grp.add('slc_cache', block_manager(NUM_WAYS, 10, 20))
-	blk_grp.add('user', block_manager(NUM_WAYS, 20, 100))
+		columns = []
+		columns.append(self.name)
+		columns.append('%d MB'%(block_size/1024/1024))
+		columns.append(self.block_addr)
+		columns.append(self.ways)
+		columns.append(valid_count)			
+		columns.append(last_page)
+		
+		return columns																				
+		 
+	def debug(self, meta_info = None) :
+		# report form
+		sb_info_label = self.report_get_label()
+		sb_info_columns = self.report_get_columns()						
+						
+		sb_info_pd = pd.DataFrame(sb_info_label)				
+		sb_info_pd['value'] = pd.Series(sb_info_columns, index=sb_info_pd.index)
+
+		print('\n')
+		print(sb_info_pd)
+
+def unit_test_conv_ssd() :
+	blk_grp.add('meta', block_manager(NUM_WAYS, None, 1, 9))
+	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 20))
+	blk_grp.add('user', block_manager(NUM_WAYS, None, 20, 100))
 	
 	blk_grp.print_info()
 	blk_grp.debug()
 	
-	print('block 5')
+	print('\n\nget blk manager with block number (5)')
 	blk_manager = blk_grp.get_block_manager(5)
 	blk_manager.debug()
 	
 	block, way_list, ret_val = blk_manager.get_victim_block()
 	print(block)
-	
+
+def unit_test_sb() :
 	print('test super block operation')
 	sb = super_block(4, 'host')
 	if sb.is_open() == False :
@@ -439,4 +469,11 @@ if __name__ == '__main__' :
 		sb.update_page()
 	
 	sb.debug(None)	
+		
+blk_grp = block_group()																																																																																																
+if __name__ == '__main__' :
+	print ('module block manager of ftl (flash translation layer)')
+	
+	unit_test_conv_ssd()
+	unit_test_sb()	
 																			
