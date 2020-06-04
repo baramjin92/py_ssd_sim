@@ -773,9 +773,9 @@ if __name__ == '__main__' :
 	print('num of lba (512 byte sector) : %d'%NUM_LBA)
 	print('num of logical chunk (4K unit) : %d'%(NUM_LBA/SECTORS_PER_CHUNK))	
 	
-	blk_grp.add('meta', block_manager(NUM_WAYS, 1, 9))
-	blk_grp.add('slc_cache', block_manager(NUM_WAYS, 10, 19, 1, 2))
-	blk_grp.add('user', block_manager(NUM_WAYS, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))
+	blk_grp.add('meta', block_manager(NUM_WAYS, None, 1, 9))
+	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, 1, 2))
+	blk_grp.add('user', block_manager(NUM_WAYS, None, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))
 	
 	ftl.start()
 	ftl.debug()

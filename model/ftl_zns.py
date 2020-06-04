@@ -637,8 +637,8 @@ if __name__ == '__main__' :
 	print('size of zone : %d MB'%(ZONE_SIZE / 1024 / 1024))
 	print('num of zone : %d'%NUM_ZONES)
 
-	blk_grp.add('slc_cache', block_manager(NUM_WAYS, 10, 19, 1, 2))
-	blk_grp.add('user', block_manager(NUM_WAYS, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))
+	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, 1, 2))
+	blk_grp.add('user', block_manager(NUM_WAYS, None, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))
 
 	print('\ntest zone operation')
 
