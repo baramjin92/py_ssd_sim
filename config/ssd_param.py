@@ -79,7 +79,7 @@ FTL_CMD_QUEUE_DEPTH = 256
 # way is same term with nand die
 # if we use 32 dies of nand and nfc has 8 channels, the number of ways is 32, ways per channel is 4
 # if channle is own by one way,  the other way can not use channel. (?)  
-NUM_CHANNELS = 4
+NUM_CHANNELS = 8
 WAYS_PER_CHANNELS = 1
 NUM_WAYS = (NUM_CHANNELS * WAYS_PER_CHANNELS) 
 
@@ -106,7 +106,8 @@ NUM_LBA = 97696368 + (1953504 * (SSD_CAPACITY - 50))
 #SSD_CAPACITY_ACTUAL = SSD_CAPACITY * 1953125 / 2097152
 
 # ZNS definition
-ZONE_SIZE = 128 * 1024 * 1024
+ZONE_SIZE = 64 * 1024 * 1024
+ZONE_NUM_WAYS = int(NUM_WAYS / 4)
 NUM_OPEN_ZONES = 6
 NUM_ZONES = int((NUM_LBA * BYTES_PER_SECTOR) / ZONE_SIZE)
 
