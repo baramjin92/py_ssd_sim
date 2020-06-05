@@ -31,6 +31,9 @@ BLK_STATUS_CLOSE = 2
 BLK_STATUS_VICTIM = 3
 BLK_STATUS_DEFECTED = 4
 
+FREE_BLK_LEVELING = 0
+FREE_BLK_RANDOM = 1
+
 class block_status :
 	def __init__(self, block_num) :
 		self.status = []
@@ -63,10 +66,12 @@ class block_manager :
 		self.num_way = num_way
 		self.blk_status = []
 		self.way_list = []
-		if way_list == None :
-			for index in range(num_way) :
-				self.blk_status.append(block_status(BLOCKS_PER_WAY))
+		for index in range(num_way) :
+			self.blk_status.append(block_status(BLOCKS_PER_WAY))
+			if way_list == None :
 				self.way_list.append(index)
+			else :
+				self.way_list.append(way_list[index])
 			
 		# in the python, list is used for managing blocks
 		# in the c code, bitmap is better than array in order to reduce size of memory 
@@ -77,7 +82,13 @@ class block_manager :
 			self.free_blocks.append(index)
 		
 		self.defect_blocks = []
-		
+
+	def set_blk_status(self, block, status) :
+		for way in self.way_list :
+			index = self.way_list.index(way)
+			blk_status = self.blk_status[index]
+			blk_status.set(block, status)
+						
 	def get_free_block_num(self) :
 		return self.num_free_block						
 																	
@@ -91,10 +102,10 @@ class block_manager :
 			
 			# send event to host for throttling 
 			log_print('block manager : low free blocks')
-					
-		for way in self.way_list :
-			# erase block by the request		
-			if erase_request == True :
+
+		# erase block by the request		
+		if erase_request == True :								
+			for way in self.way_list :
 				cmd_index = nandcmd_table.get_free_slot()
 				cmd_desc = nandcmd_table.table[cmd_index]
 				cmd_desc.op_code = FOP_ERASE
@@ -105,18 +116,15 @@ class block_manager :
 	
 				ftl2fil_queue.push(cmd_index)
 
-			blk_status = self.blk_status[way]
-			blk_status.set(block, BLK_STATUS_OPEN)
+		self.set_blk_status(block, BLK_STATUS_OPEN)
 
 		return block, self.way_list
 		
 	def release_block(self, block, way_list = None) :
 		if way_list == None :
 			way_list = self.way_list
-			
-		for way in way_list :
-			blk_status = self.blk_status[way]
-			blk_status.set(block, BLK_STATUS_ERASED)
+
+		self.set_blk_status(block, BLK_STATUS_ERASED)
 		
 		if block in self.close_blocks : 
 			self.close_blocks.remove(block)
@@ -136,9 +144,7 @@ class block_manager :
 		if way_list == None :
 			way_list = self.way_list
 
-		for way in way_list :
-			blk_status = self.blk_status[way]
-			blk_status.set(block, BLK_STATUS_CLOSE)
+		self.set_blk_status(block, BLK_STATUS_CLOSE)
 			
 		self.close_blocks.append(block)
 		self.num_close_block = self.num_close_block + 1
@@ -147,10 +153,8 @@ class block_manager :
 	def set_defect_block(self, block, way_list = None) :
 		if way_list == None :
 			way_list = self.way_list
-		
-		for way in way_list :
-			blk_status = self.blk_status[way]
-			blk_status.set(block, BLK_STATUS_DEFECTED)
+
+		self.set_blk_status(block, BLK_STATUS_DEFECTED)
 			
 		self.defect_blocks.append(block)
 		self.num_defect_block = self.num_defect_block + 1
@@ -164,12 +168,13 @@ class block_manager :
 		block = self.close_blocks[0]
 		
 		for way in self.way_list :
-			blk_status = self.blk_status[way]
+			index = self.way_list.index(way)			
+			blk_status = self.blk_status[index]
 			if blk_status.get(block) == BLK_STATUS_CLOSE :
 				blk_status.set(block, BLK_STATUS_VICTIM)				
 				ret_val = True
 			else :
-				ret_val = False
+				ret_val = False102 
 				block = -1
 		
 		return block, self.way_list, ret_val
@@ -201,10 +206,11 @@ class block_manager :
 		else :
 			str = ''
 		 
-		 # check first way only for super block
-		way = 0 		   		  
+		# check first way only for super block
+		way = self.way_list[0]
 		for block in range(self.start_block, self.end_block+1) :
-			blk_status = self.blk_status[way]
+			index = self.way_list.index(way)
+			blk_status = self.blk_status[index]
 			status = blk_status.get(block)
 			if status == BLK_STATUS_ERASED :
 				valid_sum = 0
@@ -242,7 +248,7 @@ class block_manager :
 		print(info_pd)
 		
 		self.print_sb_valid_info(meta_info, name)
-		
+						
 class block_group :								
 	def __init__(self) :
 		self.name = []
@@ -254,7 +260,21 @@ class block_group :
 		self.name.append(blk_name)
 		self.range.append(blk_range)
 		self.blk.append(blk_manager)
-		
+
+	def select_block_manager_for_free_block(self, mode) :
+		if mode == FREE_BLK_LEVELING :
+			num_free_block = []
+			for blk in self.blk :
+				num_free_block.append(blk.get_free_block_num())
+			
+			#print(num_free_block)
+			min_value = max(num_free_block)
+			index = num_free_block.index(min_value)
+			return self.blk[index]
+		elif mode == FREE_BLK_RANDOM :
+			blk = random.choice(self.blk)
+			return blk
+			 				 													 				 										
 	def get_block_manager(self, block) :
 		for index, blk_range in enumerate(self.range) :
 			if block >= blk_range[0] and block <= blk_range[1] :
@@ -268,7 +288,16 @@ class block_group :
 				return self.blk[index]
 
 		return None 
-						
+
+	def get_block_manager_by_zone(self, block, way_list) :
+		for index, blk_range in enumerate(self.range) :
+			if block >= blk_range[0] and block <= blk_range[1] :
+				blk = self.blk[index]
+				if blk.way_list == way_list :
+					return self.blk[index]
+				
+		return None		
+																								
 	def print_info(self) :		
 		blk_name = {'block manager' : ['name', 'start block', 'end_block', 'ways']}				
 						
@@ -454,6 +483,25 @@ def unit_test_conv_ssd() :
 	block, way_list, ret_val = blk_manager.get_victim_block()
 	print(block)
 
+def unit_test_zns_ssd() :
+	num_way = 2
+	blk_grp.add('user1', block_manager(num_way, [0,4], 1, 100))
+	blk_grp.add('user2', block_manager(num_way, [1,5], 1, 100))
+	blk_grp.add('user3', block_manager(num_way, [2,6], 1, 100))
+	blk_grp.add('user4', block_manager(num_way, [3,7], 1, 100))
+
+	blk_grp.print_info()
+
+	print('test select blk manager for free block')
+		
+	for index in range(10) :
+		blk_mgr = blk_grp.select_block_manager_for_free_block(FREE_BLK_LEVELING)
+		blk, way_list = blk_mgr.get_free_block()
+		print('block no : %s'%blk)
+		print(way_list)
+	
+	blk_grp.debug()
+	
 def unit_test_sb() :
 	print('test super block operation')
 	sb = super_block(4, 'host')
@@ -474,6 +522,7 @@ blk_grp = block_group()
 if __name__ == '__main__' :
 	print ('module block manager of ftl (flash translation layer)')
 	
-	unit_test_conv_ssd()
+	#unit_test_conv_ssd()
+	unit_test_zns_ssd()
 	unit_test_sb()	
 																			

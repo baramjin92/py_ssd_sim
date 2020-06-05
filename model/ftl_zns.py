@@ -89,9 +89,9 @@ class zone_desc :
 		print('length write buffer : %d'%len(self.write_buffer))
 			
 class zone_manager :
-	def __init__(self, num_zone, max_open_zone) :
-		self.num_way = NUM_WAYS
+	def __init__(self, num_zone, num_way, max_open_zone) :
 		self.num_zone = num_zone
+		self.num_way = num_way
 		self.num_open_zone = 0
 		self.max_open_zone = max_open_zone
 		self.table = []
@@ -154,8 +154,9 @@ class zone_manager :
 				# however it will be changed later 
 				zone_name = 'zone_%d'%(zone_no)
 				zone.logical_blk = super_block(self.num_way, zone_name, SB_OP_WRITE)
-						
-				blk_manager = blk_grp.get_block_manager_by_name('user')
+				
+				blk_manager = blk_grp.select_block_manager_for_free_block(FREE_BLK_LEVELING)	
+				#blk_manager = blk_grp.get_block_manager_by_name('user')
 				cell_mode = NAND_MODE_MLC
 				
 				blk_no, way_list = blk_manager.get_free_block(erase_request = True)
@@ -580,7 +581,8 @@ class ftl_zns_manager :
 				if zone.logical_blk.is_open() == False :
 					# this code is required when size of zone is larger than size of super block
 					# in this simulation, size of zone is aligned by multiplication of size of super block
-					blk_manager = blk_grp.get_block_manager_by_name('user')
+					blk_manager = blk_grp.select_block_manager_for_free_block(FREE_BLK_LEVELING)	
+					# blk_manager = blk_grp.get_block_manager_by_name('user')
 					cell_mode = NAND_MODE_MLC
 				
 					blk_no, way_list = blk_manager.get_free_block(erase_request = True)
@@ -622,7 +624,7 @@ class ftl_zns_statistics :
 	def print(self) :
 		print('zns statstics')
 
-zone_mgr = zone_manager(NUM_ZONES, NUM_OPEN_ZONES)
+zone_mgr = zone_manager(NUM_ZONES, NUM_WAYS, NUM_OPEN_ZONES)
 												
 if __name__ == '__main__' :
 	print ('module ftl (flash translation layer of zns)')
