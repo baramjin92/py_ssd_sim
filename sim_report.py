@@ -260,13 +260,13 @@ class report_manager :
 			self.nfc_model.print_ch_statistics()
 			self.nfc_model.print_way_statistics()
 		
-		#host_model.print_host_data(2048,512)	#(0, 128)
-		blk_grp.debug(meta)
-		blk_manager = blk_grp.get_block_manager_by_name('user')
-		blk_manager.debug_valid_block_info(meta)
-		
+		#host_model.print_host_data(2048,512)	#(0, 128)		
 		if self.ftl_module != None :
-			if self.ftl_module.name == 'conventional' :				
+			if self.ftl_module.name == 'conventional' :
+				blk_grp.debug(meta)
+				blk_manager = blk_grp.get_block_manager_by_name('user')
+				blk_manager.debug_valid_block_info(meta)
+													
 				self.ftl_module.host_sb.debug()
 				self.ftl_module.gc_sb.debug()
 			elif self.ftl_module.name == 'zns' :
