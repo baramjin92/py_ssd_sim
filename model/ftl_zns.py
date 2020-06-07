@@ -106,6 +106,9 @@ class zone_manager :
 			self.table.append(zone_desc(index, 0))
 			self.empty_list.append(index)
 
+	def set_num_way(self, num_way) :
+		self.num_way = num_way
+
 	def get_open_zone_num(self) :
 		return self.num_open_zone
 
@@ -222,6 +225,7 @@ class ftl_zns_manager :
 		self.name = 'zns'
 		
 		self.num_way = num_way
+		zone_mgr.set_num_way(num_way)
 		
 		# register hic now in order to use interface queue									
 		self.hic_model = hic

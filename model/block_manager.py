@@ -372,7 +372,7 @@ class super_block :
 		elif self.cell_mode == NAND_MODE_SLC :
 			self.end_page = PAGES_PER_BLOCK / 2		# this calculation is based on MLC nand
 
-		print('\n%s sb open : %d, allocated num : %d'%(self.name, block_addr, self.allocated_num))
+		print('\n%s sb open : %d, way list : %s, allocated num : %d'%(self.name, block_addr, str(self.ways), self.allocated_num))
 
 	def is_open(self) :
 		if self.allocated_num == 0 :
@@ -497,9 +497,9 @@ def unit_test_zns_ssd() :
 	for index in range(10) :
 		blk_mgr = blk_grp.select_block_manager_for_free_block(FREE_BLK_LEVELING)
 		blk, way_list = blk_mgr.get_free_block()
-		print('block no : %s'%blk)
-		print(way_list)
+		print('block no : %d, ways : %s'%(blk, str(way_list)))
 	
+	print('\n')
 	blk_grp.debug()
 	
 def unit_test_sb() :
