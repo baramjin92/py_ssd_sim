@@ -343,8 +343,8 @@ class ftl_manager :
 				old_way, old_nand_block, old_nand_page, old_chunk_offset = parse_map_entry(old_physical_addr)
 						
 				chunk_index = old_nand_page * CHUNKS_PER_PAGE + old_chunk_offset
-				ret_val = meta.clear_valid_bitmap(old_way, old_nand_block, chunk_index)
-				if ret_val == False :
+				valid_sum = meta.clear_valid_bitmap(old_way, old_nand_block, chunk_index)
+				if valid_sum == 0 :
 					log_print('move sb to erased block')
 					blk_manager = blk_grp.get_block_manager(old_nand_block) 
 					blk_manager.release_block(old_nand_block)		
@@ -593,8 +593,8 @@ class ftl_manager :
 			
 			# invalidate "valid chunk bitmap", "valid chunk count" with old physical address		
 			chunk_index = old_nand_page * CHUNKS_PER_PAGE + old_chunk_offset
-			ret_val = meta.clear_valid_bitmap(old_way, old_nand_block, chunk_index)
-			if ret_val == False :
+			valid_sum = meta.clear_valid_bitmap(old_way, old_nand_block, chunk_index)
+			if valid_sum == 0 :
 				log_print('move sb : %d to erased block'%old_nand_block) 
 				blk_manager = blk_grp.get_block_manager(old_nand_block)
 				blk_manager.release_block(old_nand_block)		

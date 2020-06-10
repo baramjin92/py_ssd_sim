@@ -159,7 +159,6 @@ class zone_manager :
 				zone.logical_blk = super_block(self.num_way, zone_name, SB_OP_WRITE)
 				
 				blk_manager = blk_grp.select_block_manager_for_free_block(FREE_BLK_LEVELING)	
-				#blk_manager = blk_grp.get_block_manager_by_name('user')
 				cell_mode = NAND_MODE_MLC
 				
 				blk_no, way_list = blk_manager.get_free_block(erase_request = True)
@@ -219,7 +218,7 @@ class zone_manager :
 			zone = self.table[zone_no]
 			print('zone %d, state : %d'%(zone_no, zone.state))
 		print('end')		
-								
+																
 class ftl_zns_manager :
 	def __init__(self, num_way, hic) :
 		self.name = 'zns'
@@ -489,13 +488,15 @@ class ftl_zns_manager :
 			# if mapping address is 0, it is unmapped address 
 			if old_physical_addr != 0 :
 				# calculate way, block, page of old physical address
-				old_way, old_nand_block, old_nand_page, old_chunk_offset = parse_map_entry(old_physical_addr)
-						
+				old_way, old_nand_block, old_nand_page, old_chunk_offset = parse_map_entry(old_physical_addr)		
 				chunk_index = old_nand_page * CHUNKS_PER_PAGE + old_chunk_offset
-				ret_val = meta.clear_valid_bitmap(old_way, old_nand_block, chunk_index)
-				if ret_val == False :
+				
+				# return value of clear_valid_bitmap() is not correct in zns, use get_valid_sum_ext()
+				meta.clear_valid_bitmap(old_way, old_nand_block, chunk_index)
+				valid_sum = meta.get_valid_sum_ext(old_nand_block, sb.ways)
+				if valid_sum == 0 :
 					log_print('move sb to erased block')
-					blk_manager = blk_grp.get_block_manager(old_nand_block) 
+					blk_manager = blk_grp.get_block_manager_by_zone(old_nand_block, sb.ways) 
 					blk_manager.release_block(old_nand_block)		
 													
 			# update lba and sector count of write command in order to check end of current write command 
@@ -552,7 +553,7 @@ class ftl_zns_manager :
 		# the block number should be moved to closed block list in block manager
 		if is_close == True  :
 			# to do something for zone close
-			blk_manager = blk_grp.get_block_manager(block_addr)
+			blk_manager = blk_grp.get_block_manager_by_zone(block_addr, way_list)
 			blk_manager.set_close_block(block_addr)
 
 		# update num_chunks_to_write
@@ -586,7 +587,6 @@ class ftl_zns_manager :
 					# this code is required when size of zone is larger than size of super block
 					# in this simulation, size of zone is aligned by multiplication of size of super block
 					blk_manager = blk_grp.select_block_manager_for_free_block(FREE_BLK_LEVELING)	
-					# blk_manager = blk_grp.get_block_manager_by_name('user')
 					cell_mode = NAND_MODE_MLC
 				
 					blk_no, way_list = blk_manager.get_free_block(erase_request = True)

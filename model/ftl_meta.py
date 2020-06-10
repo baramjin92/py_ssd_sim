@@ -58,8 +58,17 @@ class ftl_meta :
 		self.valid_count = np.empty((num_way, BLOCKS_PER_WAY), np.uint32)
 		self.valid_sum = np.empty((BLOCKS_PER_WAY), np.uint32)
 
+	# this is only useful in conventional ssd using super block concept
 	def get_valid_sum(self, block) :			
 		return self.valid_sum[block]
+
+	# this is useful for zone and io determinism depending on way list
+	def get_valid_sum_ext(self, block, way_list) :
+		sum = 0
+		for way in way_list :
+			sum = sum + self.valid_count[way][block]
+
+		return sum			
 
 	def reset_valid_info(self, way, block) :
 		self.valid_bitmap[way][block] = np.zeros(self.size_of_bitmap)
@@ -86,11 +95,7 @@ class ftl_meta :
 		self.valid_count[way][block] = self.valid_count[way][block] - 1
 		self.valid_sum[block] = self.valid_sum[block] - 1
 		
-		# is this block empty or not? the super block should be moved to erased state
-		if self.valid_sum[block] == 0 :
-			return False
-		else : 	
-			return True
+		return  self.valid_sum[block]
 		
 	def check_valid_bitmap(self, way, block, chunk) :
 		bmp = self.valid_bitmap[way][block]
@@ -169,4 +174,5 @@ if __name__ == '__main__' :
 	meta.set_valid_bitmap(0, 20, 30)
 	meta.set_valid_bitmap(0, 20, 31)
 	meta.print_valid_data(0, 20)
+	
 																																						
