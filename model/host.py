@@ -32,6 +32,9 @@ UPLINK_IDLE = 0
 UPLINK_DREQ = 1
 UPLINK_DATA = 2
 
+# in order to support zns, we use workload_zone variable which is defined in zone.py
+# generate_command() and command_done() use it for managing life cycle of zone (actually close operation of zone)'
+
 def log_print(message) :
 	event_log_print('[host]',message)
 
@@ -67,7 +70,7 @@ class host_cmd_context :
 		return len(self.host_cmd_free_slot)																							
 																																				
 class host_manager :
-	def __init__(self, host_num) :
+	def __init__(self, host_num, namespace = []) :
 		# set host context
 		self.host_cmd_queue = []
 		self.queue_ids = []
@@ -90,10 +93,23 @@ class host_manager :
 		# count number of issued host commands	
 		self.num_pending_cmds = 0
 		
-		self.data_table = np.empty((NUM_LBA), np.int32)		
+		self.use_namespace = False
+		self.data_table = []
+		if len(namespace) == 0 :
+			self.data_table.append(np.empty((NUM_LBA), np.int32))
+		else :
+			self.use_namespace = True
+			for max_lba in namespace :
+				self.data_table.append(np.empty((max_lba), np.int32))		
 		
 		self.host_stat = host_statistics(NUM_HOST_QUEUE)
 	
+	def get_nsid(self, qid) :
+		if self.use_namespace == True :
+			return qid
+		else :
+			return 0
+			
 	def generate_command(self) :
 		for queue_id in self.queue_ids :
 			
@@ -203,19 +219,22 @@ class host_manager :
 		
 		return True																																					
 		
-	def generate_write_data(self, lba, num_sectors) :
+	def generate_write_data(self, queue_id, lba, num_sectors) :
 		# the whole data is generated from first packet transfer time.
 		# so this function is called just one time in start_write_transfer()
 		
 		lba_index = int(lba / SECTORS_PER_CHUNK) 
 		length = int(num_sectors / SECTORS_PER_CHUNK)
+
+		nsid = self.get_nsid(queue_id)		
+		host_data = self.data_table[nsid]
 		
 		for index in range(length) :
-			self.data_table[lba_index] = self.data_table[lba_index] + 1
+			host_data[lba_index] = host_data[lba_index] + 1
 			lba_index = lba_index + 1
 		
 		###if lba > 2048 :	
-		###	log_print('[%08d] generate write data : lba %d %d : %d'%(event_mgr.timetick, lba, num_sectors, self.data_table[int(lba/SECTORS_PER_CHUNK)]))	
+		###	log_print('[%08d] generate write data : lba %d %d : %d'%(event_mgr.timetick, lba, num_sectors, host_data[int(lba/SECTORS_PER_CHUNK)]))	
 				
 	def start_write_transfer(self) :
 		log_print('start write transfer : %d, %d, %d'%(self.tx_qid, self.tx_cid, self.tx_count))
@@ -229,7 +248,7 @@ class host_manager :
 
 		host_cmd = self.host_cmd_queue[queue_id].get_host_cmd(self.tx_cid)
 		cur_lba = host_cmd.lba + host_cmd.num_sectors_completed
-		self.generate_write_data(cur_lba, self.tx_count)
+		self.generate_write_data(queue_id, cur_lba, self.tx_count)
 
 		num_sectors = min(WDATA_PACKET_SIZE, self.tx_count)
 
@@ -244,10 +263,13 @@ class host_manager :
 		next_event.num_sectors = num_sectors
 		
 		# set data to transfer
+		nsid = self.get_nsid(queue_id)
+		host_data = self.data_table[nsid]
+		
 		lba_index = int(cur_lba / SECTORS_PER_CHUNK)
 		length = int(num_sectors / SECTORS_PER_CHUNK) 
 		for index in range(length) :
-			next_event.main_data.append(self.data_table[lba_index])
+			next_event.main_data.append(host_data[lba_index])
 			lba_index = lba_index + 1			
 						
 	def continue_or_end_write_transfer(self, event) :
@@ -277,11 +299,14 @@ class host_manager :
 			next_event.num_sectors = num_sectors
 
 			# set data to transfer
+			nsid = self.get_nsid(queue_id)
+			host_data = self.data_table[nsid]
+			
 			cur_lba = host_cmd.lba + host_cmd.num_sectors_completed		
 			lba_index = int(cur_lba / SECTORS_PER_CHUNK)
 			length = int(num_sectors / SECTORS_PER_CHUNK) 
 			for index in range(length) :
-				next_event.main_data.append(self.data_table[lba_index])
+				next_event.main_data.append(host_data[lba_index])
 				lba_index = lba_index + 1			
 						
 			end_of_transfer = False
@@ -311,8 +336,11 @@ class host_manager :
 		if ENABLE_RAMDISK_MODE == False :
 			data = event.main_data.pop(0)
 			
-			if self.data_table[lba_index] != data : 
-				print('..................................................error : verify data : lba %d : expect[%d] return[%d]'%(event.host_lba, self.data_table[lba_index], data))
+			nsid = self.get_nsid(queue_id)
+			host_data = self.data_table[nsid]
+			
+			if host_data[lba_index] != data : 
+				print('..................................................error : verify data : lba %d : expect[%d] return[%d]'%(event.host_lba, host_data[lba_index], data))
 				#input()
 					
 		# update completed sectors
@@ -421,10 +449,13 @@ class host_manager :
 		print('link status - uplink : %d, downlink : %d'%(self.uplink_state, self.downlink_state))			
 		
 	def print_host_data(self, lba, num_sectors) :
+		nsid = self.get_nsid(0)
+		host_data = self.data_table[nsid]
+		
 		lba_index = int(lba / SECTORS_PER_CHUNK)
 		length = int(num_sectors / SECTORS_PER_CHUNK) 
 		for index in range(length) :
-			log_print('lba %d : %d'%(lba_index *SECTORS_PER_CHUNK, self.data_table[lba_index]))
+			log_print('lba %d : %d'%(lba_index *SECTORS_PER_CHUNK, host_data[lba_index]))
 			lba_index = lba_index + 1																		
 
 class host_stat_param :
@@ -615,7 +646,8 @@ if __name__ == '__main__' :
 	
 	host_model = host_manager(NUM_HOST_CMD_TABLE)
 	
-	host_model.generate_write_data(2048, 512)
+	queue_id = 0
+	host_model.generate_write_data(queue_id, 2048, 512)
 	host_model.print_host_data(2048,512)
 	
 	host_model.host_stat.print(0)																				

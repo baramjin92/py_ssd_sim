@@ -1,0 +1,559 @@
+ #!/usr/bin/python
+
+import os
+import sys
+import random
+import numpy as np
+import pandas as pd
+
+# in order to import module from parent path
+sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
+
+from config.sim_config import unit
+from config.ssd_param import *
+
+from model.buffer import *
+from model.buffer_cache import *
+from model.queue import *
+from model.nandcmd import *
+from model.block_manager import *
+from model.ftl_meta import *
+
+from sim_event import *
+
+# ftl translates logical block address to physical address of nand
+
+def log_print(message) :
+	event_log_print('[ftl iod]', message)
+
+class namespace_desc :
+	def __init__(self, nsid, slba, elba) :
+		self.nsid = nsid
+		self.slba = slba
+		self.elba = elba
+		self.blk_name = None
+		self.logical_blk = None
+									
+		# write_cmd_queue try to gather write commands before programing data to nand
+		self.write_cmd_queue = queue(32)
+		self.num_chunks_to_write = 0
+		
+		self.write_buffer = []
+	
+		# read cmd
+		self.num_chunks_to_read = 0
+		self.read_start_chunk = 0
+		self.read_cur_chunk = 0
+		self.read_queue_id = 0
+		self.read_cmd_tag = 0
+		
+	def set_blk_name(self, name) :
+		self.blk_name = name
+	
+	def is_idle(self) :
+		if self.num_chunks_to_write == 0 :
+			return True
+		else :
+			return False
+				
+	def is_ready_to_write(self) :
+		if self.num_chunks_to_write >= CHUNKS_PER_PAGE and len(self.write_buffer) >= CHUNKS_PER_PAGE :
+			if self.write_cmd_queue.length() == 0 :
+				print('error : is_ready_to_write')
+				self.debug
+
+			return True
+		else :
+			return False							
+						
+	def get_num_chunks_to_write(self) :					
+		return self.logical_blk.get_num_chunks_to_write(self.num_chunks_to_write)																				
+																																																
+	def update_write_info(self, num_chunks) :
+		self.num_chunks_to_write = self.num_chunks_to_write - num_chunks			
+		
+	def debug(self) :
+		print('namespace id : %d'%self.nsid)
+		print('slba : %d'%self.slba)
+		print('elba : %d'%self.elba)
+		print('blk name : %s'%self.blk_name)
+		print('num_chunks_to_write : %d'%self.num_chunks_to_write)
+		print('write buffer : %s\n'%str(self.write_buffer))
+			
+class namespace_manager :
+	def __init__(self, ns_percent) :
+		self.meta_range = []
+		self.table = []
+		self.num_namespace = 0
+		
+		self.config(ns_percent)
+			
+	def config(self, ns_percent) :
+		self.meta_range.clear()
+		self.table.clear()
+		
+		self.num_namespace = len(ns_percent)
+						
+		sum = 0							
+		for index, p in enumerate(ns_percent) :
+			lba_base = int(NUM_LBA * sum / 100)
+			elba = int(NUM_LBA * p / 100) - 1
+
+			self.meta_range.append([lba_base, lba_base + elba])
+			self.table.append(namespace_desc(index, 0, elba))
+
+			sum = sum + p
+
+#	def set_num_way(self, num_way) :
+#		self.num_way = num_way
+
+	def get_num(self) :
+		return self.num_namespace
+																			
+	def get(self, nsid) :		
+		ns =  self.table[nsid]
+													
+		return ns
+
+	def get_range(self, nsid) :
+		ns = self.table[nsid]
+																															
+		return ns.slba, ns.elba 
+
+	def lba2meta_addr(self, nsid, lba) :
+		range = self.meta_range[nsid]
+		return  int(range[0] + lba)
+		
+	def meta_addr2lba(self, meta_index) :
+		for range in self.meta_range :
+			if meta_addr >= range[0] and meta_addr <= range[1] :
+				return int(meta_addr - range[0])		
+						
+	def debug(self) :																																																		
+		print('\nnum of namespace : %d\n'%(self.num_namespace))
+		
+		for index, range in enumerate(self.meta_range) :
+			print('meta range [%d, %d]'%(range[0], range[1]))
+			ns = self.table[index]			
+			ns.debug()			
+																
+class ftl_iod_manager :
+	def __init__(self, hic) :
+		# there is no NUM_WAY parameter in IO determinism.
+		# blk_manager has this value, if we know name of blk_manager, we can use it in each namespace.
+		
+		self.name = 'iod'
+				
+		# register hic now in order to use interface queue									
+		self.hic_model = hic
+		
+		self.run_mode = True
+		
+		self.seq_num = 0
+																																																		
+		self.ftl_stat = ftl_iod_statistics()
+		
+	def start(self) :
+		print('start iod ftl')
+		
+		for index in range(namespace_mgr.get_num()) :
+			ns = namespace_mgr.get(index)
+
+			blk_manager = blk_grp.get_block_manager_by_name(ns.blk_name)
+			ns.logical_blk = super_block(blk_manager.num_way, ns.blk_name, SB_OP_WRITE)
+				
+	def enable_background(self) :
+		self.run_mode = True
+		
+	def disable_background(self) :
+		self.run_mode = False	
+	
+	def try_to_fetch_cmd(self) : 
+		# check high priority queue
+		if hil2ftl_high_queue.length() > 0 :
+			# check write content of previous cmd and run do_write()
+
+			# fetch ftl command and parse lba and sector count for chunk 
+			ftl_cmd = hil2ftl_high_queue.pop()
+			
+			ns = namespace_mgr.get(ftl_cmd.qid)
+		
+			# ftl_cmd.code should be HOST_CMD_READ				
+			lba_start = namespace_mgr.lba2meta_addr(ftl_cmd.qid, ftl_cmd.lba)
+			lba_end = lba_start + ftl_cmd.sector_count - 1
+
+			# in order to read from nand, read command information is updated			
+			ns.num_chunks_to_read = ftl_cmd.sector_count / SECTORS_PER_CHUNK
+			ns.read_start_chunk = lba_start / SECTORS_PER_CHUNK
+			#ns.read_end_chunk = lba_end / SECTORS_PER_CHUNK			
+			ns.read_queue_id = ftl_cmd.qid
+			ns.read_cmd_tag = ftl_cmd.cmd_tag
+	
+			ns.read_cur_chunk = ns.read_start_chunk 			
+
+			log_print('host cmd read - qid : %d, cid : %d'%(ftl_cmd.qid, ftl_cmd.cmd_tag))
+										
+			# set fetch flag of hic (it will be move from hil to ftl, because hil code is temporary one)
+			self.hic_model.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)				 	 	 	 	 	
+				 	 	 	 	 			 	 	 	 	 			 	 	 	 	 	
+		# check low priority queue
+		if hil2ftl_low_queue.length() > 0 :
+			# we will change sequeuce of poping command from low queue, because we need to check the remained command 
+			ftl_cmd = hil2ftl_low_queue.pop()
+
+			if ftl_cmd.code == HOST_CMD_WRITE :				
+				# write cmd should be saved for gathering write chunks in order to meet physical size of nand
+				# actually qid and nsid is not same however we assume it is same in simulator
+				ns = namespace_mgr.get(ftl_cmd.qid)
+				if ns == None :
+					#hil2ftl_low_queue.push_first(ftl_cmd)
+					print('error : can not get namespace')
+				else :					
+					ns.write_cmd_queue.push(ftl_cmd)
+					ns.num_chunks_to_write = ns.num_chunks_to_write + int(ftl_cmd.sector_count / SECTORS_PER_CHUNK)
+
+					self.hic_model.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)
+					
+				log_print('host cmd write')
+			else :
+				if ftl_cmd.code == HOST_CMD_TRIM :
+					log_print('host cmd trim')	
+					
+					# self.hic_model.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)
+				elif ftl_cmd.code == HOST_CMD_CALM :			
+					log_print('host cmd calm')
+	
+					# flush remain data in order to prepare calm state
+												
+				self.hic_model.set_manual_completion(ftl_cmd.qid, ftl_cmd.cmd_tag)
+																																				
+		# save vcd file if option is activate
+
+	def do_read(self, ns) :
+		# look up map entry and get physical address
+		lba_index = int(ns.read_cur_chunk)
+		num_remain_chunks = ns.num_chunks_to_read
+		next_map_entry = 0xFFFFFFFF
+		num_chunks_to_read = 0
+		
+		# check free slots of nandcmd_table (use num_remian_chunks, there is assumption all chunks are not adjecent)
+		if nandcmd_table.get_free_slot_num() < num_remain_chunks :
+			return		
+												
+		while num_remain_chunks > 0 :
+			if next_map_entry == 0xFFFFFFFF :
+				# 1st address
+				map_entry = meta.map_table[lba_index]
+			else :
+				# next address
+				map_entry = next_map_entry
+							
+			num_chunks_to_read = num_chunks_to_read + 1
+			num_remain_chunks = num_remain_chunks - 1
+			
+			if num_remain_chunks >= 1 :
+				next_map_entry = meta.map_table[lba_index+1]			
+				# check twice for adjacent read(same nand page address), it reduces the power and read latency from nand
+				
+				log_print('chunk : %d, map_entry : %x, next_map_entry : %x'%(lba_index, map_entry, next_map_entry))
+				log_print('map_entry : %x, next_map_entry : %x'%(int(map_entry/CHUNKS_PER_PAGE), int(next_map_entry/CHUNKS_PER_PAGE)))
+				
+				if next_map_entry == map_entry + 1 :
+					if int(next_map_entry / CHUNKS_PER_PAGE) == int(map_entry / CHUNKS_PER_PAGE) :
+						#log_print('do read : adjecent')
+
+						# go to check next adjacent
+						lba_index = lba_index + 1
+						continue		
+												
+			# try to read with map_entry from nand, because next_map_entry is not adjacent
+			self.seq_num = self.seq_num + 1
+			
+			way, block, page, end_chunk_offset = parse_map_entry(map_entry)
+			# in order to calculate nand address, way and 
+			address = build_map_entry(0, block, page, 0)
+			#address = int((map_entry % CHUNKS_PER_WAY) / CHUNKS_PER_PAGE) * CHUNKS_PER_PAGE
+			start_chunk_offset = end_chunk_offset - (num_chunks_to_read - 1)
+
+			# update lba_index for last chunk
+			lba_index = lba_index + 1
+
+			if address == 0 :
+				print('do read - chunk : %d [offset : %d - num : %d], remain_num : %d, way : %d, address : %x, block : %d, page : %d'%(lba_index, start_chunk_offset, num_chunks_to_read, num_remain_chunks, way, address, block, page))
+						
+			# issue command to fil								
+			# if we use buffer cache, we will check buffer id from cache instead of sending command to fil
+			cache_hit = False
+			if ENABLE_BUFFER_CACHE == True :
+				cache_lba_index = ns.read_cur_chunk
+				cache_results = []
+				for index in range(num_chunks_to_read) :
+					buffer_id, cache_hit = bm_cache.get_buffer_id(cache_lba_index)
+					if cache_hit == True :
+						cache_results.append([cache_lba_index, buffer_id])
+					cache_lba_index = cache_lba_index + 1
+						
+				# if cache buffers are not all, evict cache buffer 	
+				if len(cache_results) < num_chunks_to_read :
+					for cache_info in cache_results :
+						bm_cache.evict(cache_info[0])
+					cache_hit = False
+				else :
+					# cache hit, return buffer id to hic
+					for cache_info in cache_results :						
+						self.hic_model.add_tx_buffer(ns.read_queue_id, cache_info[1])
+					
+					next_event = event_mgr.alloc_new_event(0)
+					next_event.code = event_id.EVENT_USER_DATA_READY
+					next_event.dest = event_dst.MODEL_HIC					
+					 
+			if cache_hit == False :
+				# cache miss, send cmd to fil
+				cmd_index = nandcmd_table.get_free_slot()
+				cmd_desc = nandcmd_table.table[cmd_index]
+				cmd_desc.op_code = FOP_USER_READ
+				cmd_desc.way = way
+				cmd_desc.nand_addr = address
+				cmd_desc.chunk_offset = start_chunk_offset
+				cmd_desc.chunk_num = num_chunks_to_read
+				cmd_desc.seq_num = self.seq_num
+				cmd_desc.cmd_tag = ns.read_cmd_tag
+				cmd_desc.queue_id = ns.read_queue_id
+				
+				ftl2fil_queue.push(cmd_index)
+								
+			# reset variable for checking next chunk																																								
+			next_map_entry = 0xFFFFFFFF
+			num_chunks_to_read = 0
+
+		# check remain chunk, if do_read can't finish because of lack of resource of buffer/controller
+		ns.read_cur_chunk = lba_index
+		ns.num_chunks_to_read = num_remain_chunks
+
+	def check_write_buffer_done(self) :												
+		# check for arrival of data and move buffer pointer to buffer list of namespace
+		ns = None
+		
+		for index in range(len(self.hic_model.rx_buffer_done))  :
+			buffer_id = self.hic_model.rx_buffer_done.pop(0)
+			lca = bm.get_meta_data(buffer_id)
+			lba = lca * SECTORS_PER_CHUNK
+						
+			# actually qid and nsid is not same however we assume it is same in simulator			
+			qid, cmd_tag = bm.get_cmd_id(buffer_id)
+			ns = namespace_mgr.get(qid)
+			if ns == None :
+				print ('error check write buffer done - lba : %d'%lba)
+			ns.write_buffer.append(buffer_id)
+			
+		return ns
+																																							
+	def do_write(self, ns) :
+		# do_write try to program data to nand
+				
+		sb = ns.logical_blk							
+		num_chunks = ns.get_num_chunks_to_write()
+		 		 		 					
+		# check free slots of nandcmd_table
+		# in order to send cell mode command, we need one more nandcmd slot
+		if nandcmd_table.get_free_slot_num() < (num_chunks + 1) :
+			return
+							
+		# get write cmd
+		if ns.write_cmd_queue.length() == 0 :
+			print('error namespace : %d'%ns.id)
+		ftl_cmd = ns.write_cmd_queue.pop()
+			
+		# get new physical address from open block	
+		way, block, page = sb.get_physical_addr()
+		map_entry = build_map_entry(way, block, page, 0)
+														
+		# meta data update (meta datum are valid chunk bitmap, valid chunk count, map table
+		# valid chunk bitamp and valid chunk count use in gc and trim 
+		for index in range(num_chunks) :
+			log_print('update meta data')
+			# get old physical address info
+			# lba_index is calculated by api of namespace
+			lba_index = int(namespace_mgr.lba2meta_addr(ns.nsid, ftl_cmd.lba) / SECTORS_PER_CHUNK)
+			old_physical_addr = meta.map_table[lba_index]
+			
+			# if we use buffer cache, we should check and evict buffer id from cache, in order to avoid mismatch of data
+			if ENABLE_BUFFER_CACHE == True :		 
+				bm_cache.evict(lba_index)
+																																																					
+			# validate "valid chunk bitmap", "valid chunk count", "map table" with new physical address
+			meta.map_table[lba_index] = map_entry + index
+
+			# CHUNKS_PER_PAGE is calculated in the MLC mode, we need to consider another cell mode
+			chunk_index = page * CHUNKS_PER_PAGE + index
+			meta.set_valid_bitmap(way, block, chunk_index)					
+									
+			# invalidate "valid chunk bitmap", "valid chunk count" with old physical address
+			# if mapping address is 0, it is unmapped address 
+			if old_physical_addr != 0 :
+				# calculate way, block, page of old physical address
+				old_way, old_nand_block, old_nand_page, old_chunk_offset = parse_map_entry(old_physical_addr)
+				chunk_index = old_nand_page * CHUNKS_PER_PAGE + old_chunk_offset
+				
+				# return value of clear_valid_bitmap() is not correct in io determinism, use get_valid_sum_ext() 
+				meta.clear_valid_bitmap(old_way, old_nand_block, chunk_index)
+				valid_sum = meta.get_valid_sum_ext(old_nand_block, sb.ways)
+				if valid_sum == 0 :
+					log_print('move sb to erased block')
+					blk_manager = blk_grp.get_block_manager_by_zone(old_nand_block, sb.ways) 
+					blk_manager.release_block(old_nand_block)		
+													
+			# update lba and sector count of write command in order to check end of current write command 
+			# chunk_index = chunk_index + 1
+			
+			ftl_cmd.sector_count = ftl_cmd.sector_count - SECTORS_PER_CHUNK
+			ftl_cmd.lba = ftl_cmd.lba + SECTORS_PER_CHUNK
+			
+			if ftl_cmd.sector_count == 0 and ns.write_cmd_queue.length() > 0:
+				# get next command from queue
+				ftl_cmd = ns.write_cmd_queue.pop()
+		
+		# push first write commmand for remaine sector count
+		if ftl_cmd.sector_count > 0 :
+			ns.write_cmd_queue.push_first(ftl_cmd)
+			
+		self.seq_num = self.seq_num + 1
+
+		# start nand cmd for fil
+		address = int(map_entry % CHUNKS_PER_WAY)
+	
+		# change cell mode command
+		cmd_index = nandcmd_table.get_free_slot()
+		cmd_desc = nandcmd_table.table[cmd_index]
+		cmd_desc.op_code = FOP_SET_MODE
+		cmd_desc.way = way
+		cmd_desc.nand_addr = address
+		cmd_desc.chunk_num = 0
+		cmd_desc.option = sb.get_cell_mode()
+		cmd_desc.seq_num = self.seq_num
+		
+		ftl2fil_queue.push(cmd_index)
+
+		# program command		
+		cmd_index = nandcmd_table.get_free_slot()
+		cmd_desc = nandcmd_table.table[cmd_index]
+		cmd_desc.op_code = FOP_USER_WRITE
+		cmd_desc.way = way
+		cmd_desc.nand_addr = address
+		cmd_desc.chunk_num = num_chunks
+		cmd_desc.buffer_ids = []
+		for index in range(num_chunks) :
+			# buffer_id is allocated by hil, and data is saved by hic
+			buffer_id = ns.write_buffer.pop(0)	
+			cmd_desc.buffer_ids.append(buffer_id)				
+		cmd_desc.seq_num = self.seq_num
+		
+		ftl2fil_queue.push(cmd_index)		
+		#end nand cmd for fil
+																								
+		# update super page index and check status of closing block (end of super block)
+		is_close, block_addr, way_list = sb.update_page()
+		
+		# the block number should be moved to closed block list in block manager
+		if is_close == True  :
+			# namespace has name of blk_manager, if we don't use slc buffer, we can get blk_manager by name'
+			blk_manager = blk_grp.get_block_manager_by_name(ns.blk_name)
+			blk_manager.set_close_block(block_addr)
+
+		# update num_chunks_to_write
+		ns.update_write_info(num_chunks)			
+																																																				
+		log_print('do write')
+
+	def do_trim(self, lba, sector_count) :
+		log_print('do trim - lba : %d, sector_count : %d'%(lba, sector_count))
+		
+		chunk_addr_start = lba / SECTORS_PER_CHUNK
+		chunk_addr_end = (lba + sector_count - 1) / SECTORS_PER_CHUNK
+		
+		while chunk_addr_start <= chunk_addr_end :
+			meta.map_table[chunk_addr_start] = 0xFFFFFFFF	
+			chunk_addr_start = chunk_addr_start + 1
+					
+	def handler(self) :
+				
+		# do host workload operation		
+		# fetch command
+		self.try_to_fetch_cmd()
+				
+		for index in range(namespace_mgr.get_num()) :															
+			# do write
+			ns = self.check_write_buffer_done()
+			
+			if ns != None :
+				# check open logical block
+				if ns.logical_blk.is_open() == False :
+					# in the io determinism, each namespace context has the own block manager in order to seperate nand
+					blk_manager = blk_grp.get_block_manager_by_name(ns.blk_name)	
+					cell_mode = NAND_MODE_MLC
+				
+					blk_no, way_list = blk_manager.get_free_block(erase_request = True)
+
+					# meta is global variable, it is required for reseting during open, current setting is None
+					ns.logical_blk.open(blk_no, way_list, None, cell_mode)
+				
+				# check ready to write of current namespace
+				if ns.is_ready_to_write() == True:
+					self.do_write(ns)
+					
+					break
+		
+		for index in range(namespace_mgr.get_num()) :
+			ns = namespace_mgr.get(index)	
+			# do read
+			if ns.num_chunks_to_read > 0 :
+				self.do_read(ns)
+												
+		return
+			
+	def debug(self) :
+		print('hil2ftl queue status')
+		print('    high queue : %d/%d'%(hil2ftl_high_queue.length(), hil2ftl_high_queue.get_depth()))
+		print('    low queue : %d/%d'%(hil2ftl_low_queue.length(), hil2ftl_low_queue.get_depth()))
+		print('nandcmd')
+		print('    num of free slots : %d'%(nandcmd_table.get_free_slot_num()))
+		print('buffer')
+		print('    num of read free slots : %d'%(bm.get_num_free_slots(BM_READ)))
+		print('    num of write free slots : %d'%(bm.get_num_free_slots(BM_WRITE)))
+	
+	def namespace_debug(self) :
+		namespace_mgr.debug()																												
+		
+class ftl_iod_statistics :
+	def __init__(self) :
+		print('iod statstics init')
+																																	
+	def print(self) :
+		print('iod statstics')
+
+namespace_mgr = namespace_manager([10, 40, 50])
+												
+if __name__ == '__main__' :
+	print ('module ftl (flash translation layer for iod)')
+	
+	ftl = ftl_iod_manager(None)
+			
+	print('ssd capacity : %d GB'%SSD_CAPACITY)
+#	print('ssd actual capacity : %d'%SSD_CAPACITY_ACTUAL)
+	print('num of lba (512 byte sector) : %d'%NUM_LBA)
+	print('num of logical chunk (4K unit) : %d'%(NUM_LBA/SECTORS_PER_CHUNK))	
+
+	blk_name = ['user1', 'user2', 'user3']	
+	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, 1, 2))
+	blk_grp.add(blk_name[0], block_manager(int(NUM_WAYS/2), [0, 1, 2, 3], 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))
+	blk_grp.add(blk_name[1], block_manager(int(NUM_WAYS/4), [4, 5], 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))
+	blk_grp.add(blk_name[2], block_manager(int(NUM_WAYS/4), [6, 7], 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))
+
+	for nsid in range(namespace_mgr.get_num()) :	
+		ns = namespace_mgr.get(nsid)
+		ns.set_blk_name(blk_name[nsid])
+		
+	namespace_mgr.debug()
+
+	print('\ntest namespace operation')
+																						
