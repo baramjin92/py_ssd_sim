@@ -25,46 +25,7 @@ from sim_event import *
 
 def log_print(message) :
 	event_log_print('[ftl]', message)
-		
-class gc_cmd_desc :
-	def __init__(self, cmd_tag) :
-		self.cmd_id = cmd_tag
-		self.lba_index = []
-		self.buffer_ids = []
-		self.count = 0
-
-class gc_id_context :
-	def __init__(self, gc_id_num, id_base = 0x2000, queue_id = 1000) :
-		self.queue_id = queue_id
-		self.cmd_id_base = id_base
-														
-		self.gc_id_free_slot = []
-		for index in range(id_base, id_base+gc_id_num) :
-			self.gc_id_free_slot.append(index)	
-			
-	def get_slot(self) :
-		queue_id = self.queue_id
-		cmd_id = self.gc_id_free_slot.pop(0)
-		return queue_id, cmd_id		
-		
-	def release_slot(self, cmd_id) :
-		self.gc_id_free_slot.append(cmd_id)	
-										
-	def get_num_free_slot(self) :
-		return len(self.gc_id_free_slot)																							
-
-# 'hil2ftl_high/low_queue' conveys ftl_cmd_desc
-# hil created entry of ftl_cmd_desc and send it via 'hil2ftl_high/low_qeueu'
-# ftl get entry of ftl_cmd_desc from these queues
-# ftl has another queue like 'write_cmd_queue' in order to gather write command 
-class ftl_cmd_desc :
-	def __init__(self) :
-		self.qid = 0					# qid can have queue id, zone id, stream id and so on. 
-		self.cmd_tag = 0
-		self.code = 0
-		self.lba = 0
-		self.sector_count = 0
- 																												
+		 																												
 class ftl_manager :
 	def __init__(self, num_way, hic) :
 		self.name = 'conventional'
