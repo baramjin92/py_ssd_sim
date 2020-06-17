@@ -45,6 +45,17 @@ class namespace_desc :
 		self.read_queue_id = 0
 		self.read_cmd_tag = 0
 		
+		# gc context
+		# change queue id by nsid
+		self.gc_cmd_id = gc_id_context(32, 0x2000, 1000 + nsid)
+		self.gc_cmd_queue = queue(32)
+		self.gc_issue_credit = 8
+		self.num_chunks_to_gc_read = 0
+		self.num_chunks_to_gc_write = 0
+
+		self.gc_blk = None				
+		self.gc_src_blk = None
+										
 	def set_blk_name(self, name) :
 		self.blk_name = name
 	
@@ -129,6 +140,13 @@ class namespace_manager :
 	def get(self, nsid) :		
 		ns =  self.table[nsid]													
 		return ns
+
+	def get_by_qid(self, queue_id) :
+		for ns in self.table :
+			if ns.gc_cmd_id.queue_id == queue_id :
+				return ns
+		
+		return None
 
 	def get_range(self, nsid) :
 		ns = self.table[nsid]																															

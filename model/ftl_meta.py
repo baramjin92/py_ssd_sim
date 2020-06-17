@@ -124,8 +124,8 @@ class ftl_meta :
 				
 			chunk_index = chunk_index + 1		
 		
-		print(str)
-				
+		print(str)				
+												
 	def print_valid_data(self, way, block) :
 		print('\nvalid info - way %d, block %d'%(way, block))
 		print('valid count : %04d'%(self.valid_count[way][block]))

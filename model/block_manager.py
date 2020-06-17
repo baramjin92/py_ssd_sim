@@ -51,7 +51,7 @@ class block_status :
 # if we use super block concept, one block manager is needed
 # if we want to separate block concept, it extend to number of way
 class block_manager :
-	def __init__(self, num_way, way_list, start_block, end_block, threshold_low = 1, threshold_high = 2) :
+	def __init__(self, num_way, way_list, start_block, end_block, threshold_low = 1, threshold_high = 2, cell_mode = NAND_MODE_MLC) :
 		self.exhausted = False
 		self.start_block = start_block
 		self.end_block = end_block
@@ -60,6 +60,7 @@ class block_manager :
 		self.num_defect_block = 0
 		self.threshold_low = threshold_low
 		self.threshold_high = threshold_high
+		self.cell_mode = cell_mode
 		
 		# when we use super block concept in conventional ssd, we only need representative value for blk_status and way_list
 		# we extend then to list type, in order to use sub block policy for zns or sata ssd. 
@@ -174,7 +175,7 @@ class block_manager :
 				blk_status.set(block, BLK_STATUS_VICTIM)				
 				ret_val = True
 			else :
-				ret_val = False102 
+				ret_val = False
 				block = -1
 		
 		return block, self.way_list, ret_val
@@ -299,7 +300,7 @@ class block_group :
 		return None		
 																								
 	def print_info(self) :		
-		blk_name = {'block manager' : ['name', 'start block', 'end_block', 'ways']}				
+		blk_name = {'block manager' : ['name', 'start block', 'end_block', 'ways', 'cell']}				
 						
 		blk_pd = pd.DataFrame(blk_name)																
 		for index, blk in enumerate(self.blk) :				
@@ -311,7 +312,17 @@ class block_group :
 			blk_columns.append(blk_range[0])
 			blk_columns.append(blk_range[1])
 			blk_columns.append(blk.way_list)
-																				
+
+			if blk.cell_mode == NAND_MODE_SLC :
+				cell_mode = 'SLC'
+			elif blk.cell_mode == NAND_MODE_MLC :
+				cell_mode = 'MLC'
+			elif blk.cell_mode == NAND_MODE_TLC :
+				cell_mode = 'TLC'
+			elif blk.cell_mode == NAND_MODE_QLC :
+				cell_mode = 'QLC'
+			blk_columns.append(cell_mode)
+																																														
 			blk_pd['%d'%(index)] = pd.Series(blk_columns, index=blk_pd.index)
 				
 		print('block group info')		
@@ -344,7 +355,7 @@ class super_block :
 			self.block.append(0xFFFFFFFF)
 			self.page.append(0)	
 
-			self.name = name
+		self.name = name
 
 	def open(self, block_addr, way_list, meta_info, cell_mode = NAND_MODE_MLC) :	
 		self.block_addr = block_addr	
@@ -372,7 +383,7 @@ class super_block :
 		elif self.cell_mode == NAND_MODE_SLC :
 			self.end_page = PAGES_PER_BLOCK / 2		# this calculation is based on MLC nand
 
-		print('\n%s sb open : %d, way list : %s, allocated num : %d'%(self.name, block_addr, str(self.ways), self.allocated_num))
+		print('\n%s sb open : %d, way list : %s, alloc num : %d'%(self.name, block_addr, str(self.ways), self.allocated_num))
 
 	def is_open(self) :
 		if self.allocated_num == 0 :
@@ -469,9 +480,9 @@ class super_block :
 		print(sb_info_pd)
 
 def unit_test_conv_ssd() :
-	blk_grp.add('meta', block_manager(NUM_WAYS, None, 1, 9))
-	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 20))
-	blk_grp.add('user', block_manager(NUM_WAYS, None, 20, 100))
+	blk_grp.add('meta', block_manager(NUM_WAYS, None, 1, 9, 1,  2, NAND_MODE_SLC))
+	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 20, 1, 2, NAND_MODE_SLC))
+	blk_grp.add('user', block_manager(NUM_WAYS, None, 20, 100, 1, 2, NAND_MODE_TLC))
 	
 	blk_grp.print_info()
 	blk_grp.debug()

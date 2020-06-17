@@ -489,7 +489,7 @@ class ftl_manager :
 		
 		if fil2ftl_queue.length() > 0 :
 			# fetch gc command and parse lba and sector count for chunk 
-			cmd_tag, buffer_ids = fil2ftl_queue.pop()
+			queue_id, cmd_tag, buffer_ids = fil2ftl_queue.pop()
 
 			gc_cmd = gc_cmd_desc(cmd_tag)
 			

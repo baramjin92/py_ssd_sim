@@ -111,7 +111,7 @@ class fil_manager :
 				log_print('\nFOP_GC_READ - cmd id : %d'%(cmd_desc.cmd_tag))
 																
 				# send cmd id and buffer ids to ftl
-				fil2ftl_queue.push([cmd_desc.cmd_tag, cmd_desc.buffer_ids])	
+				fil2ftl_queue.push([cmd_desc.queue_id, cmd_desc.cmd_tag, cmd_desc.buffer_ids])	
 
 				# update statistics
 				self.fil_stat.num_gc_read_pages = self.fil_stat.num_gc_read_pages + 1
@@ -200,11 +200,11 @@ if __name__ == '__main__' :
 	
 	fil.fil_stat.print()
 	
+	queue_id = 2000
+	cmd_id = 1
 	buffer_ids = [1, 2]
-	fil2ftl_queue.push([1, buffer_ids])
+	fil2ftl_queue.push([queue_id, cmd_id, buffer_ids])
 	
-	cmd_id, buffer_ids = fil2ftl_queue.pop()
-	print(cmd_id)
-	print(buffer_ids)	
-						
-																			
+	queue_id, cmd_id, buffer_ids = fil2ftl_queue.pop()
+	
+	print('\n\nqueue : %d, cmd : %d, buffer : %s'%(queue_id, cmd_id, str(buffer_ids)))																			
