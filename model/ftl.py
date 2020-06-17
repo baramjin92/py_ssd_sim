@@ -631,19 +631,16 @@ class ftl_manager :
 		# super block allocation
 		if self.host_sb.is_open() == False :
 			blk_manager = blk_grp.get_block_manager_by_name('slc_cache')
-			if blk_manager.get_free_block_num() > 0 and blk_manager.get_exhausted_status() == False :
-				cell_mode = NAND_MODE_SLC
-			else : 
+			if blk_manager.get_free_block_num() == 0 or blk_manager.get_exhausted_status() == True :
 				blk_manager = blk_grp.get_block_manager_by_name('user')
-				cell_mode = NAND_MODE_MLC
 				
 			blk_no, way_list = blk_manager.get_free_block(erase_request = True)
-			self.host_sb.open(blk_no, way_list, meta, cell_mode)
+			self.host_sb.open(blk_no, way_list, meta, blk_manager.cell_mode)
 		
 		if self.gc_sb.is_open() == False :
 			blk_manager = blk_grp.get_block_manager_by_name('user')
 			blk_no, way_list = blk_manager.get_free_block(erase_request = True)
-			self.gc_sb.open(blk_no, way_list, meta)
+			self.gc_sb.open(blk_no, way_list, meta, blk_manager.cell_mode)
 
 		# do host workload operation		
 		# fetch command
@@ -658,48 +655,29 @@ class ftl_manager :
 			self.do_read()
 								
 		# do garbage collection
-		# select victim block
-		if True :
-			blk_manager = blk_grp.get_block_manager_by_name('slc_cache')
-			if blk_manager.get_exhausted_status() == True  and self.gc_src_sb.is_open() == False :
-				block, way_list, ret_val = blk_manager.get_victim_block()
-				if ret_val == True :
-					self.select_victim_block(block, way_list, NAND_MODE_SLC)
+		# select victim block between slc_cache and user area
+		blk_manager = blk_grp.get_block_manager_by_name('slc_cache')
+		if blk_manager.get_exhausted_status() == True  and self.gc_src_sb.is_open() == False :
+			block, way_list, ret_val = blk_manager.get_victim_block()
+			if ret_val == True :
+				self.select_victim_block(block, way_list, blk_manager.cell_mode)
 			
-			blk_manager = blk_grp.get_block_manager_by_name('user')
-			if blk_manager.get_exhausted_status() == True and self.gc_src_sb.is_open() == False :
-				block, way_list, ret_val = blk_manager.get_victim_block()
-				if ret_val == True :
-					self.select_victim_block(block, way_list, NAND_MODE_MLC)
+		blk_manager = blk_grp.get_block_manager_by_name('user')
+		if blk_manager.get_exhausted_status() == True and self.gc_src_sb.is_open() == False :
+			block, way_list, ret_val = blk_manager.get_victim_block()
+			if ret_val == True :
+				self.select_victim_block(block, way_list, blk_manager.cell_mode)
 				
-			# collect valid chunk from source super block
-			if self.run_mode == True :		
-				self.do_gc_read(self.gc_src_sb)
+		# collect valid chunk from source super block
+		if self.run_mode == True :		
+			self.do_gc_read(self.gc_src_sb)
 				
-			self.do_gc_read_completion()
+		self.do_gc_read_completion()
 				
-			# write valid chunk to destination super block 
-			if self.num_chunks_to_gc_write >= CHUNKS_PER_PAGE :
-				self.do_gc_write(self.gc_sb)
-				#self.do_gc_write_completion()
-		else :
-			blk_manager = blk_grp.get_block_manager_by_name('user')
-			if blk_manager.get_exhausted_status() == True :
-				block, way_list, ret_val = blk_manager.get_victim_block()
-				if ret_val == True :
-					self.select_victim_block(block, way_list, NAND_MODE_MLC)
-				
-				# collect valid chunk from source super block
-				if self.gc_src_sb.is_open() == True :		
-					self.do_gc_read(self.gc_src_sb)
-					self.do_gc_read_completion()
-					
-				# write valid chunk to destination super block 
-				if self.num_chunks_to_gc_write >= CHUNKS_PER_PAGE :
-					self.do_gc_write(self.gc_sb)
-					#self.do_gc_write_completion()
-				
-		return
+		# write valid chunk to destination super block 
+		if self.num_chunks_to_gc_write >= CHUNKS_PER_PAGE :
+			self.do_gc_write(self.gc_sb)
+			#self.do_gc_write_completion()
 			
 	def debug(self) :
 		print('hil2ftl queue status')

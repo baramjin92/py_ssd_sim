@@ -48,11 +48,11 @@ class host_cmd :
 		self.submit_time = 0
 
 class host_cmd_context :
-	def __init__(self, host_num, queue_id = 0) :
+	def __init__(self, cmd_num, queue_id = 0) :
 		self.queue_id = queue_id												
 		self.host_cmd_table = []
 		self.host_cmd_free_slot = []
-		for index in range(host_num) :
+		for index in range(cmd_num) :
 			self.host_cmd_table.append(host_cmd(index))
 			self.host_cmd_free_slot.append(index)	
 			
@@ -70,12 +70,12 @@ class host_cmd_context :
 		return len(self.host_cmd_free_slot)																							
 																																				
 class host_manager :
-	def __init__(self, host_num, namespace = []) :
+	def __init__(self, host_cmd_num, queue_num = NUM_HOST_QUEUE, namespace = []) :
 		# set host context
 		self.host_cmd_queue = []
 		self.queue_ids = []
-		for index in range(NUM_HOST_QUEUE) :
-			self.host_cmd_queue.append(host_cmd_context(host_num, index))
+		for index in range(queue_num) :
+			self.host_cmd_queue.append(host_cmd_context(host_cmd_num, index))
 			self.queue_ids.append(index)
 		
 		# link state 
@@ -102,7 +102,7 @@ class host_manager :
 			for max_lba in namespace :
 				self.data_table.append(np.empty((max_lba), np.int32))		
 		
-		self.host_stat = host_statistics(NUM_HOST_QUEUE)
+		self.host_stat = host_statistics(queue_num)
 	
 	def get_nsid(self, qid) :
 		if self.use_namespace == True :
@@ -442,10 +442,10 @@ class host_manager :
 		
 	def debug(self) :
 		print('\nhost command queue')
-		for index in range(NUM_HOST_QUEUE) :
-			host_cmd_queue = self.host_cmd_queue[index]
-			
-			print('queue %d - free slot num : %d'%(index, host_cmd_queue.get_num_free_slot()))
+	
+		for cmd_queue, index in enumerate(self.host_cmd_queue) :
+			print('queue %d - free slot num : %d'%(index, cmd_queue.get_num_free_slot()))
+		
 		print('link status - uplink : %d, downlink : %d'%(self.uplink_state, self.downlink_state))			
 		
 	def print_host_data(self, lba, num_sectors) :

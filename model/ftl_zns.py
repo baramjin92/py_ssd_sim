@@ -159,12 +159,11 @@ class zone_manager :
 				zone.logical_blk = super_block(self.num_way, zone_name, SB_OP_WRITE)
 				
 				blk_manager = blk_grp.select_block_manager_for_free_block(FREE_BLK_LEVELING)	
-				cell_mode = NAND_MODE_MLC
 				
 				blk_no, way_list = blk_manager.get_free_block(erase_request = True)
 
 				# meta is global variable, it is required for reseting during open, current setting is None
-				zone.logical_blk.open(blk_no, way_list, None, cell_mode)
+				zone.logical_blk.open(blk_no, way_list, None, blk_manager.cell_mode)
 													
 				return zone
 			else :
@@ -587,12 +586,11 @@ class ftl_zns_manager :
 					# this code is required when size of zone is larger than size of super block
 					# in this simulation, size of zone is aligned by multiplication of size of super block
 					blk_manager = blk_grp.select_block_manager_for_free_block(FREE_BLK_LEVELING)	
-					cell_mode = NAND_MODE_MLC
 				
 					blk_no, way_list = blk_manager.get_free_block(erase_request = True)
 
 					# meta is global variable, it is required for reseting during open, current setting is None
-					zone.logical_blk.open(blk_no, way_list, None, cell_mode)
+					zone.logical_blk.open(blk_no, way_list, None, blk_manager.cell_mode)
 				
 				# check ready to write to zone
 				if zone.is_ready_to_write() == True:
