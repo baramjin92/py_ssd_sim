@@ -78,9 +78,6 @@ def host_run() :
 if __name__ == '__main__' :
 	log.open(None, False)
 	
-	#global NUM_HOST_QUEUE
-	#NUM_HOST_QUEUE = 1
-
 	global NUM_CHANNELS
 	global WAYS_PER_CHANNELS
 	global NUM_WAYS
@@ -92,7 +89,7 @@ if __name__ == '__main__' :
 	report = report_manager()
 	
 	print('initialize model')
-	host_model = host_manager(NUM_HOST_CMD_TABLE, [int(NUM_LBA*0.1), int(NUM_LBA*0.4), int(NUM_LBA*0.5)])
+	host_model = host_manager(NUM_HOST_CMD_TABLE, NUM_HOST_QUEUE, [int(NUM_LBA*0.1), int(NUM_LBA*0.4), int(NUM_LBA*0.5)])
 	hic_model = hic_manager(NUM_CMD_EXEC_TABLE * NUM_HOST_QUEUE)
 	
 	nand_model = nand_manager(NUM_WAYS, nand_info)

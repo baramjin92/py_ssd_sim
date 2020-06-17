@@ -48,13 +48,16 @@ def host_run() :
 if __name__ == '__main__' :
 	log.open(None, False)
 						
+	global NUM_HOST_QUEUE
+						
 	if NUM_HOST_QUEUE > 1 :					
 		print('NUM_HOST_QUEUE should be 1')					
+		NUM_HOST_QUEUE = 1
 						
 	report = report_manager()
 	
 	print('initialize model')
-	host_model = host_manager(NUM_HOST_CMD_TABLE)
+	host_model = host_manager(NUM_HOST_CMD_TABLE, NUM_HOST_QUEUE)
 	hic_model = hic_manager(NUM_CMD_EXEC_TABLE * NUM_HOST_QUEUE)
 	
 	nand_model = nand_manager(NUM_WAYS, nand_info)
