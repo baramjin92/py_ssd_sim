@@ -40,13 +40,17 @@ def build_workload_gc() :
 	if NUM_HOST_QUEUE >= 2 :
 		wlm.add_group(NUM_HOST_QUEUE - 1)
 	
-	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_256MB, 128, 128, 16, WL_SIZE_MB, 0, True, False))
-	#wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16MB, 128, 128, 8, WL_SIZE_MB, 0, True, False))
-	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16MB, 128, 128, 8, WL_SIZE_MB, 0, True, False))
-	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16MB, 128, 128, 4, WL_SIZE_MB, 0, True, False))
+	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16MB, 128, 128, 16, WL_SIZE_MB, 0, True))
+	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16MB, 128, 128, 16, WL_SIZE_MB, 100, True))
+	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16MB, 32, 32, 8, WL_SIZE_MB, 100, True))
+
+	wlm.set_workload(workload(WL_RAND_WRITE, 0, range_16MB, 128, 128, 16, WL_SIZE_MB, 0, True), 1)
+	wlm.set_workload(workload(WL_RAND_WRITE, 0, range_16MB, 128, 128, 32, WL_SIZE_MB, 0, True, True), 1)
+	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16GB, 32, 32, 8, WL_SIZE_MB, 0, True, True), 1)
+	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16GB, 32, 32, 8, WL_SIZE_MB, 100, True), 1)
 		
-	wlm.set_workload(workload(WL_RAND_WRITE, 0, range_16MB, 8, 8, 32, WL_SIZE_MB, 0, True, False), 1)
-	wlm.set_workload(workload(WL_RAND_READ, 0, range_16MB, 64, 64, 32, WL_SIZE_MB, 100, True, True), 1)
+	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16MB, 8, 8, 16, WL_SIZE_MB, 0, True), 2)
+	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16MB, 64, 64, 32, WL_SIZE_MB, 100, True), 2)
 
 def build_workload_multiqueue() :
 	wlm.set_capacity(range_16GB)
@@ -55,11 +59,12 @@ def build_workload_multiqueue() :
 		wlm.add_group(NUM_HOST_QUEUE - 1)
 	
 	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16MB, 128, 128, 16, WL_SIZE_MB, 0, True))
-	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16MB, 128, 128, 16, WL_SIZE_MB, 0, True))
+	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16MB, 128, 128, 16, WL_SIZE_MB, 100, True))
+	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16MB, 32, 32, 8, WL_SIZE_MB, 100, True))
 
-	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16GB, 128, 128, 32, WL_SIZE_MB, 0, True), 1)
-	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16GB, 128, 128, 16, WL_SIZE_MB, 100, True), 1)
-	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16GB, 32, 32, 8, WL_SIZE_MB, 0, True), 1)
+	wlm.set_workload(workload(WL_RAND_WRITE, 0, range_16MB, 128, 128, 16, WL_SIZE_MB, 0, True), 1)
+	wlm.set_workload(workload(WL_RAND_WRITE, 0, range_16MB, 128, 128, 32, WL_SIZE_MB, 0, True), 1)
+	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16GB, 32, 32, 8, WL_SIZE_MB, 0, True, True), 1)
 	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16GB, 32, 32, 8, WL_SIZE_MB, 100, True), 1)
 		
 	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16MB, 8, 8, 16, WL_SIZE_MB, 0, True), 2)
@@ -100,8 +105,8 @@ if __name__ == '__main__' :
 
 	blk_name = ['user1', 'user2', 'user3']
 	meta.config(NUM_WAYS)
-	blk_grp.add('meta', block_manager(NUM_WAYS, None, 1, 9))
-	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, 1, 2))
+	blk_grp.add('meta', block_manager(NUM_WAYS, None, 1, 9, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, NAND_MODE_SLC))
+	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, NAND_MODE_SLC))
 	blk_grp.add(blk_name[0], block_manager(int(NUM_WAYS/2), [0, 1, 2, 3], 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))
 	blk_grp.add(blk_name[1], block_manager(int(NUM_WAYS/4), [4, 5], 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))
 	blk_grp.add(blk_name[2], block_manager(int(NUM_WAYS/4), [6, 7], 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))
@@ -225,8 +230,10 @@ if __name__ == '__main__' :
 					
 					if wlm.get_force_gc() == True :
 						meta.print_valid_data(0, 20)
-						blk_manager = blk_grp.get_block_manager_by_name('user')
-						blk_manager.set_exhausted_status(True)
+						for index in range(namespace_mgr.get_num()) :
+							ns = namespace_mgr.get(index)	
+							blk_manager = blk_grp.get_block_manager_by_name(ns.blk_name)
+							blk_manager.set_exhausted_status(True)
 						
 					node = event_mgr.alloc_new_event(0)
 					node.dest = event_dst.MODEL_HOST

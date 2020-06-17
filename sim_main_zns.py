@@ -37,7 +37,7 @@ from progress.bar import Bar
 def build_workload_zns() :
 	wlm.set_capacity(range_16GB)
 		
-	wlm.set_workload(workload(WL_ZNS_WRITE, 0, range_16GB, 128, 128, 128, WL_SIZE_MB, 0, True, False))
+	wlm.set_workload(workload(WL_ZNS_WRITE, 0, range_16GB, 128, 128, 256, WL_SIZE_MB, 0, True, False))
 	wlm.set_workload(workload(WL_ZNS_READ, 0, range_16GB, 128, 128, 128, WL_SIZE_MB, 0, True, False))
 		
 def host_run() :
@@ -47,7 +47,10 @@ def host_run() :
 																								
 if __name__ == '__main__' :
 	log.open(None, False)
-		
+						
+	if NUM_HOST_QUEUE > 1 :					
+		print('NUM_HOST_QUEUE should be 1')					
+						
 	report = report_manager()
 	
 	print('initialize model')
@@ -69,7 +72,7 @@ if __name__ == '__main__' :
 	
 	if num_zone_way == NUM_WAYS :
 		# large zone configuration : zone uses all dies 
-		blk_grp.add('slc_cache', block_manager(num_zone_way, None, 10, 19, 1, 2))
+		blk_grp.add('slc_cache', block_manager(num_zone_way, None, 10, 19, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, NAND_MODE_SLC))
 		blk_grp.add('user1', block_manager(num_zone_way, None, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))	
 	else :	
 		# small zone configuration : zone uses a few dies 

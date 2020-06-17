@@ -99,15 +99,15 @@ if __name__ == '__main__' :
 	fil_module = fil_manager(nfc_model, hic_model)
 
 	meta.config(NUM_WAYS)
-	blk_grp.add('meta', block_manager(NUM_WAYS, None, 1, 9))
-	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, 1, 2))
+	blk_grp.add('meta', block_manager(NUM_WAYS, None, 1, 9, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, NAND_MODE_SLC))
+	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, NAND_MODE_SLC))
 	blk_grp.add('user', block_manager(NUM_WAYS, None, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))
 
 	ftl_module.start()
 
 	print('initialize workload')
-	build_workload_gc()
-	#build_workload_multiqueue()
+	#build_workload_gc()
+	build_workload_multiqueue()
 
 	host_run()
 	
