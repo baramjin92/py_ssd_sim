@@ -441,7 +441,12 @@ class ftl_manager :
 						cmd_desc.seq_num = self.seq_num
 						cmd_desc.cmd_tag = cmd_tag
 						cmd_desc.queue_id = queue_id
-						
+
+						cmd_desc.gc_meta = []
+						gc_meta = build_map_entry2(way, address)
+						for offset in range(num_chunks) :
+							cmd_desc.gc_meta.append(gc_meta + offset) 
+																																												
 						ftl2fil_queue.push(cmd_index)						
 						
 						self.num_chunks_to_gc_read = self.num_chunks_to_gc_read + num_chunks																																			
@@ -470,6 +475,11 @@ class ftl_manager :
 					cmd_desc.seq_num = self.seq_num
 					cmd_desc.cmd_tag = cmd_tag
 					cmd_desc.queue_id = queue_id
+					
+					cmd_desc.gc_meta = []
+					gc_meta = build_map_entry2(way, address)
+					for offset in range(num_chunks) :
+						cmd_desc.gc_meta.append(gc_meta + offset) 
 						
 					ftl2fil_queue.push(cmd_index)						
 			
@@ -489,23 +499,35 @@ class ftl_manager :
 		
 		if fil2ftl_queue.length() > 0 :
 			# fetch gc command and parse lba and sector count for chunk 
-			queue_id, cmd_tag, buffer_ids = fil2ftl_queue.pop()
+			queue_id, cmd_tag, buffer_ids, gc_meta = fil2ftl_queue.pop()
 
-			gc_cmd = gc_cmd_desc(cmd_tag)
+			# if we don't use namespace, nsid is not require'
+			gc_cmd = gc_cmd_desc(0, cmd_tag)
 			
-			for buffer_id in buffer_ids :
-				gc_cmd.buffer_ids.append(buffer_id)
-				gc_cmd.lba_index.append(bm.get_meta_data(buffer_id))
-			
-			gc_cmd.count = len(buffer_ids)
-
-			self.gc_cmd_queue.push(gc_cmd)
-			
-			self.num_chunks_to_gc_read = self.num_chunks_to_gc_read - gc_cmd.count
-			self.num_chunks_to_gc_write = self.num_chunks_to_gc_write + gc_cmd.count 
-									
+			for buffer_id in buffer_ids :			
+				# get old physical address info
+				lba_index = bm.get_meta_data(buffer_id)
+				
+				old_physical_addr = meta.map_table[lba_index]
+				gc_physical_addr = gc_meta.pop(0)
+				# compare physical address
+				if old_physical_addr != gc_physical_addr :
+					print('gc_read_comp : skip - lbai : %d, meta : %s, gc_meta : %s'%(lba_index, str(parse_map_entry(old_physical_addr)), str(parse_map_entry(gc_physical_addr))))
+					#release buffer
+					bm.release_buffer(buffer_id)
+				else :
+					gc_cmd.buffer_ids.append(buffer_id)
+					gc_cmd.lba_index.append(lba_index)
+					gc_cmd.gc_meta.append(gc_physical_addr)
+							
+			gc_cmd.count = len(gc_cmd.buffer_ids)
+			if gc_cmd.count > 0:
+				self.gc_cmd_queue.push(gc_cmd)
+				
+				self.num_chunks_to_gc_read = self.num_chunks_to_gc_read - gc_cmd.count
+				self.num_chunks_to_gc_write = self.num_chunks_to_gc_write + gc_cmd.count 
+										
 			log_print('\ngc read result - cmd id : %d, num_read : %d, num_write : %d'%(cmd_tag, self.num_chunks_to_gc_read, self.num_chunks_to_gc_write))
-			#print(buffer_ids)
 
 			#self.gc_issue_credit = self.gc_issue_credit + 1
 
@@ -537,12 +559,19 @@ class ftl_manager :
 		# valid chunk bitamp and valid chunk count use in gc and trim 
 		for index in range(num_chunks) :
 			log_print('update meta data')
+
+			buf_id = gc_cmd.buffer_ids.pop(0)
+			gc_meta = gc_cmd.gc_meta.pop(0) 
+
 			# get old physical address info
 			lba_index = gc_cmd.lba_index.pop(0)
-			buffer_ids.append(gc_cmd.buffer_ids.pop(0))
 			
 			old_physical_addr = meta.map_table[lba_index]
-			
+
+			# compare physical address
+			if old_physical_addr != gc_meta :
+				print('gc_meta is not same with current meta - lbai : %d, meta : %s, gc_meta : %s'%(lba_index, str(parse_map_entry(old_physical_addr)), str(parse_map_entry(gc_meta))))
+																								
 			# calculate way, block, page of old physical address
 			old_way, old_nand_block, old_nand_page, old_chunk_offset = parse_map_entry(old_physical_addr)
 			
@@ -559,7 +588,9 @@ class ftl_manager :
 				log_print('move sb : %d to erased block'%old_nand_block) 
 				blk_manager = blk_grp.get_block_manager(old_nand_block)
 				blk_manager.release_block(old_nand_block)		
-												
+
+			buffer_ids.append(buf_id)														
+																																																
 			# update count of gc command in order to check end of current gc command 			
 			gc_cmd.count = gc_cmd.count - 1
 			

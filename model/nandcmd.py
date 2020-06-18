@@ -44,7 +44,7 @@ class nfc_desc :
 		self.op_code = 0
 		self.way = 0
 		#self.offset = 0
-		self.gc_issue_blk_cnt = 0
+		self.gc_meta = []
 		self.seq_num = 0
 
 		# bottom_half (nand)

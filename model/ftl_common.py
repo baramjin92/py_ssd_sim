@@ -20,14 +20,18 @@ def log_print(message) :
 	event_log_print('[ftl]', message)
 
 class gc_cmd_desc :
-	def __init__(self, cmd_tag) :
+	def __init__(self, nsid, cmd_tag) :
+		self.nsid = nsid
 		self.cmd_id = cmd_tag
 		self.lba_index = []
 		self.buffer_ids = []
+		self.gc_meta = []
 		self.count = 0
 
+GC_QUEUE_ID_BASE = 1000
+
 class gc_id_context :
-	def __init__(self, gc_id_num, id_base = 0x2000, queue_id = 1000) :
+	def __init__(self, gc_id_num, id_base = 0x2000, queue_id = GC_QUEUE_ID_BASE) :
 		self.queue_id = queue_id
 		self.cmd_id_base = id_base
 														

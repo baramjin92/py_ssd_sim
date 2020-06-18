@@ -47,7 +47,7 @@ class namespace_desc :
 		
 		# gc context
 		# change queue id by nsid
-		self.gc_cmd_id = gc_id_context(32, 0x2000, 1000 + nsid)
+		self.gc_cmd_id = gc_id_context(32, 0x2000, GC_QUEUE_ID_BASE + nsid)
 		self.gc_cmd_queue = queue(32)
 		self.gc_issue_credit = 8
 		self.num_chunks_to_gc_read = 0
