@@ -426,7 +426,7 @@ class ftl_iod_manager :
 						cmd_desc.queue_id = queue_id
 
 						cmd_desc.gc_meta = []
-						gc_meta = build_map_entry2(way, address)
+						gc_meta = build_map_entry2(way, address, start_chunk_offset)
 						for offset in range(num_chunks) :
 							cmd_desc.gc_meta.append(gc_meta + offset) 
 																				
@@ -460,7 +460,7 @@ class ftl_iod_manager :
 					cmd_desc.queue_id = queue_id
 
 					cmd_desc.gc_meta = []
-					gc_meta = build_map_entry2(way, address)
+					gc_meta = build_map_entry2(way, address, start_chunk_offset)
 					for offset in range(num_chunks) :
 						cmd_desc.gc_meta.append(gc_meta + offset) 
 												
@@ -488,38 +488,91 @@ class ftl_iod_manager :
 			# get ns by queue_id
 			ns = namespace_mgr.get_by_qid(queue_id)
 
-			gc_cmd = gc_cmd_desc(ns.nsid, cmd_tag)
+			gc_cmd = gc_cmd_desc(queue_id, cmd_tag)
 						
 			for buffer_id in buffer_ids :			
 				# get old physical address info
-				ns_lba_index = bm.get_meta_data(buffer_id)
-				lba_index = int(namespace_mgr.lba2meta_addr(ns.nsid, ns_lba_index * SECTORS_PER_CHUNK) / SECTORS_PER_CHUNK)			
-				
-				old_physical_addr = meta.map_table[lba_index]
+				ns_lba_index = bm.get_meta_data(buffer_id)				
 				gc_physical_addr = gc_meta.pop(0)
-				# compare physical address
-				if old_physical_addr != gc_physical_addr :
-					print('gc_read_comp : skip - lbai : %d, meta : %s, gc_meta : %s'%(lba_index, str(parse_map_entry(old_physical_addr)), str(parse_map_entry(gc_physical_addr))))
-					#release buffer
-					bm.release_buffer(buffer_id)
-				else :
-					gc_cmd.buffer_ids.append(buffer_id)
-					gc_cmd.lba_index.append(ns_lba_index)
-					gc_cmd.gc_meta.append(gc_physical_addr)
+				
+				gc_cmd.buffer_ids.append(buffer_id)
+				gc_cmd.lba_index.append(ns_lba_index)
+				gc_cmd.gc_meta.append(gc_physical_addr)
 							
 			gc_cmd.count = len(gc_cmd.buffer_ids)
-			if gc_cmd.count > 0:
-				ns.gc_cmd_queue.push(gc_cmd)
 				
+			if gc_cmd.count > 0 :	
+				ns.gc_cmd_queue.push(gc_cmd)
+					
 				ns.num_chunks_to_gc_read = ns.num_chunks_to_gc_read - gc_cmd.count
 				ns.num_chunks_to_gc_write = ns.num_chunks_to_gc_write + gc_cmd.count 
-										
+											
 			log_print('\ngc read result - nsid : %d, queue_id : %d, cmd id : %d, num_read : %d, num_write : %d, buf : %s'%(ns.nsid, queue_id, cmd_tag, ns.num_chunks_to_gc_read, ns.num_chunks_to_gc_write, str(buffer_ids)))
 
 			#ns.gc_issue_credit = ns.gc_issue_credit + 1
 				
 		return ns
 
+	def gc_gather_write_data(self, ns) :				
+		ret_val = False
+		
+		if ns.num_chunks_to_gc_write < CHUNKS_PER_PAGE :
+			return False		
+		
+		num_chunks = ns.num_chunks_to_gc_write
+		
+		queue_id, cmd_tag = ns.gc_cmd_id.get_slot() 											 											
+		gc_cmd_comp = gc_cmd_desc(queue_id, cmd_tag)
+												
+		# get write cmd
+		gc_cmd = ns.gc_cmd_queue.pop()
+													
+		for index in range(num_chunks) :
+			buf_id = gc_cmd.buffer_ids.pop(0)
+			gc_meta = gc_cmd.gc_meta.pop(0) 
+			ns_lba_index = gc_cmd.lba_index.pop(0)
+			
+			# get old physical address info
+			lba_index = int(namespace_mgr.lba2meta_addr(ns.nsid, ns_lba_index * SECTORS_PER_CHUNK) / SECTORS_PER_CHUNK)			
+			old_physical_addr = meta.map_table[lba_index]
+
+			# compare physical address
+			if old_physical_addr != gc_meta :
+				print('gc compaction - lbai : %d, meta : %s, gc_meta : %s'%(lba_index, str(parse_map_entry(old_physical_addr)), str(parse_map_entry(gc_meta))))
+				
+				bm.release_buffer(buf_id)
+				
+				ns.num_chunks_to_gc_write = ns.num_chunks_to_gc_write - 1			
+			else :																
+				# move to compaction cmd set		
+				gc_cmd_comp.buffer_ids.append(buf_id)
+				gc_cmd_comp.gc_meta.append(gc_meta)
+				gc_cmd_comp.lba_index.append(ns_lba_index)
+				gc_cmd_comp.count = gc_cmd_comp.count + 1														
+																										
+			# update count of gc command in order to check end of current gc command 			
+			gc_cmd.count = gc_cmd.count - 1
+
+			if gc_cmd.count == 0 :
+				# release cmd id
+				ns.gc_cmd_id.release_slot(gc_cmd.cmd_id)
+			
+				if ns.gc_cmd_queue.length() > 0:			
+					# get next command from queue
+					gc_cmd = ns.gc_cmd_queue.pop()
+
+			if gc_cmd_comp.count > CHUNKS_PER_PAGE :
+				ret_val = True
+				break						
+						
+		# push write commmand for remain sector count
+		if gc_cmd.count > 0 :
+			ns.gc_cmd_queue.push_first(gc_cmd)
+			
+		ns.gc_cmd_queue.push_first(gc_cmd_comp)	
+		
+		return ret_val
+						
 	def do_gc_write(self, ns) :
 		# do_write try to program data to nand
 		buffer_ids = []
@@ -540,7 +593,7 @@ class ftl_iod_manager :
 			
 		# get write cmd
 		gc_cmd = ns.gc_cmd_queue.pop()
-																						
+																																																																	
 		# get new physical address from open block	
 		way, block, page = sb.get_physical_addr()
 		map_entry = build_map_entry(way, block, page, 0)
@@ -555,13 +608,14 @@ class ftl_iod_manager :
 			
 			# get old physical address info
 			ns_lba_index = gc_cmd.lba_index.pop(0)
-			lba_index = int(namespace_mgr.lba2meta_addr(gc_cmd.nsid, ns_lba_index * SECTORS_PER_CHUNK) / SECTORS_PER_CHUNK)			
+			lba_index = int(namespace_mgr.lba2meta_addr(ns.nsid, ns_lba_index * SECTORS_PER_CHUNK) / SECTORS_PER_CHUNK)			
 			
 			old_physical_addr = meta.map_table[lba_index]
 
-			# compare physical address
+			# compare physical address for debugging : start 
 			if old_physical_addr != gc_meta :
 				print('gc_meta is not same with current meta - lbai : %d, meta : %s, gc_meta : %s'%(lba_index, str(parse_map_entry(old_physical_addr)), str(parse_map_entry(gc_meta))))
+			# compare physical address for debugging : end
 															
 			# calculate way, block, page of old physical address
 			old_way, old_nand_block, old_nand_page, old_chunk_offset = parse_map_entry(old_physical_addr)
@@ -701,8 +755,9 @@ class ftl_iod_manager :
 				# meta is global variable, it is required for reseting during open, current setting is None
 				ns.gc_blk.open(blk_no, way_list, None, blk_manager.cell_mode)
 			  
-			if ns.num_chunks_to_gc_write >= CHUNKS_PER_PAGE :
+			if self.gc_gather_write_data(ns) == True :
 				self.do_gc_write(ns)
+					
 				#self.do_gc_write_completion()
 																																		
 		return

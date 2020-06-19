@@ -443,7 +443,7 @@ class ftl_manager :
 						cmd_desc.queue_id = queue_id
 
 						cmd_desc.gc_meta = []
-						gc_meta = build_map_entry2(way, address)
+						gc_meta = build_map_entry2(way, address, start_chunk_offset)
 						for offset in range(num_chunks) :
 							cmd_desc.gc_meta.append(gc_meta + offset) 
 																																												
@@ -477,7 +477,7 @@ class ftl_manager :
 					cmd_desc.queue_id = queue_id
 					
 					cmd_desc.gc_meta = []
-					gc_meta = build_map_entry2(way, address)
+					gc_meta = build_map_entry2(way, address, start_chunk_offset)
 					for offset in range(num_chunks) :
 						cmd_desc.gc_meta.append(gc_meta + offset) 
 						
@@ -507,20 +507,14 @@ class ftl_manager :
 			for buffer_id in buffer_ids :			
 				# get old physical address info
 				lba_index = bm.get_meta_data(buffer_id)
-				
-				old_physical_addr = meta.map_table[lba_index]
 				gc_physical_addr = gc_meta.pop(0)
-				# compare physical address
-				if old_physical_addr != gc_physical_addr :
-					print('gc_read_comp : skip - lbai : %d, meta : %s, gc_meta : %s'%(lba_index, str(parse_map_entry(old_physical_addr)), str(parse_map_entry(gc_physical_addr))))
-					#release buffer
-					bm.release_buffer(buffer_id)
-				else :
-					gc_cmd.buffer_ids.append(buffer_id)
-					gc_cmd.lba_index.append(lba_index)
-					gc_cmd.gc_meta.append(gc_physical_addr)
+				
+				gc_cmd.buffer_ids.append(buffer_id)
+				gc_cmd.lba_index.append(lba_index)
+				gc_cmd.gc_meta.append(gc_physical_addr)
 							
 			gc_cmd.count = len(gc_cmd.buffer_ids)
+			
 			if gc_cmd.count > 0:
 				self.gc_cmd_queue.push(gc_cmd)
 				
@@ -530,6 +524,65 @@ class ftl_manager :
 			log_print('\ngc read result - cmd id : %d, num_read : %d, num_write : %d'%(cmd_tag, self.num_chunks_to_gc_read, self.num_chunks_to_gc_write))
 
 			#self.gc_issue_credit = self.gc_issue_credit + 1
+
+	def gc_gather_write_data(self) :				
+		ret_val = False
+		
+		if self.num_chunks_to_gc_write < CHUNKS_PER_PAGE :
+			return False		
+		
+		num_chunks = self.num_chunks_to_gc_write
+		
+		queue_id, cmd_tag = self.gc_cmd_id.get_slot() 											 											
+		gc_cmd_comp = gc_cmd_desc(queue_id, cmd_tag)
+												
+		# get write cmd
+		gc_cmd = self.gc_cmd_queue.pop()
+													
+		for index in range(num_chunks) :
+			buf_id = gc_cmd.buffer_ids.pop(0)
+			gc_meta = gc_cmd.gc_meta.pop(0) 
+			lba_index = gc_cmd.lba_index.pop(0)
+			
+			# get old physical address info
+			old_physical_addr = meta.map_table[lba_index]
+
+			# compare physical address
+			if old_physical_addr != gc_meta :
+				print('gc compaction - lbai : %d, meta : %s, gc_meta : %s'%(lba_index, str(parse_map_entry(old_physical_addr)), str(parse_map_entry(gc_meta))))
+				
+				bm.release_buffer(buf_id)
+				
+				self.num_chunks_to_gc_write = self.num_chunks_to_gc_write - 1			
+			else :																
+				# move to compaction cmd set		
+				gc_cmd_comp.buffer_ids.append(buf_id)
+				gc_cmd_comp.gc_meta.append(gc_meta)
+				gc_cmd_comp.lba_index.append(lba_index)
+				gc_cmd_comp.count = gc_cmd_comp.count + 1														
+																										
+			# update count of gc command in order to check end of current gc command 			
+			gc_cmd.count = gc_cmd.count - 1
+
+			if gc_cmd.count == 0 :
+				# release cmd id
+				self.gc_cmd_id.release_slot(gc_cmd.cmd_id)
+			
+				if self.gc_cmd_queue.length() > 0:			
+					# get next command from queue
+					gc_cmd = self.gc_cmd_queue.pop()
+
+			if gc_cmd_comp.count > CHUNKS_PER_PAGE :
+				ret_val = True
+				break						
+						
+		# push write commmand for remain sector count
+		if gc_cmd.count > 0 :
+			self.gc_cmd_queue.push_first(gc_cmd)
+			
+		self.gc_cmd_queue.push_first(gc_cmd_comp)	
+		
+		return ret_val
 
 	def do_gc_write(self, sb) :
 		# do_write try to program data to nand
@@ -706,9 +759,10 @@ class ftl_manager :
 		self.do_gc_read_completion()
 				
 		# write valid chunk to destination super block 
-		if self.num_chunks_to_gc_write >= CHUNKS_PER_PAGE :
+		if self.gc_gather_write_data() > True :
 			self.do_gc_write(self.gc_sb)
-			#self.do_gc_write_completion()
+			
+		#self.do_gc_write_completion()
 			
 	def debug(self) :
 		print('hil2ftl queue status')
