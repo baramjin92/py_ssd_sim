@@ -584,7 +584,7 @@ class nfc :
 
 		cmd_desc = nfc_desc()
 
-		desc_name = {'name' : ['queue_id', 'cmd_tag', 'way', 'op_code', 'gc_issue_blk_cnt', 'seq_num', 'nand_addr', 'code', 'option', 'chunk_offset', 'chunk_num', 'buffer_ids']}										
+		desc_name = {'name' : ['queue_id', 'cmd_tag', 'way', 'op_code', 'seq_num', 'nand_addr', 'code', 'option', 'chunk_offset', 'chunk_num', 'buffer_ids']}										
 		cmd_desc_pd = pd.DataFrame(desc_name)				
 						
 		desc_columns = []
@@ -592,7 +592,6 @@ class nfc :
 		desc_columns.append(cmd_desc.cmd_tag)
 		desc_columns.append(cmd_desc.way)
 		desc_columns.append(cmd_desc.op_code)
-		desc_columns.append(cmd_desc.gc_issue_blk_cnt)
 		desc_columns.append(cmd_desc.seq_num)
 		desc_columns.append(cmd_desc.nand_addr)
 		desc_columns.append(cmd_desc.code)
