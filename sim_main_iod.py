@@ -2,6 +2,7 @@
 
 import os
 import sys
+import time
 
 import numpy as np
 import pandas as pd
@@ -115,8 +116,8 @@ if __name__ == '__main__' :
 	ftl_module.start()
 
 	print('initialize workload')
-	#build_workload_gc()
-	build_workload_multiqueue()
+	build_workload_gc()
+	#build_workload_multiqueue()
 
 	host_run()
 	
@@ -137,7 +138,12 @@ if __name__ == '__main__' :
 	#node = event_mgr.alloc_new_event(1000000000)
 	#node.dest = event_dst.MODEL_HOST | event_dst.MODEL_KERNEL
 	#node.code = event_id.EVENT_TICK
-					
+
+	start_time = time.time()
+	prev_time = int(start_time)
+
+	idle_count = 0
+										
 	while exit is False :
 		event_mgr.increase_time()
 
@@ -193,10 +199,14 @@ if __name__ == '__main__' :
 					fil_module.send_command_to_nfc()
 					fil_module.handle_completed_nand_ops()
 						
-					# accelerate event timer for fast simulation 
-					time_gap = node.time - event_mgr.timetick
-					if time_gap > 1000 :
-						event_mgr.add_accel_time(200)		# increase 200ns
+					idle_count = idle_count + 1
+					if idle_count > 10 : 	
+						# accelerate event timer for fast simulation 
+						time_gap = node.time - event_mgr.timetick
+						event_mgr.add_accel_time(time_gap)
+						idle_count = 0
+				else :
+					idle_count = 0
 		else :
 			pending_cmds = host_model.get_pending_cmd_num()
 			
@@ -205,8 +215,9 @@ if __name__ == '__main__' :
 				host_model.debug()
 				ftl_module.debug()
 				
-			if True:							
-				print('\nrun time : %u ns [%f s]'%(event_mgr.timetick, event_mgr.timetick / 1000000000))
+			if True:
+				print('\nsimulation time : %f'%(time.time() - start_time))						
+				print('run time : %u ns [%f s]'%(event_mgr.timetick, event_mgr.timetick / 1000000000))
 		
 				report.close()
 				report.show_result()
@@ -237,6 +248,8 @@ if __name__ == '__main__' :
 					node.code = event_id.EVENT_SSD_READY
 					
 					ftl_module.enable_background()
+					
+					start_time = time.time()
 					
 					report.open(index)
 				else :
