@@ -2,6 +2,7 @@
 
 import os
 import sys
+import time
 
 import numpy as np
 import pandas as pd
@@ -40,13 +41,16 @@ def build_workload_gc() :
 	if NUM_HOST_QUEUE >= 2 :
 		wlm.add_group(NUM_HOST_QUEUE - 1)
 	
-	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_256MB, 128, 128, 16, WL_SIZE_MB, 0, True, False))
+	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_256MB, 128, 128, 256, WL_SIZE_MB, 0, True, False))
 	#wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16MB, 128, 128, 8, WL_SIZE_MB, 0, True, False))
-	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16MB, 128, 128, 8, WL_SIZE_MB, 0, True, False))
+	wlm.set_workload(workload(WL_SEQ_READ, 0, range_256MB, 128, 128, 256, WL_SIZE_MB, 0, True, False))
 	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16MB, 128, 128, 4, WL_SIZE_MB, 0, True, False))
 		
 	wlm.set_workload(workload(WL_RAND_WRITE, 0, range_16MB, 8, 8, 32, WL_SIZE_MB, 0, True, False), 1)
 	wlm.set_workload(workload(WL_RAND_READ, 0, range_16MB, 64, 64, 32, WL_SIZE_MB, 100, True, True), 1)
+
+	wlm.set_workload(workload(WL_RAND_WRITE, 0, range_16MB, 8, 8, 16, WL_SIZE_MB, 0, True, False), 2)
+	wlm.set_workload(workload(WL_RAND_READ, 0, range_16MB, 64, 64, 16, WL_SIZE_MB, 100, True, False), 2)
 
 def build_workload_multiqueue() :
 	wlm.set_capacity(range_16GB)
@@ -64,7 +68,13 @@ def build_workload_multiqueue() :
 		
 	wlm.set_workload(workload(WL_RAND_WRITE, 0, range_16MB, 8, 8, 16, WL_SIZE_MB, 0, True), 2)
 	wlm.set_workload(workload(WL_RAND_READ, 0, range_16MB, 64, 64, 32, WL_SIZE_MB, 100, True), 2)
+
+def build_workload_zns() :
+	wlm.set_capacity(range_16GB)
 		
+	wlm.set_workload(workload(WL_ZNS_WRITE, 0, range_16GB, 128, 128, 256, WL_SIZE_MB, 0, True, False))
+	wlm.set_workload(workload(WL_ZNS_READ, 0, range_16GB, 128, 128, 128, WL_SIZE_MB, 0, True, False))
+				
 def host_run() :
 	node = event_mgr.alloc_new_event(0)
 	node.dest = event_dst.MODEL_HOST
@@ -81,7 +91,7 @@ if __name__ == '__main__' :
 	global NUM_WAYS
 		
 	NUM_CHANNELS = 8
-	WAYS_PER_CHANNELS = 1
+	WAYS_PER_CHANNELS = 4
 	NUM_WAYS = (NUM_CHANNELS * WAYS_PER_CHANNELS) 
 	
 	report = report_manager()
@@ -99,15 +109,16 @@ if __name__ == '__main__' :
 	fil_module = fil_manager(nfc_model, hic_model)
 
 	meta.config(NUM_WAYS)
-	blk_grp.add('meta', block_manager(NUM_WAYS, None, 1, 9, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, NAND_MODE_SLC))
-	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, NAND_MODE_SLC))
+	blk_grp.add('meta', block_manager(NUM_WAYS, None, 1, 9, 1, 3, NAND_MODE_SLC))
+	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, 1, 3, NAND_MODE_SLC))
 	blk_grp.add('user', block_manager(NUM_WAYS, None, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))
 
 	ftl_module.start()
 
 	print('initialize workload')
-	#build_workload_gc()
-	build_workload_multiqueue()
+	build_workload_gc()
+	#build_workload_multiqueue()
+	#build_workload_zns()
 
 	host_run()
 	
@@ -129,6 +140,11 @@ if __name__ == '__main__' :
 	#node.dest = event_dst.MODEL_HOST | event_dst.MODEL_KERNEL
 	#node.code = event_id.EVENT_TICK
 					
+	start_time = time.time()
+	prev_time = int(start_time)
+
+	idle_count = 0
+											
 	while exit is False :
 		event_mgr.increase_time()
 
@@ -136,7 +152,7 @@ if __name__ == '__main__' :
 		ftl_module.handler()
 		fil_module.send_command_to_nfc()
 		fil_module.handle_completed_nand_ops()
-																
+																														
 		if event_mgr.head is not None :
 			node = event_mgr.head
 
@@ -165,17 +181,17 @@ if __name__ == '__main__' :
 				event_mgr.delete_node(0)
 				event_mgr.prev_time = event_mgr.timetick
 
-				# show the progress status of current workload			
+				# show the progress status of current workload
 				progress = wlm.get_progress(async_group = False)
 				if progress_save != progress :
 					progress_save = progress
 					bar.index = progress
 					bar.next()
-					
+						
 				if progress == 99 :
 					ftl_module.disable_background()
 					report.disable()
-					
+						
 				# end first node operation
 			else : 
 				if something_happen != True :
@@ -183,11 +199,15 @@ if __name__ == '__main__' :
 					ftl_module.handler()
 					fil_module.send_command_to_nfc()
 					fil_module.handle_completed_nand_ops()
-						
-					# accelerate event timer for fast simulation 
-					time_gap = node.time - event_mgr.timetick
-					if time_gap > 1000 :
-						event_mgr.add_accel_time(200)		# increase 200ns
+					
+					idle_count = idle_count + 1
+					if idle_count > 10 : 	
+						# accelerate event timer for fast simulation 
+						time_gap = node.time - event_mgr.timetick
+						event_mgr.add_accel_time(time_gap)
+						idle_count = 0
+				else :
+					idle_count = 0
 		else :
 			pending_cmds = host_model.get_pending_cmd_num()
 			
@@ -196,8 +216,9 @@ if __name__ == '__main__' :
 				host_model.debug()
 				ftl_module.debug()
 				
-			if True:							
-				print('\nrun time : %u ns [%f s]'%(event_mgr.timetick, event_mgr.timetick / 1000000000))
+			if True:					
+				print('\nsimulation time : %f'%(time.time() - start_time))		
+				print('\run time : %u ns [%f s]'%(event_mgr.timetick, event_mgr.timetick / 1000000000))
 		
 				report.close()
 				report.show_result()
@@ -227,6 +248,8 @@ if __name__ == '__main__' :
 					
 					ftl_module.enable_background()
 					
+					start_time = time.time()
+
 					report.open(index)
 				else :
 					exit = True

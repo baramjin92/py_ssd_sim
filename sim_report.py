@@ -27,7 +27,7 @@ from config.ssd_param import *
 
 from sim_event import *
 
-ENABLE_PERF_MONITOR = True
+ENABLE_PERF_MONITOR = False
 
 html_fp = None
 
