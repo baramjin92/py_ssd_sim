@@ -109,26 +109,27 @@ class nfc :
 		for index in range(way_num) :		
 			self.fil2nfc_queue.append(queue(0))
 																																		
-	def request_channel(self, way, high_priority) :
+	def request_channel(self, channel, way, high_priority) :
 		"""
 		There is two type of queues. one is high prioriy and another is low priority
 		
-		 The channel has several ways. 
-		 The channel has request queue. queue depth is number of ways per channel
+		The channel has several ways. 
+		The channel has request queue. queue depth is number of ways per channel
 		 
-		 in order to use channel, we add way number to request queue of channel.
+		in order to use channel, we add way number to request queue of channel.
 		 
-		 the grant_channel() funnction will check these queue, and occupy the channel by the way number
-		 Finally command can send to NAND by the channel
+		the grant_channel() funnction will check these queue, and occupy the channel by the way number
+		Finally command can send to NAND by the channel
+		 
+		channel can be calculated by way 
+		channel = way % self.channel_num		 
 		"""
-		
-		channel = way % self.channel_num
-		
+				
 		if high_priority == True :
-			log_print('request high priority - way : %d'%(way))
+			#log_print('request high priority - way : %d'%(way))
 			self.high_queue[channel].push(way)
 		else :
-			log_print('request low priority - way : %d'%(way))
+			#log_print('request low priority - way : %d'%(way))
 			self.low_queue[channel].push(way)
 			
 		###if channel == 0 :
@@ -136,7 +137,7 @@ class nfc :
 			
 			
 	def begin_io(self, way) :
-		log_print('begin io - way : %d'%(way))
+		#log_print('begin io - way : %d'%(way))
 		
 		old_state = self.way_ctx[way].state
 		seq_num = self.way_ctx[way].nandcmd_desc.seq_num
@@ -185,8 +186,8 @@ class nfc :
 			self.way_ctx[way].state = MWAY_W2_CNA
 
 			# get buffer_id from HIL 
-			for index in range(self.way_ctx[way].nandcmd_desc.chunk_num) :
-				log_print('write buffer %d'%(self.way_ctx[way].nandcmd_desc.buffer_ids[index]))
+			#for index in range(self.way_ctx[way].nandcmd_desc.chunk_num) :
+			#	log_print('write buffer %d'%(self.way_ctx[way].nandcmd_desc.buffer_ids[index]))
 									
 			# alloc next event with time (NAND_T_CNA_W)
 			next_event = event_mgr.alloc_new_event(self.nand_t_cna_w)
@@ -255,7 +256,7 @@ class nfc :
 			next_event.seq_num = seq_num
 								
 	def grant_channel(self, channel) :
-		log_print('grant channel')
+		#log_print('grant channel')
 		
 		# get current time
 		current_time = event_mgr.get_current_time()
@@ -294,20 +295,17 @@ class nfc :
 		
 		return way
 		
-	def release_channel(self, way) :
-		log_print('release channel - way : %d'%(way))
-		
-		# calculate channel from way 
-		channel = way % self.channel_num
-		
+	def release_channel(self, channel, way) :
+		#log_print('release channel - way : %d'%(way))
+				
 		# check current channel owner and invalidate owner
 		if self.channel_owner[channel] == way :
 			self.channel_owner[channel] = 0xFFFFFFFF
 			
 			###if channel == 0 :
 			###	print('release channel : %d, %d'%(channel, way))
-		else :
-			log_print('error : mismatch current channel owner')
+		#else :
+		#	log_print('error : mismatch current channel owner')
 
 		# statistics		
 		# get current time
@@ -318,8 +316,8 @@ class nfc :
 		
 		# save VCD file if option is activated
 		
-	def release_channel_condition(self, way) :
-		log_print('conditional release channel')
+	def release_channel_condition(self, channel, way) :
+		#log_print('conditional release channel')
 
 		release = True
 		
@@ -332,10 +330,10 @@ class nfc :
 				release = False 
 		
 		if release == True :
-			self.release_channel(way)
+			self.release_channel(channel, way)
 			
-	def begin_new_command(self, way) :
-		log_print('begin new command')
+	def begin_new_command(self, channel, way) :
+		#log_print('begin new command')
 		
 		# check fil queue by way
 		table_index = self.fil2nfc_queue[way].pop()
@@ -345,10 +343,7 @@ class nfc :
 		self.way_ctx[way].nandcmd_desc = nandcmd_table.table[table_index]
 		self.way_ctx[way].nandcmd_count = 0
 		cmd_code = self.way_ctx[way].nandcmd_desc.code
-						
-		# copy command info from queue to nfc context
-		channel = way % self.channel_num
-		
+								
 		already_have = False
 		
 		if cmd_code == NFC_CMD_READ :
@@ -378,10 +373,10 @@ class nfc :
 		if already_have == True :
 			self.begin_io(way)
 		else :
-			self.request_channel(way, priority)				
+			self.request_channel(channel, way, priority)				
 					
 	def end_command(self, way, result) :
-		log_print('end command')
+		#log_print('end command')
 		
 		# push the result to report queue
 		report = report_desc()
@@ -391,7 +386,7 @@ class nfc :
 		report_queue.push(report)
 	
 	def end_command_without_report(self, way) :
-		log_print('end command without report')
+		#log_print('end command without report')
 		
 		nandcmd_table.release_slot(self.way_ctx[way].nandcmd_index)
 	
@@ -412,7 +407,7 @@ class nfc :
 			if event.code == event_id.EVENT_NAND_CNA_END :		
 				bstat.io_time = bstat.io_time + elapsed_time
 				self.way_ctx[way].state = MWAY_R3_SENSE
-				self.release_channel(way)
+				self.release_channel(channel, way)
 						
 		elif current_state == MWAY_R3_SENSE :
 			if event.code == event_id.EVENT_NAND_SENSE_END :		
@@ -420,14 +415,14 @@ class nfc :
 				bstat.read_count = bstat.read_count + 1
 				
 				self.way_ctx[way].state = MWAY_R4_WAIT
-				self.request_channel(way, False)
+				self.request_channel(channel, way, False)
 				
 		elif current_state == MWAY_R5_XFER :
 			if event.code == event_id.EVENT_NAND_DOUT_END :
 				seq_num = self.way_ctx[way].nandcmd_desc.seq_num
 				
 				#if event.meta_data[0] == 0 and event.main_data[0] == 0 :
-				log_print('..........................................................................offset %d, num %d, meta %d, main %d'%(self.way_ctx[way].nandcmd_desc.chunk_offset, self.way_ctx[way].nandcmd_desc.chunk_num, event.meta_data[0], event.main_data[0]))
+				#log_print('..........................................................................offset %d, num %d, meta %d, main %d'%(self.way_ctx[way].nandcmd_desc.chunk_offset, self.way_ctx[way].nandcmd_desc.chunk_num, event.meta_data[0], event.main_data[0]))
 	
 				# start memory write 
 				# we need to consider this api usage
@@ -461,7 +456,7 @@ class nfc :
 				# if there is no additional data to transfer (check compare condition later in odd offset)
 				if self.way_ctx[way].nandcmd_count >= self.way_ctx[way].nandcmd_desc.chunk_num :
 					self.way_ctx[way].state = MWAY_IDLE
-					self.release_channel_condition(way)
+					self.release_channel_condition(channel, way)
 					self.end_command(way, True)
 				else :
 					# allocate buffer_id and get data from nand
@@ -509,7 +504,7 @@ class nfc :
 				bstat.io_time = bstat.io_time + elapsed_time
 				
 				self.way_ctx[way].state = MWAY_W4_PROG
-				self.release_channel(way)
+				self.release_channel(channel, way)
 				
 		elif current_state == MWAY_W4_PROG :
 			if event.code == event_id.EVENT_NAND_PROG_END :						
@@ -520,16 +515,16 @@ class nfc :
 				###	print('NAND PROG END %d %d'%(channel, way))
 				
 				self.way_ctx[way].state  = MWAY_W5_WAIT
-				self.request_channel(way, False)
+				self.request_channel(channel, way, False)
 					
 		elif current_state == MWAY_W6_CHK or current_state == MWAY_E5_CHK :
 			if event.code == event_id.EVENT_NAND_CHK_END :			
-				log_print('debug write end or erase end')
+				#log_print('debug write end or erase end')
 				
 				bstat.io_time = bstat.io_time + elapsed_time
 				self.way_ctx[way].state = MWAY_IDLE
 				
-				self.release_channel(way)
+				self.release_channel(channel, way)
 				self.end_command(way, True)
 				
 		elif current_state == MWAY_E2_CNA :
@@ -537,7 +532,7 @@ class nfc :
 				bstat.io_time = bstat.io_time + elapsed_time
 				self.way_ctx[way].state = MWAY_E3_ERAS
 				
-				self.release_channel(way)
+				self.release_channel(channel, way)
 				
 		elif current_state == MWAY_E3_ERAS :
 			if event.code == event_id.EVENT_NAND_ERASE_END :			
@@ -546,25 +541,25 @@ class nfc :
 				
 				self.way_ctx[way].state = MWAY_E4_WAIT
 				
-				self.request_channel(way, False)
+				self.request_channel(channel, way, False)
 
 		elif current_state == MWAY_M2_CNA :
 			if event.code == event_id.EVENT_NAND_CNA_END :		
 				bstat.io_time = bstat.io_time + elapsed_time
 				self.way_ctx[way].state = MWAY_IDLE
 
-				self.release_channel(way)
+				self.release_channel(channel, way)
 				self.end_command_without_report(way)
 			
 		bstat.prev_time = current_time
 		
 		# check idle state and start another new command
 		if self.way_ctx[way].state == MWAY_IDLE and self.fil2nfc_queue[way].length() > 0 :
-			log_print('........................')
+			#log_print('........................')
 			bstat.idle_time = bstat.idle_time + (current_time - bstat.prev_time)
 			bstat.prev_time = current_time
 			
-			self.begin_new_command(way)
+			self.begin_new_command(channel, way)
 			
 		# save VCD file if option is activated
 		

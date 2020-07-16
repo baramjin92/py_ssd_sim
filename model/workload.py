@@ -3,6 +3,8 @@
 import os
 import sys
 import random
+import time
+
 import numpy as np
 import pandas as pd
 
@@ -19,6 +21,8 @@ from sim_event import event_dst
 from sim_event import event_id
 
 from model.zone import *
+
+ENABLE_ZNS_CMD = True
 
 WL_SEQ_READ = 0
 WL_SEQ_WRITE = 1
@@ -173,13 +177,14 @@ class workload :
 	def generate_zns_write_workload(self, submit_time) : 		
 		zone, zone_open_state = workload_zone.get_zone_for_write()	
 		
-		# check explicit open
-		if zone_open_state == 0 :
-			is_explicit = random.randrange(0, 2)
-			if is_explicit == 1 :
-				# if we return sector count 0 in the zone workload, it translate with explicit open  
-				return zone.slba, 0
-		
+		if ENABLE_ZNS_CMD == True :
+			# check explicit open
+			if zone_open_state == 0 :
+				is_explicit = random.randrange(0, 2)
+				if is_explicit == 1 :
+					# if we return sector count 0 in the zone workload, it translate with explicit open  
+					return zone.slba, 0
+			
 		if zone.state == ZONE_STATE_OPEN :				
 			# do implicit open or main operation		
 			lba = zone.slba + zone.write_pointer
@@ -191,7 +196,7 @@ class workload :
 			# increase total size of workload (unit is kb)
 			self.cur_amount_count = self.cur_amount_count + self.kb_min
 		elif zone.state == ZONE_STATE_FULL :
-			if zone.issue_cmds == 0 :
+			if zone.issue_cmds == 0 and ENABLE_ZNS_CMD == True :
 				# if sectors is -1, it translate with ZONE_HSA_CLOSE
 				lba = zone.slba
 				sectors = -1
@@ -462,9 +467,11 @@ class workload_manager() :
 			grp_workloads = wl_group.wl							
 	
 			print('\n\nworkload : group %d'%(group_id))
-	
-			for index, workload in enumerate(grp_workloads) :						
-				wl_columns = []
+
+			wl_columns = []
+		
+			for index, workload in enumerate(grp_workloads) :
+				wl_columns.clear()						
 				wl_columns.append(wl_type[workload.workload_type])
 				if workload.workload_type == WL_ZNS_WRITE or workload.workload_type == WL_ZNS_READ :
 					wl_columns.append(workload.zone_start)
@@ -488,10 +495,8 @@ class workload_manager() :
 		print('\n\n')					
 			
 wlm = workload_manager()
-																																						
-if __name__ == '__main__' :
-	log_print ('module workload main')			
-	
+
+def unit_test() :																																						
 	wlm.set_capacity(range_16GB)
 	wlm.add_group(2)
 	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16GB, 128, 128, 16, WL_SIZE_GB, 0, True))
@@ -532,5 +537,13 @@ if __name__ == '__main__' :
 				print('workload : %d, %d, %d'%(cmd_code, lba, sectors))
 				
 		wlm.goto_next_workload(group)
-				
+																																						
+if __name__ == '__main__' :
+	print ('module workload main')			
+
+	start_time = time.time()
+
+	unit_test()	
+	
+	print('\nrun time : %f'%(time.time()-start_time))
 																			

@@ -43,7 +43,7 @@ class block_status :
 			self.erase_count.append(0)
 			
 	def set(self, block, status) :
-		self.status[block] = status
+		self.status[block] = status 
 		
 	def get(self, block) :
 		return self.status[block]

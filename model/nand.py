@@ -32,7 +32,7 @@ def log_print(message) :
 # nand class represent one die of nand
 # it manages data with nand_ctx
 class nand_context :
-	def __init__(self, nand_id, block_num, page_num, plane_num) :
+	def __init__(self, nand_id, block_num, page_num, plane_num, param) :
 		self.nand_id = nand_id
 
 		# nand information (it manages cell of nand)		
@@ -45,53 +45,69 @@ class nand_context :
 		# nand page buffer information (it manages operation of nand)
 		self.state = NAND_STATE_IDLE
 		self.nand_addr = 0
+		self.nand_block = 0
+		self.nand_page = 0
+		self.chunk_offset = 0
 		self.main_data = []
 		self.meta_data = []
 		self.chunks_num = 0
 	
+		# tR calculation will be changed
+		self.mean_tR = [0, 0, 0, 0]
+		self.mean_tR[0] = param.nand_t_read_full # NAND_MODE_MLC and NAND_MODE_TLC 
+		self.mean_tR[NAND_MODE_SLC] = 30*1000
+		self.mean_tR[NAND_MODE_QLC] = 120*1000
+	
+		self.mean_tProg = [0, 0, 0, 0]
+		self.mean_tProg[0] = param.nand_t_prog_avg # NAND_MODE_MLC and NAND_MODE_TLC 
+		self.mean_tProg[NAND_MODE_SLC] = param.nand_t_prog_slc
+		self.mean_tProg[NAND_MODE_QLC] = 3000
+	
+		self.mean_tBERS = param.nand_t_bers
+	
 		# reserve area for nand
 		# cell structure : cell[block][chunk]
-		self.cell = np.empty((self.block_num, self.chunks_per_blk), np.int64)
+		self.cell = np.empty((self.block_num, self.chunks_per_blk), np.int32)
+		self.spare = np.empty((self.block_num, self.chunks_per_blk), np.int32)
 		self.status = np.zeros(self.block_num, np.int8)
-		#log_print(self.cell.shape)	
+		##log_print(self.cell.shape)	
 
 	def set_address(self, addr) :
 		self.nand_addr = addr
-		
-	def get_date(self) :
-		return self.main_data
 
-	def read_page(self) :
 		# nand address is composed by block, page, chunk offset
 		# it can be separated by CHUNK_PER_WAY,  CHUNK_PER_BLOCK, CHUNK_PER_PAGE
 		# get block and page address of nand
-		nand_block = int(self.nand_addr / CHUNKS_PER_BLOCK) 
-		nand_page = int((self.nand_addr % CHUNKS_PER_BLOCK) / CHUNKS_PER_PAGE)
-		chunk_offset = int((self.nand_addr % CHUNKS_PER_PAGE))
+		self.nand_block = int(self.nand_addr / CHUNKS_PER_BLOCK) 
+		self.nand_page = int((self.nand_addr % CHUNKS_PER_BLOCK) / CHUNKS_PER_PAGE)
+		self.chunk_offset = int((self.nand_addr % CHUNKS_PER_PAGE))
 				
-		log_print('die %d read block %x page %d'%(self.nand_id, nand_block, nand_page))
+	def get_data(self) :
+		return self.main_data
+
+	def read_page(self) :
+		nand_block = self.nand_block 
+		nand_page = self.nand_page
+		chunk_offset = self.chunk_offset
+				
+		#log_print('die %d read block %x page %d'%(self.nand_id, nand_block, nand_page))
 				
 		# calculte chunk index in page
 		chunk_addr = nand_page * CHUNKS_PER_PAGE
 	
 		#for index in range(self.chunks_num) :
 		for chunk_index in range(chunk_addr, chunk_addr+CHUNKS_PER_PAGE) :
-			# read data from nand
-			nand_data = self.cell[nand_block][chunk_index]
-									
+			# read data and meta from nand
 			# set main data/extra data
-			self.main_data.append((nand_data & 0xFFFFFFFF))
-			self.meta_data.append((nand_data >> 32) & 0xFFFFFFFF)
+			self.main_data.append(self.cell[nand_block][chunk_index])
+			self.meta_data.append(self.spare[nand_block][chunk_index])
 			
 	def program_page(self) :
-		# nand address is composed by block, page, chunk offset
-		# it can be separated by CHUNK_PER_WAY,  CHUNK_PER_BLOCK, CHUNK_PER_PAGE
-		# get block and page address of nand
-		nand_block = int(self.nand_addr / CHUNKS_PER_BLOCK) 
-		nand_page = int((self.nand_addr % CHUNKS_PER_BLOCK) / CHUNKS_PER_PAGE)
-		chunk_offset = int((self.nand_addr % CHUNKS_PER_PAGE))
+		nand_block = self.nand_block 
+		nand_page = self.nand_page
+		chunk_offset = self.chunk_offset
 				
-		log_print('die %d program block %x page %s'%(self.nand_id, nand_block, nand_page))
+		#log_print('die %d program block %x page %s'%(self.nand_id, nand_block, nand_page))
 
 		self.status[nand_block] = self.status[nand_block] | NAND_STATUS_PROGRAM
 						
@@ -104,33 +120,30 @@ class nand_context :
 
 		# In this simulator, main data is reduced to 4Byte (representative value) in order to saving memory for simulation
 		for index in range(self.chunks_num) :			
-			# get main data/extra data in order to combine
-			main_data = self.main_data[index]
-			meta_data = self.meta_data[index]
-			
-			# make nand data (8Byte)
-			nand_data = (meta_data << 32) | main_data
-			 
-			# save nand data
-			self.cell[nand_block][chunk_index] = nand_data
+			# get main data/extra data and save to nand
+			self.cell[nand_block][chunk_index] = self.main_data[index]
+			self.spare[nand_block][chunk_index] = self.meta_data[index]
 			
 			# increas chunk address
 			chunk_index = chunk_index + 1
 			
-			log_print('main data : %d, meta_data : %d'%(main_data, meta_data))
+			#log_print('main data : %d, meta_data : %d'%(self.main_data[index], self.meta_data[index]))
 									  
 		return True
 								
 	def erase_block(self) :
 		# get block address of nand
-		nand_block = int(self.nand_addr / CHUNKS_PER_BLOCK)
+		nand_block = self.nand_block
 
-		log_print('die %d erase block %x'%(self.nand_id, nand_block)) 
+		#log_print('die %d erase block %x'%(self.nand_id, nand_block)) 
 				
 		# calculate number of chunks for block
-		for index in range(self.chunks_per_blk) :
-			self.cell[nand_block][index] = 0
-			self.status[nand_block] = 0
+		self.status[nand_block] = 0
+			
+		# in order to optimize running time, we don't clear cell and spare'
+		#for index in range(self.chunks_per_blk) :
+		#	self.cell[nand_block][index] = 0
+		#	self.spare[nand_block][index] = 0
 		
 		return True		
 		
@@ -138,19 +151,9 @@ class nand_context :
 		# make tR (mean, max deviation) 
 		
 		# get mean time by the page num (LSB/MSB in MLC, LSB/CSB/MSB in TLC)
-
-		nand_block = int(self.nand_addr / CHUNKS_PER_BLOCK) 
-		mode = self.status[nand_block] & 0x03		
+		mode = self.status[self.nand_block] & 0x03		
 		
-		# tR calculation will be changed
-		if mode == NAND_MODE_MLC :
-			mean = nand_info.nand_t_read_full
-		elif mode == NAND_MODE_TLC :  
-			mean = nand_info.nand_t_read_full
-		elif mode == NAND_MODE_SLC :
-			mean = 30*1000
-		elif mode == NAND_MODE_QLC :
-			mean = 120*1000
+		mean = self.mean_tR[mode]
 			
 		# deviation is 3% from mean
 		diviation = mean * 0.03
@@ -165,19 +168,9 @@ class nand_context :
 		# make tPROG (mean, max deviation) 
 		
 		# get mean time by the page num (LSB/MSB in MLC, LSB/CSB/MSB in TLC)
-
-		nand_block = int(self.nand_addr / CHUNKS_PER_BLOCK) 
-		mode = self.status[nand_block] & 0x03		
-				
-		# tProg calculation will be changed
-		if mode == NAND_MODE_MLC :
-			mean = nand_info.nand_t_prog_avg
-		elif mode == NAND_MODE_TLC :
-			mean = nand_info.nand_t_prog_avg
-		elif mode == NAND_MODE_SLC :
-			mean = nand_info.nand_t_prog_slc
-		elif mode == NAND_MODE_QLC :
-			mean = 3000
+		mode = self.status[self.nand_block] & 0x03		
+		
+		mean = self.mean_tProg[mode]				
 								
 		# deviation is 1% from mean (5% -> 1%)
 		diviation = mean * 0.01
@@ -192,11 +185,10 @@ class nand_context :
 		# so far, we don't distinguish tBERS by mode 
 		# it will be changed later
 
-		nand_block = int(self.nand_addr / CHUNKS_PER_BLOCK) 
-		mode = self.status[nand_block] & 0x03		
+		mode = self.status[self.nand_block] & 0x03		
 
 		# make tBERS (min, max)
-		nand_t_bers = nand_info.nand_t_bers
+		nand_t_bers = self.mean_tBERS
 		
 		# deviation is 10%
 		min = nand_t_bers * 0.9
@@ -208,13 +200,13 @@ class nand_context :
 		return tBERS
 		
 	def set_mode(self, mode) :
-		nand_block = int(self.nand_addr / CHUNKS_PER_BLOCK) 
+		nand_block = self.nand_block
 		
 		value = self.status[nand_block] & ~0x03
 		value = value | mode
 		self.status[nand_block] = value		
 		
-		log_print('change mode - way : %d, block : %d, mode : %d'%(self.nand_id, nand_block, mode))
+		#log_print('change mode - way : %d, block : %d, mode : %d'%(self.nand_id, nand_block, mode))
 
 	def print_block_data(self, nand_block, start_page, end_page) :
 
@@ -226,11 +218,8 @@ class nand_context :
 			for chunk in range(CHUNKS_PER_PAGE) :
 				chunk_index  = nand_page * CHUNKS_PER_PAGE + chunk
 				nand_data = self.cell[nand_block][chunk_index]
-				
-				# set main data/extra data
-				nand_data = nand_data & 0xFFFFFFFF
-				#meta_data.append((nand_data >> 32) & 0xFFFFFFFF)
-							
+				meta_data = self.spare[nand_block][chunk_index]
+											
 				chunk_value = '%04d '%(nand_data)					
 				str = str + chunk_value
 					
@@ -249,14 +238,14 @@ class nand_manager :
 		block_num = nand_info.main_block_num + nand_info.spare_block_num
 		self.nand_ctx = []
 		for index in range(nand_num) :
-			self.nand_ctx.append(nand_context(index, block_num, nand_info.page_num, nand_info.plane_num))
+			self.nand_ctx.append(nand_context(index, block_num, nand_info.page_num, nand_info.plane_num, nand_info))
 															
 	def get_nand_info(self) :
 		return self.nand_info												
 													
 	def begin_new_command(self, nand, event) :
 		# get nand command and address from event
-		nand.nand_addr = event.nand_addr
+		nand.set_address(event.nand_addr)
 		nand.chunks_num = event.chunk_num
 		nand.main_data.clear()
 		nand.meta_data.clear()
@@ -312,7 +301,6 @@ class nand_manager :
 			# check current state, it should be NAND_STATE_SENSE
 			
 			nand.read_page()
-			
 			nand.state = NAND_STATE_IDLE
 				
 		elif event.code == event_id.EVENT_NAND_ERASE_END :
@@ -333,10 +321,11 @@ class nand_manager :
 			# move data from event to nand		
 
 			nand.chunks_num = event.chunk_num
-			for index in range(nand.chunks_num) :
-				#log_print('NAND DIN %d, %d'%(event.main_data[index], event.meta_data[index]))
-				nand.main_data.append(event.main_data[index])
-				nand.meta_data.append(event.meta_data[index])
+			#for index in range(nand.chunks_num) :
+			#	nand.main_data.append(event.main_data[index])
+			#	nand.meta_data.append(event.meta_data[index])
+			nand.main_data = event.main_data
+			nand.meta_data = event.meta_data
 			
 			# todo : option = event.option
 			
@@ -366,7 +355,7 @@ class nand_manager :
 			# Because nand is idle, it requite to NFC checking nand state 
 
 			# alloc next event with time (NAND_T_CHK)
-			next_event = event_mgr.alloc_new_event(nand_info.nand_t_chk)
+			next_event = event_mgr.alloc_new_event(self.nand_info.nand_t_chk)
 			next_event.code = event_id.EVENT_NAND_CHK_END
 			next_event.dest = event_dst.MODEL_NFC
 			next_event.nand_id = nand.nand_id								
@@ -433,10 +422,10 @@ class nand_manager :
 																																										
 class nand_statistics :
 	def __init__(self) :
-		log_print('nand statstics init')
+		print('nand statstics init')
 		
 	def print(self) :
-		log_print('nand statstics')
+		print('nand statstics')
 																		
 def unit_test_nand() :		
 	nand_mgr = nand_manager(2, nand_info)	

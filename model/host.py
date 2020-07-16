@@ -333,14 +333,14 @@ class host_manager :
 		lba_index = int(event.host_lba / SECTORS_PER_CHUNK)
 		
 		# verify read data
-		if ENABLE_RAMDISK_MODE == False :
-			data = event.main_data.pop(0)
+		#if ENABLE_RAMDISK_MODE == False :
+		#	data = event.main_data.pop(0)
 			
-			nsid = self.get_nsid(queue_id)
-			host_data = self.data_table[nsid]
+		#	nsid = self.get_nsid(queue_id)
+		#	host_data = self.data_table[nsid]
 			
-			if host_data[lba_index] != data : 
-				print('..................................................error : verify data : lba %d : expect[%d] return[%d]'%(event.host_lba, host_data[lba_index], data))
+		#	if host_data[lba_index] != data : 
+		#		print('..................................................error : verify data : lba %d : expect[%d] return[%d]'%(event.host_lba, host_data[lba_index], data))
 				#input()
 					
 		# update completed sectors

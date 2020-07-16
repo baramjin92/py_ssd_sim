@@ -91,7 +91,7 @@ class ftl_manager :
 			self.read_queue_id = ftl_cmd.qid
 			self.read_cmd_tag = ftl_cmd.cmd_tag
 	
-			self.read_cur_chunk = self.read_start_chunk 			
+			self.read_cur_chunk = int(self.read_start_chunk) 			
 
 			log_print('host cmd read - qid : %d, cid : %d'%(ftl_cmd.qid, ftl_cmd.cmd_tag))
 										
@@ -128,20 +128,19 @@ class ftl_manager :
 		# save vcd file if option is activate
 
 	def do_read(self) :
-		# look up map entry and get physical address
-		lba_index = int(self.read_cur_chunk)
+		# check free slots of nandcmd_table (use num_remian_chunks, there is assumption all chunks are not adjecent)		
 		num_remain_chunks = self.num_chunks_to_read
-		next_map_entry = 0xFFFFFFFF
-		num_chunks_to_read = 0
-		
-		# check free slots of nandcmd_table (use num_remian_chunks, there is assumption all chunks are not adjecent)
 		if nandcmd_table.get_free_slot_num() < num_remain_chunks :
 			return		
 		
-		if ENABLE_RAMDISK_MODE == True :
-			if bm.get_num_free_slots(BM_READ) < CHUNKS_PER_PAGE : 			
-				return		
-										
+		if ENABLE_RAMDISK_MODE == True and bm.get_num_free_slots(BM_READ) < CHUNKS_PER_PAGE : 			
+			return		
+
+		# look up map entry and get physical address
+		lba_index = self.read_cur_chunk
+		next_map_entry = 0xFFFFFFFF
+		num_chunks_to_read = 0
+																				
 		while num_remain_chunks > 0 :
 			if next_map_entry == 0xFFFFFFFF :
 				# 1st address
@@ -158,7 +157,7 @@ class ftl_manager :
 				# check twice for adjacent read(same nand page address), it reduces the power and read latency from nand
 				
 				log_print('chunk : %d, map_entry : %x, next_map_entry : %x'%(lba_index, map_entry, next_map_entry))
-				log_print('map_entry : %x, next_map_entry : %x'%(int(map_entry/CHUNKS_PER_PAGE), int(next_map_entry/CHUNKS_PER_PAGE)))
+				#log_print('map_entry : %x, next_map_entry : %x'%(int(map_entry/CHUNKS_PER_PAGE), int(next_map_entry/CHUNKS_PER_PAGE)))
 				
 				if next_map_entry == map_entry + 1 :
 					if int(next_map_entry / CHUNKS_PER_PAGE) == int(map_entry / CHUNKS_PER_PAGE) :
@@ -237,18 +236,17 @@ class ftl_manager :
 					next_event.code = event_id.EVENT_USER_DATA_READY
 					next_event.dest = event_dst.MODEL_HIC					
 				else :
-					print('no buffer for read[%d] - lba index : %d, chunks : %d'%(int(self.read_cur_chunk), lba_index, num_chunks_to_read))
+					print('no buffer for read[%d] - lba index : %d, chunks : %d'%(self.read_cur_chunk, lba_index, num_chunks_to_read))
 			
 			# reset variable for checking next chunk																																								
 			next_map_entry = 0xFFFFFFFF
 			num_chunks_to_read = 0
 
-			if ENABLE_RAMDISK_MODE == True :
-				if bm.get_num_free_slots(BM_READ) < CHUNKS_PER_PAGE : 			
-					break		
+			if ENABLE_RAMDISK_MODE == True and bm.get_num_free_slots(BM_READ) < CHUNKS_PER_PAGE : 			
+				break		
 
 		# check remain chunk, if do_read can't finish because of lack of resource of buffer/controller
-		self.read_cur_chunk = lba_index
+		self.read_cur_chunk = int(lba_index)
 		self.num_chunks_to_read = num_remain_chunks
 													
 	def do_write(self, sb) :
