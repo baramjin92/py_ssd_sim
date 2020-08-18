@@ -2,6 +2,8 @@
 
 import os
 import sys
+import time
+
 import random
 import numpy as np
 import pandas as pd
@@ -25,7 +27,17 @@ from sim_event import *
 
 def log_print(message) :
 	event_log_print('[ftl]', message)
-		 																												
+
+def measure_time(func) :
+	def measure_time(*args, **kwargs) :
+		start_time = time.time()
+		result = func(*args, **kwargs)
+		global sw_time1
+		sw_time1 = sw_time1 + (time.time() - start_time)
+		return result
+	
+	return measure_time
+		 																														 															
 class ftl_manager :
 	def __init__(self, num_way, hic) :
 		self.name = 'conventional'
@@ -275,11 +287,14 @@ class ftl_manager :
 		# get new physical address from open block	
 		way, block, page = sb.get_physical_addr()
 		map_entry = build_map_entry(way, block, page, 0)
-														
+
+		# CHUNKS_PER_PAGE is calculated in the MLC mode, we need to consider another cell mode
+		#chunk_base = page * CHUNKS_PER_PAGE
+																												
 		# meta data update (meta datum are valid chunk bitmap, valid chunk count, map table
 		# valid chunk bitamp and valid chunk count use in gc and trim 
 		for index in range(num_chunks) :
-			log_print('update meta data')
+			#log_print('update meta data')
 			# get old physical address info
 			lba_index = int(ftl_cmd.lba / SECTORS_PER_CHUNK)
 			old_physical_addr = meta.map_table[lba_index]
@@ -371,7 +386,7 @@ class ftl_manager :
 		# update num_chunks_to_write
 		self.num_chunks_to_write = self.num_chunks_to_write - num_chunks			
 																																																											
-		log_print('do write')
+		#log_print('do write')
 
 	def do_trim(self, lba, sector_count) :
 		log_print('do trim - lba : %d, sector_count : %d'%(lba, sector_count))
@@ -708,8 +723,8 @@ class ftl_manager :
 	def do_gc_write_completion(self, sb) :
 		log_print('do gc write completion')
 				
+	#@measure_time			
 	def handler(self) :
-		
 		# super block allocation
 		if self.host_sb.is_open() == False :
 			blk_manager = blk_grp.get_block_manager_by_name('slc_cache')

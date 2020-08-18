@@ -70,6 +70,9 @@ class nand_context :
 		self.cell = np.empty((self.block_num, self.chunks_per_blk), np.int32)
 		self.spare = np.empty((self.block_num, self.chunks_per_blk), np.int32)
 		self.status = np.zeros(self.block_num, np.int8)
+		#self.cell = [[0 for x in range(self.chunks_per_blk)] for y in range(self.block_num)]
+		#self.spare = [[0 for x in range(self.chunks_per_blk)] for y in range(self.block_num)]
+		#self.status = [0 for x in range(self.block_num)]
 		##log_print(self.cell.shape)	
 
 	def set_address(self, addr) :
@@ -141,9 +144,8 @@ class nand_context :
 		self.status[nand_block] = 0
 			
 		# in order to optimize running time, we don't clear cell and spare'
-		#for index in range(self.chunks_per_blk) :
-		#	self.cell[nand_block][index] = 0
-		#	self.spare[nand_block][index] = 0
+		#self.cell[nand_block] = [0 for x in range(self.chunks_per_blk)]
+		#self.spare[nand_block] = [0 for x in range(self.chunks_per_blk)]
 		
 		return True		
 		
@@ -160,7 +162,7 @@ class nand_context :
 			
 		# generate tR by randomize funtion
 		tR = random.randrange(int(mean - diviation), int(mean + diviation))
-		
+								
 		# unit (ns)
 		return tR		
 		

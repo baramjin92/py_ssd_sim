@@ -443,7 +443,7 @@ class host_manager :
 	def debug(self) :
 		print('\nhost command queue')
 	
-		for cmd_queue, index in enumerate(self.host_cmd_queue) :
+		for index, cmd_queue in enumerate(self.host_cmd_queue) :
 			print('queue %d - free slot num : %d'%(index, cmd_queue.get_num_free_slot()))
 		
 		print('link status - uplink : %d, downlink : %d'%(self.uplink_state, self.downlink_state))			
@@ -628,14 +628,12 @@ class host_statistics :
 			
 		report_print(host_stat_pd)
 		
-		'''
 		for index, rw_perf in enumerate(throughputs) :
-			report_print('\nqueue %d'%(index))
-			report_print('read iops : %f, read throughput : %f MB/s'%(rw_perf[0], rw_perf[1]))
-			report_print('write iops : %f, write throughput : %f MB/s'%(rw_perf[2], rw_perf[3]))
+			print('\nqueue %d'%(index))
+			print('read iops : %f, read throughput : %f MB/s'%(rw_perf[0], rw_perf[1]))
+			print('write iops : %f, write throughput : %f MB/s'%(rw_perf[2], rw_perf[3]))
 			
-		report_print('\n')
-		'''									
+		print('\n')									
 																																																																									
 if __name__ == '__main__' :
 	print ('module host main')			
@@ -650,4 +648,6 @@ if __name__ == '__main__' :
 	host_model.generate_write_data(queue_id, 2048, 512)
 	host_model.print_host_data(2048,512)
 	
-	host_model.host_stat.print(0)																				
+	host_model.host_stat.print(0)
+	
+	host_model.debug()																				

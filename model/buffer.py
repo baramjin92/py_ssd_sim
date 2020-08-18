@@ -19,7 +19,7 @@ BM_READ = 1
 
 # DDR bandwidth and bus width should be changed by controller specification
 # it affects sustained performance because it requires more bus access
-DDR_BUS_WIDTH = 16			# bit
+DDR_BUS_WIDTH = 32			# bit
 
 DDR2_400_BW = 3200			# MB /s
 DDR3_800_BW = 6400			# MB /s
