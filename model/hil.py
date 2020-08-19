@@ -2,6 +2,8 @@
 
 import os
 import sys
+import time
+
 import random
 import numpy as np
 import pandas as pd
@@ -24,6 +26,15 @@ from sim_event import *
 
 def log_print(message) :
 	event_log_print('[hil]', message)
+
+def measure_time(func) :
+	def measure_time(*args, **kwargs) :
+		start_time = time.time()
+		result = func(*args, **kwargs)
+		kwargs['log_time']['hil'] = kwargs['log_time']['hil'] + (time.time() - start_time)
+		return result
+	
+	return measure_time
 
 class write_cmd :
 	def __init__(self) :
@@ -122,7 +133,8 @@ class hil_manager :
 
 		return
 
-	def handler(self) :
+	@measure_time
+	def handler(self, log_time = None) :
 		# hil doesn't have event handler.
 		# it check cmd_exec_queue of hic, and fetch command and execute  
 				

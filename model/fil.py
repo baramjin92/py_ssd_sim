@@ -2,6 +2,8 @@
 
 import os
 import sys
+import time
+
 import random
 import numpy as np
 import pandas as pd
@@ -23,7 +25,16 @@ from sim_event import *
 
 def log_print(message) :
 	event_log_print('[fil]', message)
-												
+
+def measure_time(func) :
+	def measure_time(*args, **kwargs) :
+		start_time = time.time()
+		result = func(*args, **kwargs)
+		kwargs['log_time']['fil'] = kwargs['log_time']['fil'] + (time.time() - start_time)
+		return result
+	
+	return measure_time
+																								
 class fil_manager :
 	def __init__(self, nfc, hic) :
 		
@@ -149,7 +160,12 @@ class fil_manager :
 				self.fil_stat.num_erased_blocks = self.fil_stat.num_erased_blocks + 1
 		
 			nandcmd_table.release_slot(report.table_index)		 																																																
-		return True						
+		return True		
+		
+	@measure_time	
+	def handler(self, log_time = None) :
+		self.send_command_to_nfc()
+		self.handle_completed_nand_ops()																																			
 																										
 class fil_statistics :
 	def __init__(self) :

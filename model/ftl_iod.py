@@ -2,6 +2,8 @@
 
 import os
 import sys
+import time
+
 import random
 import numpy as np
 import pandas as pd
@@ -26,7 +28,16 @@ from sim_event import *
 
 def log_print(message) :
 	event_log_print('[ftl iod]', message)
-																
+
+def measure_time(func) :
+	def measure_time(*args, **kwargs) :
+		start_time = time.time()
+		result = func(*args, **kwargs)
+		kwargs['log_time']['ftl'] = kwargs['log_time']['ftl'] + (time.time() - start_time)
+		return result
+	
+	return measure_time
+																																
 class ftl_iod_manager :
 	def __init__(self, hic) :
 		# there is no NUM_WAY parameter in IO determinism.
@@ -700,9 +711,9 @@ class ftl_iod_manager :
 
 	def do_gc_write_completion(self, sb) :
 		log_print('do gc write completion')					
-															
-	def handler(self) :
-				
+
+	@measure_time			
+	def handler(self, log_time = None) :				
 		# do host workload operation		
 		# fetch command
 		self.try_to_fetch_cmd()

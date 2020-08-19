@@ -2,6 +2,8 @@
 
 import os
 import sys
+import time
+
 import random
 import numpy as np
 import pandas as pd
@@ -25,6 +27,15 @@ from sim_event import *
 
 def log_print(message) :
 	event_log_print('[zns]', message)
+
+def measure_time(func) :
+	def measure_time(*args, **kwargs) :
+		start_time = time.time()
+		result = func(*args, **kwargs)
+		kwargs['log_time']['ftl'] = kwargs['log_time']['ftl'] + (time.time() - start_time)
+		return result
+	
+	return measure_time
 
 ZONE_STATE_EMPTY = 0
 ZONE_STATE_EOPEN = 1
@@ -570,8 +581,8 @@ class ftl_zns_manager :
 			meta.map_table[chunk_addr_start] = 0xFFFFFFFF	
 			chunk_addr_start = chunk_addr_start + 1
 					
-	def handler(self) :
-				
+	@measure_time			
+	def handler(self, log_time = None) :				
 		# do host workload operation		
 		# fetch command
 		self.try_to_fetch_cmd()

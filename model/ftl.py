@@ -32,8 +32,7 @@ def measure_time(func) :
 	def measure_time(*args, **kwargs) :
 		start_time = time.time()
 		result = func(*args, **kwargs)
-		global sw_time1
-		sw_time1 = sw_time1 + (time.time() - start_time)
+		kwargs['log_time']['ftl'] = kwargs['log_time']['ftl'] + (time.time() - start_time)
 		return result
 	
 	return measure_time
@@ -723,8 +722,8 @@ class ftl_manager :
 	def do_gc_write_completion(self, sb) :
 		log_print('do gc write completion')
 				
-	#@measure_time			
-	def handler(self) :
+	@measure_time			
+	def handler(self, log_time = None) :
 		# super block allocation
 		if self.host_sb.is_open() == False :
 			blk_manager = blk_grp.get_block_manager_by_name('slc_cache')
