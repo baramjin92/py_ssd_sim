@@ -33,6 +33,16 @@ from sim_log import *
 
 from progress.bar import Bar
 
+log_time_data = {}
+
+def init_log_time() :
+	log_time_data['hil'] = 0
+	log_time_data['ftl'] = 0
+	log_time_data['fil'] = 0
+	log_time_data['model'] = 0
+
+	log_time_data['start_time'] = time.time()
+
 def test_ftl_write() :
 	qid = 0
 	cmd_tag = 0
@@ -258,14 +268,15 @@ if __name__ == '__main__' :
 	node = event_mgr.alloc_new_event(0)
 	node.dest = event_dst.MODEL_KERNEL
 	node.code = event_id.EVENT_TICK
-					
+
+	init_log_time()
+										
 	while exit is False :
 		event_mgr.increase_time()
 		
-		#hil_module.handler()
-		ftl_module.handler()
-		fil_module.send_command_to_nfc()
-		fil_module.handle_completed_nand_ops()
+		#hil_module.handler(log_time = log_time_data)
+		ftl_module.handler(log_time = log_time_data)
+		fil_module.handler(log_time = log_time_data)
 																														
 		if event_mgr.head is not None :
 			node = event_mgr.head
@@ -273,9 +284,7 @@ if __name__ == '__main__' :
 			something_happen = False
 
 			if event_mgr.timetick >= node.time :
-				# start first node					
-				event_mgr.print_log_event(node, True)
-				
+				# start first node									
 				something_happen = True
 				
 				#if node.dest & event_dst.MODEL_HOST :
@@ -298,10 +307,9 @@ if __name__ == '__main__' :
 				# end first node operation
 			else : 
 				if something_happen != True :
-					hil_module.handler()
-					ftl_module.handler()
-					fil_module.send_command_to_nfc()
-					fil_module.handle_completed_nand_ops()
+					hil_module.handler(log_time = log_time_data)
+					ftl_module.handler(log_time = log_time_data)
+					fil_module.handler(log_time = log_time_data)
 						
 					# accelerate event timer for fast simulation 
 					time_gap = node.time - event_mgr.timetick

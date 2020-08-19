@@ -35,15 +35,25 @@ from sim_report import *
 
 from progress.bar import Bar
 
+log_time_data = {}
+
+def init_log_time() :
+	log_time_data['hil'] = 0
+	log_time_data['ftl'] = 0
+	log_time_data['fil'] = 0
+	log_time_data['model'] = 0
+
+	log_time_data['start_time'] = time.time()
+
 def build_workload_gc() :
 	wlm.set_capacity(range_16GB)
 	
 	if NUM_HOST_QUEUE >= 2 :
 		wlm.add_group(NUM_HOST_QUEUE - 1)
 	
-	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_256MB, 128, 128, 256, WL_SIZE_MB, 0, True, False))
+	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_256MB, 128, 128, 2048, WL_SIZE_MB, 0, True, False))
 	#wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16MB, 128, 128, 8, WL_SIZE_MB, 0, True, False))
-	wlm.set_workload(workload(WL_SEQ_READ, 0, range_256MB, 128, 128, 256, WL_SIZE_MB, 0, True, False))
+	wlm.set_workload(workload(WL_SEQ_READ, 0, range_256MB, 128, 128, 2048, WL_SIZE_MB, 0, True, False))
 	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16MB, 128, 128, 4, WL_SIZE_MB, 0, True, False))
 		
 	wlm.set_workload(workload(WL_RAND_WRITE, 0, range_16MB, 8, 8, 32, WL_SIZE_MB, 0, True, False), 1)
@@ -72,7 +82,7 @@ def build_workload_multiqueue() :
 def build_workload_zns() :
 	wlm.set_capacity(range_16GB)
 		
-	wlm.set_workload(workload(WL_ZNS_WRITE, 0, range_16GB, 128, 128, 256, WL_SIZE_MB, 0, True, False))
+	wlm.set_workload(workload(WL_ZNS_WRITE, 0, range_16GB, 128, 128, 1024, WL_SIZE_MB, 0, True, False))
 	wlm.set_workload(workload(WL_ZNS_READ, 0, range_16GB, 128, 128, 128, WL_SIZE_MB, 0, True, False))
 				
 def host_run() :
@@ -88,12 +98,12 @@ if __name__ == '__main__' :
 
 	global NUM_CHANNELS
 	global WAYS_PER_CHANNELS
-	global NUM_WAYS
-		
+	global NUM_WAYS	
+				
 	NUM_CHANNELS = 8
 	WAYS_PER_CHANNELS = 4
 	NUM_WAYS = (NUM_CHANNELS * WAYS_PER_CHANNELS) 
-	
+		
 	report = report_manager()
 	
 	print('initialize model')
@@ -139,29 +149,28 @@ if __name__ == '__main__' :
 	#node = event_mgr.alloc_new_event(1000000000)
 	#node.dest = event_dst.MODEL_HOST | event_dst.MODEL_KERNEL
 	#node.code = event_id.EVENT_TICK
-					
-	start_time = time.time()
-	prev_time = int(start_time)
-
+															
+	init_log_time()
+	
 	idle_count = 0
+	accel_num = 0
 											
 	while exit is False :
 		event_mgr.increase_time()
 
-		hil_module.handler()
-		ftl_module.handler()
-		fil_module.send_command_to_nfc()
-		fil_module.handle_completed_nand_ops()
-																														
-		if event_mgr.head is not None :
+		hil_module.handler(log_time = log_time_data)
+		ftl_module.handler(log_time = log_time_data)
+		fil_module.handler(log_time = log_time_data)
+																																																								
+		if event_mgr.head is not None :			
 			node = event_mgr.head
 
 			something_happen = False
 
 			if event_mgr.timetick >= node.time :
-				# start first node					
-				event_mgr.print_log_event(node, True)
-				
+				# start first node
+				test_time = time.time()
+									
 				something_happen = True
 				
 				if node.dest & event_dst.MODEL_HOST :
@@ -180,34 +189,30 @@ if __name__ == '__main__' :
 										
 				event_mgr.delete_node(0)
 				event_mgr.prev_time = event_mgr.timetick
-
-				# show the progress status of current workload
-				progress = wlm.get_progress(async_group = False)
-				if progress_save != progress :
-					progress_save = progress
-					bar.index = progress
-					bar.next()
-						
-				if progress == 99 :
-					ftl_module.disable_background()
-					report.disable()
-						
+				
+				log_time_data['model'] = log_time_data['model'] + (time.time() - test_time)				
 				# end first node operation
 			else : 
-				if something_happen != True :
-					hil_module.handler()
-					ftl_module.handler()
-					fil_module.send_command_to_nfc()
-					fil_module.handle_completed_nand_ops()
-					
-					idle_count = idle_count + 1
-					if idle_count > 10 : 	
+				if something_happen != True :					
+					if (event_mgr.timetick - event_mgr.prev_time) >= 3 :
+						hil_module.handler(log_time = log_time_data)
+						ftl_module.handler(log_time = log_time_data)
+						fil_module.handler(log_time = log_time_data)
+												 	 	
 						# accelerate event timer for fast simulation 
-						time_gap = node.time - event_mgr.timetick
-						event_mgr.add_accel_time(time_gap)
-						idle_count = 0
-				else :
-					idle_count = 0
+						event_mgr.add_accel_time(node.time - event_mgr.timetick)
+						accel_num = accel_num + 1
+						
+						# show the progress status of current workload
+						progress = wlm.get_progress(async_group = False)
+						if progress_save != progress :
+							progress_save = progress
+							bar.index = progress
+							bar.next()
+								
+						if progress == 99 :
+							ftl_module.disable_background()
+							report.disable()						
 		else :
 			pending_cmds = host_model.get_pending_cmd_num()
 			
@@ -217,8 +222,21 @@ if __name__ == '__main__' :
 				ftl_module.debug()
 				
 			if True:					
-				print('\nsimulation time : %f'%(time.time() - start_time))		
-				print('\run time : %u ns [%f s]'%(event_mgr.timetick, event_mgr.timetick / 1000000000))
+				total_time = time.time() - log_time_data['start_time']
+				print('\nsimulation time : %f'%total_time)		
+				
+				if log_time_data['hil'] > 0 and log_time_data['ftl'] > 0 and log_time_data['fil'] > 0 :
+					sw_time0 = log_time_data['hil']
+					sw_time1 = log_time_data['ftl']
+					sw_time2 = log_time_data['fil']
+					handler_time = log_time_data['model']
+					sw_time = sw_time0+sw_time1+sw_time2
+					print('\nsw time : %f(%f, %f, %f), handler time : %f'%(sw_time, sw_time0, sw_time1, sw_time2, handler_time))
+					print('sw time : %f %%(%f, %f, %f), handler time : %f %%'%(sw_time/total_time*100, sw_time0/sw_time*100, sw_time1/sw_time*100, sw_time2/sw_time*100, handler_time/total_time*100))
+				
+				print('\nrun time : %u ns [%f s]'%(event_mgr.timetick, event_mgr.timetick / 1000000000))
+				print('acceleration num : %d'%accel_num)
+				print('max event node : %d'%event_mgr.max_count)
 		
 				report.close()
 				report.show_result()
@@ -248,8 +266,10 @@ if __name__ == '__main__' :
 					
 					ftl_module.enable_background()
 					
-					start_time = time.time()
-
+					init_log_time()
+										
+					accel_num = 0
+					
 					report.open(index)
 				else :
 					exit = True

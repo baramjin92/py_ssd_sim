@@ -35,6 +35,16 @@ from sim_report import *
 
 from progress.bar import Bar
 
+log_time_data = {}
+
+def init_log_time() :
+	log_time_data['hil'] = 0
+	log_time_data['ftl'] = 0
+	log_time_data['fil'] = 0
+	log_time_data['model'] = 0
+
+	log_time_data['start_time'] = time.time()
+
 def build_workload_zns() :
 	wlm.set_capacity(range_16GB)
 		
@@ -111,18 +121,16 @@ if __name__ == '__main__' :
 	#node.dest = event_dst.MODEL_HOST | event_dst.MODEL_KERNEL
 	#node.code = event_id.EVENT_TICK
 
-	start_time = time.time()
-	prev_time = int(start_time)
+	init_log_time()
 
 	idle_count = 0
 										
 	while exit is False :
 		event_mgr.increase_time()
 
-		hil_module.handler()
-		ftl_module.handler()
-		fil_module.send_command_to_nfc()
-		fil_module.handle_completed_nand_ops()
+		hil_module.handler(log_time = log_time_data)
+		ftl_module.handler(log_time = log_time_data)
+		fil_module.handler(log_time = log_time_data)
 																
 		if event_mgr.head is not None :
 			node = event_mgr.head
@@ -130,9 +138,7 @@ if __name__ == '__main__' :
 			something_happen = False
 
 			if event_mgr.timetick >= node.time :
-				# start first node					
-				event_mgr.print_log_event(node, True)
-				
+				# start first node									
 				something_happen = True
 				
 				if node.dest & event_dst.MODEL_HOST :
@@ -166,11 +172,10 @@ if __name__ == '__main__' :
 				# end first node operation
 			else : 
 				if something_happen != True :
-					hil_module.handler()
-					ftl_module.handler()
-					fil_module.send_command_to_nfc()
-					fil_module.handle_completed_nand_ops()
-												
+					hil_module.handler(log_time = log_time_data)
+					ftl_module.handler(log_time = log_time_data)
+					fil_module.handler(log_time = log_time_data)
+															
 					idle_count = idle_count + 1
 					if idle_count > 10 : 	
 						# accelerate event timer for fast simulation 
@@ -189,7 +194,7 @@ if __name__ == '__main__' :
 				ftl_module.debug()
 				
 			if True:
-				print('\nsimulation time : %f'%(time.time() - start_time))											
+				print('\nsimulation time : %f'%(time.time() - log_time_data['start_time']))											
 				print('run time : %u ns [%f s]'%(event_mgr.timetick, event_mgr.timetick / 1000000000))
 		
 				report.close()
@@ -215,7 +220,7 @@ if __name__ == '__main__' :
 					
 					ftl_module.enable_background()
 
-					start_time = time.time()
+					init_log_time()
 										
 					report.open(index)
 				else :
