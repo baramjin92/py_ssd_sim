@@ -257,7 +257,8 @@ class event_manager :
 		if self.count > self.max_count :
 			self.max_count = self.count
 	
-	@save_log_event																																																		
+	# if you want to debuf enable save_log_event decorator
+	#@save_log_event																																																		
 	def delete_node(self, index) : 
 		if index >= self.count :
 			event_log_print('[event]', 'error index')

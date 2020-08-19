@@ -4,8 +4,13 @@ import os
 import sys
 import datetime
 
-def vcd_print(message) :
-	print(message)
+def enable_console(func) :
+	def enable_console(*args, **kwargs) :
+		print(args[1])
+		result = func(*args, **kwargs)
+		return result
+	
+	return enable_console
 
 class vcd_variable :
 	def __init__(self, type, size, symbol, name, init_value, module) :
@@ -19,7 +24,6 @@ class vcd_variable :
 class vcd_manager :
 	def __init__(self) :
 		self.fp = None
-		self.csv_wr = None
 
 		self.date = datetime.datetime.today()
 		self.version = 'python vcd tool'
@@ -30,7 +34,13 @@ class vcd_manager :
 		self.variables = []
 		
 		self.time = -1						
-																		
+
+	@enable_console
+	def vprint(self, message) :
+		if self.fp != None :
+			self.fp.write(message)
+			self.fp.write('\n')
+																																																																			
 	def set_date(self) :
 		self.date = datetime.datetime.today()	
 		
@@ -53,8 +63,6 @@ class vcd_manager :
 			os.remove(filename)
 			
 		self.fp = open(filename, 'w', encoding='utf-8')
-		self.csv_wr = csv.writer(self.fp)
-		self.csv_wr.writerow(['time', 'time gap', 'tag', 'log'])
 	
 	def close(self) :
 		if self.fp == None :
@@ -67,19 +75,19 @@ class vcd_manager :
 		self.variables.append(var)
 
 	def make_header(self) :
-		vcd_print('$date')
-		vcd_print('\t' + self.date.strftime('%c'))
-		vcd_print('$end')													
+		self.vprint('$date')
+		self.vprint('\t' + self.date.strftime('%c'))
+		self.vprint('$end')													
 
-		vcd_print('$version')
-		vcd_print('\t' + self.version)
-		vcd_print('$end')													
+		self.vprint('$version')
+		self.vprint('\t' + self.version)
+		self.vprint('$end')													
 																														
-		vcd_print('$comment')
-		vcd_print('\t' + self.comment)
-		vcd_print('$end')													
+		self.vprint('$comment')
+		self.vprint('\t' + self.comment)
+		self.vprint('$end')													
 
-		vcd_print('$timescale %s $end'%(self.time_scale))
+		self.vprint('$timescale %s $end'%(self.time_scale))
 		
 	def make_variable(self, module) :
 		
@@ -87,40 +95,44 @@ class vcd_manager :
 			return
 		
 		if module in self.modules :		
-			vcd_print('$scope module %s $end'%module)
+			self.vprint('$scope module %s $end'%module)
 							
 			for var in self.variables :
 				if var.module == module:
-					vcd_print('$var %s %d %s %s $end'%(var.type, var.size, var.symbol, var.name))	
+					self.vprint('$var %s %d %s %s $end'%(var.type, var.size, var.symbol, var.name))	
 	
-			vcd_print('$upscope $end')
+			self.vprint('$upscope $end')
 	
 	def make_init_state(self) :
-		vcd_print('$enddefinitions $end')
-		vcd_print('$dumpvars')																																												
+		self.vprint('$enddefinitions $end')
+		self.vprint('$dumpvars')																																												
 		
-		for index in range(len(self.variables)) :
-			var = self.variables[index]
+		for index, var in enumerate(self.variables) :
 			if len(var.init_val) > 1 :
-				vcd_print('%s %s'%(var.init_val, var.symbol))
+				self.vprint('%s %s'%(var.init_val, var.symbol))
 			else :
-				vcd_print('%s%s'%(var.init_val, var.symbol))	
+				self.vprint('%s%s'%(var.init_val, var.symbol))	
 
-		vcd_print('$end')																																															
+		self.vprint('$end')																																															
 		
 	def change_state(self, time, symbol, value) :
 		if self.time != time :
-			vcd_print('#%d'%time)
+			self.vprint('#%d'%time)
 			self.time = time
 		
 		if len(value) > 1 :
-			vcd_print('%s %s'%(value, symbol))
+			self.vprint('%s %s'%(value, symbol))
 		else :
-			vcd_print('%s%s'%(value, symbol))																																																																				
+			self.vprint('%s%s'%(value, symbol))																																																																				
 if __name__ == '__main__' :
-	vcd_print ('sim vcd init')
+	# in order to show data, please enable 'enable_console' in vprint()
+	
+	print ('sim vcd init')
+	print ('==========')
 
 	vcd = vcd_manager()
+	vcd.open('test_vcd.txt')
+	
 	vcd.set_date()
 	vcd.set_version('python ssd simulator vcd')
 	vcd.set_comment('developed by yong jin')
@@ -146,3 +158,5 @@ if __name__ == '__main__' :
 	vcd.change_state(2296, '#', 'b0')
 	vcd.change_state(2296, '$ ', '1')
 	vcd.change_state(2302, '$', '0')	
+
+	vcd.close()
