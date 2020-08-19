@@ -29,6 +29,18 @@ from sim_event import *
 
 ENABLE_PERF_MONITOR = False
 
+def check_perf_monitor(func) :
+	def check_perf_monitor(*args, **kwargs) :
+		if ENABLE_PERF_MONITOR == False :
+			return 0
+			
+		result = func(*args, **kwargs)
+		
+		return result
+
+	return check_perf_monitor
+
+
 html_fp = None
 
 def html_open(filename) :
@@ -86,10 +98,8 @@ def html_put_table(dataframe) :
 		fp.write('</table>')
 		fp.write('</center>')
 
-def plot_result(filename):
-	if ENABLE_PERF_MONITOR == False :
-		return
-	
+@check_perf_monitor
+def plot_result(filename):	
 	times = []
 	write_throughput = []
 	read_throughput = []
@@ -167,11 +177,9 @@ class report_manager :
 		self.hil_module = None 
 		self.ftl_module = None
 		self.fil_module = None
-																																															
-	def open(self, seq_no) :
-		if ENABLE_PERF_MONITOR == False :
-			return
-								
+	
+	@check_perf_monitor											
+	def open(self, seq_no) :								
 		# prepare the csv file for recoding workload
 		today = datetime.datetime.today()
 		#self.log_filename = 'sim_%04d%02d%02d_%08d_%02d.csv'%(today.year, today.month, today.day, (today.hour*today.minute*today.second), seq_no)
@@ -192,6 +200,7 @@ class report_manager :
 		node.dest = event_dst.MODEL_KERNEL
 		node.code = event_id.EVENT_RESULT
 	
+	@check_perf_monitor
 	def close(self) :
 		if len(self.log_list) > 0 :				
 	
@@ -204,10 +213,8 @@ class report_manager :
 			
 		self.log_enable = False
 
-	def log(self, event, host_stat) :
-		if ENABLE_PERF_MONITOR == False :
-			return
-					
+	@check_perf_monitor
+	def log(self, event, host_stat) :					
 		if event.code == event_id.EVENT_RESULT:	
 			if self.fp == None :
 					open()
