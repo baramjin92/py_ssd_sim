@@ -55,6 +55,32 @@ MWAY_M2_CNA = 18
 def log_print(message) :
 	event_log_print('[nfc]', message)
 
+nfc_seq_state = {
+	# cell_busy, io_busy, wait
+	MWAY_IDLE : (0, 0, 0),
+	MWAY_R1_WAIT : (0, 0, 1),
+	MWAY_R2_CNA : (0, 1, 0),
+	MWAY_R3_SENSE : (1, 0, 0), 
+	MWAY_R4_WAIT : (0, 0, 1),
+	MWAY_R5_XFER : (0, 1, 0),
+
+	MWAY_W1_WAIT : (0, 0, 1),
+	MWAY_W2_CNA : (0, 1, 0),
+	MWAY_W3_XFER : (0, 1, 0),
+	MWAY_W4_PROG : (1, 0, 0),
+	MWAY_W5_WAIT : (0, 0, 1),
+	MWAY_W6_CHK : (0, 1, 0),
+	
+	MWAY_E1_WAIT : (0, 0, 1),
+	MWAY_E2_CNA : (0, 1, 0),
+	MWAY_E3_ERAS : (1, 0, 0),
+	MWAY_E4_WAIT : (0, 0, 1),
+	MWAY_E5_CHK : (0, 1, 0),
+	
+	MWAY_M1_WAIT : (0, 0, 1),
+	MWAY_M2_CNA : (0, 1, 0),
+}
+
 class way_context :
 	def __init__(self) :
 		self.state = MWAY_IDLE
@@ -291,7 +317,7 @@ class nfc :
 		# start io operation
 		self.begin_io(way)
 		
-		# save VCD file if option is activated
+		#ssd_vcd_set_nfc_busy(channel, 1)
 		
 		return way
 		
@@ -314,7 +340,7 @@ class nfc :
 		cstat = self.channel_stat[channel]
 		cstat.release_time = current_time
 		
-		# save VCD file if option is activated
+		#ssd_vcd_set_nfc_busy(channel, 0)
 		
 	def release_channel_condition(self, channel, way) :
 		#log_print('conditional release channel')
@@ -560,8 +586,12 @@ class nfc :
 			bstat.prev_time = current_time
 			
 			self.begin_new_command(channel, way)
-			
-		# save VCD file if option is activated
+		
+		'''		
+		if self.way_ctx[way].state != current_state :
+			cell, io, wait, = nfc_seq_state[self.way_ctx[way].state]
+			ssd_vcd_set_nfc_state(way, self.way_ctx[way].state, cell, io, wait)
+		'''
 		
 		# check channel owner and grant channel
 		if self.channel_owner[channel] == 0xFFFFFFFF :
@@ -570,9 +600,12 @@ class nfc :
 			if self.high_queue[channel].length() > 0 or self.low_queue[channel].length() >0 :
 				#print('....................................................%d'%(self.debug[channel]))
 				self.debug[channel] = 0
-				self.grant_channel(channel)
+				granted_way = self.grant_channel(channel)
 				
-				# save grant channel status to VCD file if option is activated
+				'''
+				cell, io, wait, = nfc_seq_state[self.way_ctx[granted_way].state]
+				ssd_vcd_set_nfc_state(granted_way, self.way_ctx[granted_way].state, cell, io, wait)			
+				'''
 								
 	def print_cmd_descriptor(self, report = None) :
 		print('command descriptor')

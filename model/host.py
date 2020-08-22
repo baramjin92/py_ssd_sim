@@ -17,6 +17,8 @@ from config.ssd_param import *
 
 from sim_event import *
 
+from model.vcd_ssd import *
+
 from model.zone import *
 from model.workload import *
 from model.pcie_if import *
@@ -142,7 +144,7 @@ class host_manager :
 				if cmd_code == HOST_CMD_WRITE or cmd_code == HOST_CMD_READ :
 					workload_zone.issue_cmd(host_cmd.lba)				
 			
-				# save to VCD file if option is activated
+				ssd_vcd_set_integer(VCD_SYMBOL_HOST_QD, self.num_pending_cmds)	
 	
 				# rotate qid for racing operation.
 				qid = self.queue_ids.pop(0)
@@ -215,7 +217,8 @@ class host_manager :
 		elif cmd_code == HOST_CMD_TRIM :																																																																													
 			log_print('trim cmd done and check operation result')
 		
-		# save to VCD file if option is activated
+		ssd_vcd_set_integer(VCD_SYMBOL_HOST_QD, self.num_pending_cmds)
+		ssd_vcd_set_integer(VCD_SYMBOL_LATENCY, int(latency/1000))
 		
 		return True																																					
 		
@@ -436,7 +439,10 @@ class host_manager :
 		elif current_downlink_state != DOWNLINK_IDLE and next_downlink_state != DOWNLINK_IDLE :
 			host_stat.downlink_idle_time = host_stat.downlink_idle_time + (current_time - host_stat.downlink_idle_begin)
 																										
-		# save to VCD file if option is activated
+		if current_uplink_state != next_uplink_state :									
+			ssd_vcd_set_binary(VCD_SYMBOL_UPLINK, next_uplink_state)											
+		if current_downlink_state != next_downlink_state :
+			ssd_vcd_set_binary(VCD_SYMBOL_DOWNLINK, next_downlink_state)
 										
 		return True
 		
