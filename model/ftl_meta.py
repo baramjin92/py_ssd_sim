@@ -29,6 +29,12 @@ def build_map_entry2(way, nand_addr, chunk_offset) :
 	
 	return address
 
+def get_nand_addr(address) :
+	return int(address % CHUNKS_PER_WAY)
+
+def build_chunk_index(page, chunk_offset = 0) :
+	return page * CHUNKS_PER_PAGE + chunk_offset
+
 def parse_map_entry(address) :
 	way = int(address / CHUNKS_PER_WAY) 
 	block = int((address % CHUNKS_PER_WAY) / CHUNKS_PER_BLOCK) 

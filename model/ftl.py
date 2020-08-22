@@ -45,6 +45,7 @@ class ftl_manager :
 		
 		# register hic now in order to use interface queue									
 		self.hic_model = hic
+		self.chunks_per_page = CHUNKS_PER_PAGE
 		
 		self.run_mode = True
 		
@@ -182,16 +183,15 @@ class ftl_manager :
 			self.seq_num = self.seq_num + 1
 			
 			way, block, page, end_chunk_offset = parse_map_entry(map_entry)
-			# in order to calculate nand address, way and 
-			address = build_map_entry(0, block, page, 0)
-			#address = int((map_entry % CHUNKS_PER_WAY) / CHUNKS_PER_PAGE) * CHUNKS_PER_PAGE
+			# in order to calculate nand address, way and page are 0 
+			nand_addr = build_map_entry(0, block, page, 0)
 			start_chunk_offset = end_chunk_offset - (num_chunks_to_read - 1)
 
 			# update lba_index for last chunk
 			lba_index = lba_index + 1
 
-			if address == 0 :
-				print('do read - chunk : %d [offset : %d - num : %d], remain_num : %d, way : %d, address : %x, block : %d, page : %d'%(lba_index, start_chunk_offset, num_chunks_to_read, num_remain_chunks, way, address, block, page))
+			if nand_addr == 0 :
+				print('do read - chunk : %d [offset : %d - num : %d], remain_num : %d, way : %d, nan_addr : %x, block : %d, page : %d'%(lba_index, start_chunk_offset, num_chunks_to_read, num_remain_chunks, way, nand_addr, block, page))
 						
 			# issue command to fil								
 			if ENABLE_RAMDISK_MODE == False :
@@ -226,7 +226,7 @@ class ftl_manager :
 					cmd_desc = nandcmd_table.table[cmd_index]
 					cmd_desc.op_code = FOP_USER_READ
 					cmd_desc.way = way
-					cmd_desc.nand_addr = address
+					cmd_desc.nand_addr = nand_addr
 					cmd_desc.chunk_offset = start_chunk_offset
 					cmd_desc.chunk_num = num_chunks_to_read
 					cmd_desc.seq_num = self.seq_num
@@ -288,7 +288,7 @@ class ftl_manager :
 		map_entry = build_map_entry(way, block, page, 0)
 
 		# CHUNKS_PER_PAGE is calculated in the MLC mode, we need to consider another cell mode
-		#chunk_base = page * CHUNKS_PER_PAGE
+		#chunk_base = build_chunk_index(page)
 																												
 		# meta data update (meta datum are valid chunk bitmap, valid chunk count, map table
 		# valid chunk bitamp and valid chunk count use in gc and trim 
@@ -306,7 +306,7 @@ class ftl_manager :
 			meta.map_table[lba_index] = map_entry + index
 
 			# CHUNKS_PER_PAGE is calculated in the MLC mode, we need to consider another cell mode
-			chunk_index = page * CHUNKS_PER_PAGE + index
+			chunk_index = build_chunk_index(page, index)
 			meta.set_valid_bitmap(way, block, chunk_index)					
 									
 			# invalidate "valid chunk bitmap", "valid chunk count" with old physical address
@@ -315,7 +315,7 @@ class ftl_manager :
 				# calculate way, block, page of old physical address
 				old_way, old_nand_block, old_nand_page, old_chunk_offset = parse_map_entry(old_physical_addr)
 						
-				chunk_index = old_nand_page * CHUNKS_PER_PAGE + old_chunk_offset
+				chunk_index = build_chunk_index(old_nand_page, old_chunk_offset)
 				valid_sum = meta.clear_valid_bitmap(old_way, old_nand_block, chunk_index)
 				if valid_sum == 0 :
 					log_print('move sb to erased block')
@@ -339,14 +339,14 @@ class ftl_manager :
 		self.seq_num = self.seq_num + 1
 
 		if ENABLE_RAMDISK_MODE == False :
-			address = int(map_entry % CHUNKS_PER_WAY)
+			nand_addr = get_nand_addr(map_entry)
 	
 			# change cell mode command
 			cmd_index = nandcmd_table.get_free_slot()
 			cmd_desc = nandcmd_table.table[cmd_index]
 			cmd_desc.op_code = FOP_SET_MODE
 			cmd_desc.way = way
-			cmd_desc.nand_addr = address
+			cmd_desc.nand_addr = nand_addr
 			cmd_desc.chunk_num = 0
 			cmd_desc.option = sb.get_cell_mode()
 			cmd_desc.seq_num = self.seq_num
@@ -358,7 +358,7 @@ class ftl_manager :
 			cmd_desc = nandcmd_table.table[cmd_index]
 			cmd_desc.op_code = FOP_USER_WRITE
 			cmd_desc.way = way
-			cmd_desc.nand_addr = address
+			cmd_desc.nand_addr = nand_addr
 			cmd_desc.chunk_num = num_chunks
 			cmd_desc.buffer_ids = []
 			for index in range(num_chunks) :
@@ -421,7 +421,7 @@ class ftl_manager :
 									
 			# get new physical address from open block	
 			way, block, page = src_sb.get_physical_addr()
-			chunk = page * CHUNKS_PER_PAGE
+			chunk = build_chunk_index(page)
 			
 			page_bmp = meta.check_valid_bitmap(way, block, chunk)
 			str = 'issue count : %d, way : %d, block : %d, page : %d bmp : 0x%08x '%(issue_count, way, block, page, page_bmp)
@@ -439,7 +439,7 @@ class ftl_manager :
 
 						# send nand cmd to fil						
 						self.seq_num = self.seq_num + 1
-						address = build_map_entry(0, block, page, 0)
+						nand_addr = build_map_entry(0, block, page, 0)
 
 						queue_id, cmd_tag = self.gc_cmd_id.get_slot()
 
@@ -447,7 +447,7 @@ class ftl_manager :
 						cmd_desc = nandcmd_table.table[cmd_index]
 						cmd_desc.op_code = FOP_GC_READ
 						cmd_desc.way = way
-						cmd_desc.nand_addr = address
+						cmd_desc.nand_addr = nand_addr
 						cmd_desc.chunk_offset = start_chunk_offset
 						cmd_desc.chunk_num = num_chunks
 						cmd_desc.seq_num = self.seq_num
@@ -455,7 +455,7 @@ class ftl_manager :
 						cmd_desc.queue_id = queue_id
 
 						cmd_desc.gc_meta = []
-						gc_meta = build_map_entry2(way, address, start_chunk_offset)
+						gc_meta = build_map_entry2(way, nand_addr, start_chunk_offset)
 						for offset in range(num_chunks) :
 							cmd_desc.gc_meta.append(gc_meta + offset) 
 																																												
@@ -473,7 +473,7 @@ class ftl_manager :
 					
 					# send nand cmd to fil						
 					self.seq_num = self.seq_num + 1
-					address = build_map_entry(0, block, page, 0)
+					nand_addr = build_map_entry(0, block, page, 0)
 
 					queue_id, cmd_tag = self.gc_cmd_id.get_slot()
 
@@ -481,7 +481,7 @@ class ftl_manager :
 					cmd_desc = nandcmd_table.table[cmd_index]
 					cmd_desc.op_code = FOP_GC_READ
 					cmd_desc.way = way
-					cmd_desc.nand_addr = address
+					cmd_desc.nand_addr = nand_addr
 					cmd_desc.chunk_offset = start_chunk_offset
 					cmd_desc.chunk_num = num_chunks
 					cmd_desc.seq_num = self.seq_num
@@ -489,7 +489,7 @@ class ftl_manager :
 					cmd_desc.queue_id = queue_id
 					
 					cmd_desc.gc_meta = []
-					gc_meta = build_map_entry2(way, address, start_chunk_offset)
+					gc_meta = build_map_entry2(way, nand_addr, start_chunk_offset)
 					for offset in range(num_chunks) :
 						cmd_desc.gc_meta.append(gc_meta + offset) 
 						
@@ -643,11 +643,11 @@ class ftl_manager :
 			# validate "valid chunk bitmap", "valid chunk count", "map table" with new physical address
 			meta.map_table[lba_index] = map_entry + index
 
-			chunk_index = page * CHUNKS_PER_PAGE + index
+			chunk_index = build_chunk_index(page, index)
 			meta.set_valid_bitmap(way, block, chunk_index)			
 			
 			# invalidate "valid chunk bitmap", "valid chunk count" with old physical address		
-			chunk_index = old_nand_page * CHUNKS_PER_PAGE + old_chunk_offset
+			chunk_index = build_chunk_index(old_nand_page, old_chunk_offset)
 			valid_sum = meta.clear_valid_bitmap(old_way, old_nand_block, chunk_index)
 			if valid_sum == 0 :
 				log_print('move sb : %d to erased block'%old_nand_block) 
@@ -675,14 +675,14 @@ class ftl_manager :
 			
 		self.seq_num = self.seq_num + 1
 
-		address = int(map_entry % CHUNKS_PER_WAY)
+		nand_addr = get_nand_addr(map_entry)
 	
 		# change cell mode command
 		cmd_index = nandcmd_table.get_free_slot()
 		cmd_desc = nandcmd_table.table[cmd_index]
 		cmd_desc.op_code = FOP_SET_MODE
 		cmd_desc.way = way
-		cmd_desc.nand_addr = address
+		cmd_desc.nand_addr = nand_addr
 		cmd_desc.chunk_num = 0
 		cmd_desc.option = sb.get_cell_mode()
 		cmd_desc.seq_num = self.seq_num
@@ -694,7 +694,7 @@ class ftl_manager :
 		cmd_desc = nandcmd_table.table[cmd_index]
 		cmd_desc.op_code = FOP_GC_WRITE
 		cmd_desc.way = way
-		cmd_desc.nand_addr = address
+		cmd_desc.nand_addr = nand_addr
 		cmd_desc.chunk_num = num_chunks
 		cmd_desc.buffer_ids = []
 		for index in range(num_chunks) :
