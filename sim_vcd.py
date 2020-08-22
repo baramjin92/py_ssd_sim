@@ -140,22 +140,27 @@ class vcd_manager :
 			
 		self.vprint('$end')
 		self.vflush()																																															
-					
-	def change_state(self, time, symbol, value) :
+
+	def set_time(self, time) :
 		if self.time != time :
 			self.vprint('#%d'%time)
 			self.time = time
+																																			
+	def set_binary_1(self, symbol, value) :
+		str = 'b%d %s'%(value, symbol)			
+		self.vprint(str)																																																																						
+												
+	def set_binary_n(self, symbol, value) :
+		str = 'b%s %s'%(format(value, format_str[self.variables[symbol].size]), symbol)			
+		self.vprint(str)																																																																						
 
+	def change_state(self, time, symbol, value) :
+		self.set_time(time)
 		self.set_value(symbol, value)
 
 	def change_binary(self, time, symbol, value) :
-		if self.time != time :
-			self.vprint('#%d'%time)
-			self.time = time
-
-		str = 'b%s %s'%(format(value, format_str[self.variables[symbol].size]), symbol)			
-		self.vprint(str)																																																																						
-												
+		self.set_time(time)
+		self.set_binary_n(symbol, value)																																																																																																																																
 if __name__ == '__main__' :
 	# in order to show data, please enable 'enable_console' in vprint()
 	
