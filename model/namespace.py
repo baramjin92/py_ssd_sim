@@ -83,7 +83,7 @@ class namespace_desc :
 		self.num_chunks_to_write = self.num_chunks_to_write - num_chunks			
 		
 	def report_get_label(self) :
-		return {'namespace' : ['id', 'slba', 'elba', 'meta range', 'blk_name', 'num_chunk_to_write', 'write_buffer']}
+		return {'namespace' : ['id', 'slba', 'elba', 'meta range', 'blk_name', 'min_chunk_for_page', 'num_chunk_to_write', 'write_buffer']}
 		
 	def report_get_columns(self, meta_range) :
 		columns = []
@@ -92,6 +92,7 @@ class namespace_desc :
 		columns.append(self.elba)
 		columns.append(meta_range)
 		columns.append(self.blk_name)
+		columns.append(self.min_chunks_for_page)			
 		columns.append(self.num_chunks_to_write)			
 		columns.append(str(self.write_buffer))
 		

@@ -13,6 +13,7 @@ from config.sim_config import unit
 from config.ssd_param import *
 
 from model.queue import *
+from model.ftl_common import *
 
 from sim_event import *
 
@@ -70,13 +71,13 @@ class ftl_meta :
 		# valid chunk bitmap
 		self.size_of_bitmap = int(CHUNKS_PER_BLOCK / 32)
 
-	def config(self, num_way) :
+	def config(self, num_way, blocks_per_way = BLOCKS_PER_WAY) :
 		# valid chunk bitmap
-		self.valid_bitmap = np.empty((num_way, BLOCKS_PER_WAY, self.size_of_bitmap), np.uint32)
+		self.valid_bitmap = np.empty((num_way, blocks_per_way, self.size_of_bitmap), np.uint32)
 
 		# valid chunk count data  : valid_count[way][block]
-		self.valid_count = np.empty((num_way, BLOCKS_PER_WAY), np.uint32)
-		self.valid_sum = np.empty((BLOCKS_PER_WAY), np.uint32)
+		self.valid_count = np.empty((num_way, blocks_per_way), np.uint32)
+		self.valid_sum = np.empty((blocks_per_way), np.uint32)
 
 	# this is only useful in conventional ssd using super block concept
 	def get_valid_sum(self, block) :			

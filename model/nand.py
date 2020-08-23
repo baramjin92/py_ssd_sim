@@ -32,15 +32,22 @@ def log_print(message) :
 # nand class represent one die of nand
 # it manages data with nand_ctx
 class nand_context :
-	def __init__(self, nand_id, block_num, page_num, plane_num, param) :
+	def __init__(self, nand_id, block_num, param) :
 		self.nand_id = nand_id
 
 		# nand information (it manages cell of nand)		
 		# block = main_block + spare_block (additional block + extended block)
 		self.block_num = block_num
-		self.page_num = page_num
-		self.plane_num = plane_num
-		self.chunks_per_blk = self.page_num * CHUNKS_PER_PAGE
+		self.page_num = param.page_num
+		self.plane_num = param.plane_num
+		self.bytes_per_page = int(param.page_size * param.plane_num)
+		self.chunks_per_page = int(self.bytes_per_page / BYTES_PER_CHUNK)
+		self.chunks_per_blk = self.page_num * self.chunks_per_page
+		self.chunks_per_way = self.chunks_per_blk * self.block_num
+		
+		# this code will be removed in future
+		#if self.chunks_per_page != CHUNKS_PER_PAGE :
+		#	print('.....error : self.chunks_per_page is not same with CHUNKS_PER_PAGE')
 		
 		# nand page buffer information (it manages operation of nand)
 		self.state = NAND_STATE_IDLE
@@ -81,9 +88,9 @@ class nand_context :
 		# nand address is composed by block, page, chunk offset
 		# it can be separated by CHUNK_PER_WAY,  CHUNK_PER_BLOCK, CHUNK_PER_PAGE
 		# get block and page address of nand
-		self.nand_block = int(self.nand_addr / CHUNKS_PER_BLOCK) 
-		self.nand_page = int((self.nand_addr % CHUNKS_PER_BLOCK) / CHUNKS_PER_PAGE)
-		self.chunk_offset = int((self.nand_addr % CHUNKS_PER_PAGE))
+		self.nand_block = int(self.nand_addr / self.chunks_per_blk) 
+		self.nand_page = int((self.nand_addr % self.chunks_per_blk) / self.chunks_per_page)
+		self.chunk_offset = int((self.nand_addr % self.chunks_per_page))
 				
 	def get_data(self) :
 		return self.main_data
@@ -96,10 +103,10 @@ class nand_context :
 		#log_print('die %d read block %x page %d'%(self.nand_id, nand_block, nand_page))
 				
 		# calculte chunk index in page
-		chunk_addr = nand_page * CHUNKS_PER_PAGE
+		chunk_addr = nand_page * self.chunks_per_page
 	
 		#for index in range(self.chunks_num) :
-		for chunk_index in range(chunk_addr, chunk_addr+CHUNKS_PER_PAGE) :
+		for chunk_index in range(chunk_addr, chunk_addr+self.chunks_per_page) :
 			# read data and meta from nand
 			# set main data/extra data
 			self.main_data.append(self.cell[nand_block][chunk_index])
@@ -115,7 +122,7 @@ class nand_context :
 		self.status[nand_block] = self.status[nand_block] | NAND_STATUS_PROGRAM
 						
 		# calculte chunk index in page
-		chunk_index = nand_page * CHUNKS_PER_PAGE + chunk_offset
+		chunk_index = nand_page * self.chunks_per_page + chunk_offset
 								
 		# the data can distinguish with main data and extra data
 		# main data means user data to save
@@ -217,8 +224,8 @@ class nand_context :
 		str = ''		
 		for nand_page in range(start_page, end_page) :
 			# read data from nand
-			for chunk in range(CHUNKS_PER_PAGE) :
-				chunk_index  = nand_page * CHUNKS_PER_PAGE + chunk
+			for chunk in range(self.chunks_per_page) :
+				chunk_index  = nand_page * self.chunks_per_page + chunk
 				nand_data = self.cell[nand_block][chunk_index]
 				meta_data = self.spare[nand_block][chunk_index]
 											
@@ -237,14 +244,23 @@ class nand_manager :
 		self.nand_info = nand_info
 		
 		# set nand context
-		block_num = nand_info.main_block_num + nand_info.spare_block_num
+		#block_num = nand_info.main_block_num + nand_info.spare_block_num
+		block_num = nand_info.main_block_num
 		self.nand_ctx = []
 		for index in range(nand_num) :
-			self.nand_ctx.append(nand_context(index, block_num, nand_info.page_num, nand_info.plane_num, nand_info))
+			self.nand_ctx.append(nand_context(index, block_num, nand_info))
 															
 	def get_nand_info(self) :
-		return self.nand_info												
-													
+		return self.nand_info																									
+	
+	def get_nand_dimension(self, nand_id = 0) :
+		nand_ctx = self.nand_ctx[nand_id]
+		return (nand_ctx.bytes_per_page, nand_ctx.page_num, nand_ctx.block_num)
+			
+	def get_chunk_info(self, nand_id = 0) :
+		nand_ctx = self.nand_ctx[nand_id]
+		return (nand_ctx.chunks_per_page, nand_ctx.chunks_per_blk, nand_ctx.chunks_per_way)												
+																																			
 	def begin_new_command(self, nand, event) :
 		# get nand command and address from event
 		nand.set_address(event.nand_addr)
@@ -410,10 +426,10 @@ class nand_manager :
 		info_columns = []
 		info_columns.append(bit_per_cel)
 		info_columns.append(info.size)
-		info_columns.append(info.page_size / unit.scale_KB)
+		info_columns.append(int(info.page_size / unit.scale_KB))
 		info_columns.append(info.page_num)
 		info_columns.append(info.plane_num)
-		info_columns.append(info.page_num / bit_per_cel)
+		info_columns.append(int(info.page_num / bit_per_cel))
 		info_columns.append(info.main_block_num)
 		info_columns.append(int(small_block_size / unit.scale_MB))
 		info_columns.append(int(big_block_size / unit.scale_MB))

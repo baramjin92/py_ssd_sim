@@ -19,6 +19,10 @@ from sim_event import *
 def log_print(message) :
 	event_log_print('[ftl]', message)
 
+CHUNKS_PER_PAGE = int(BYTES_PER_PAGE / BYTES_PER_CHUNK)
+CHUNKS_PER_BLOCK = int(CHUNKS_PER_PAGE * PAGES_PER_BLOCK)
+CHUNKS_PER_WAY = int(CHUNKS_PER_BLOCK * BLOCKS_PER_WAY)
+
 class gc_cmd_desc :
 	def __init__(self, nsid, cmd_tag) :
 		self.nsid = nsid
