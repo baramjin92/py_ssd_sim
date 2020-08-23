@@ -32,8 +32,17 @@ def build_map_entry2(way, nand_addr, chunk_offset) :
 def get_nand_addr(address) :
 	return int(address % CHUNKS_PER_WAY)
 
+# CHUNKS_PER_PAGE is calculated in the MLC mode, we need to consider another cell mode
 def build_chunk_index(page, chunk_offset = 0) :
 	return page * CHUNKS_PER_PAGE + chunk_offset
+
+# use to check adjacent address in same way, block, page (only difference is chunk offset)
+def check_same_physical_page(next_map_entry, map_entry) :
+	if int(next_map_entry / CHUNKS_PER_PAGE) == int(map_entry / CHUNKS_PER_PAGE) :
+		#log_print('To check adjecent is true between %x and %x'%(next_map_entry, map_entry))
+		return True
+	else :
+		return False
 
 def parse_map_entry(address) :
 	way = int(address / CHUNKS_PER_WAY) 
@@ -115,7 +124,17 @@ class ftl_meta :
 		# result has all bitmap info of page
 		result = (bmp[index] >> int(chunk % 32)) & PAGE_MASK		
 		return result
-																														
+									
+	def print_meta_constants(self) :
+		print('ftl meta constants')
+		print('BYTES_PER_PAGE : %d KB'%int(BYTES_PER_PAGE/1024))																													
+		print('PAGES_PER_BLOCK : %d'%PAGES_PER_BLOCK)
+		print('BLOCKS_PER_WAY : %d\n'%BLOCKS_PER_WAY)
+		
+		print('CHUNKS_PER_PAGE : %d'%CHUNKS_PER_PAGE)																													
+		print('CHUNKS_PER_BLOCK : %d'%CHUNKS_PER_BLOCK)
+		print('CHUNKS_PER_WAY : %d\n'%CHUNKS_PER_WAY)
+																																																																								
 	def print_map_table(self, lba, num_sectors) :
 		print('\nmap table - start lba : %d, end lba : %d'%(lba, lba+num_sectors-SECTORS_PER_CHUNK))
 		chunk_index = int(lba / SECTORS_PER_CHUNK)
@@ -156,6 +175,8 @@ if __name__ == '__main__' :
 	print ('module ftl (flash translation layer) common')
 	
 	meta.config(NUM_WAYS)
+
+	meta.print_meta_constants()
 
 	print('.....test mapping table')
 	start_lba = 40

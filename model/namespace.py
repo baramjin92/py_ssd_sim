@@ -35,7 +35,8 @@ class namespace_desc :
 		# write_cmd_queue try to gather write commands before programing data to nand
 		self.write_cmd_queue = queue(32)
 		self.num_chunks_to_write = 0
-		
+		self.min_chunks_for_page = CHUNKS_PER_PAGE
+			
 		self.write_buffer = []
 	
 		# read cmd
@@ -66,7 +67,7 @@ class namespace_desc :
 			return False
 				
 	def is_ready_to_write(self) :
-		if self.num_chunks_to_write >= CHUNKS_PER_PAGE and len(self.write_buffer) >= CHUNKS_PER_PAGE :
+		if self.num_chunks_to_write >= self.min_chunks_for_page and len(self.write_buffer) >= self.min_chunks_for_page :
 			if self.write_cmd_queue.length() == 0 :
 				print('error : is_ready_to_write')
 				self.debug
@@ -179,6 +180,14 @@ namespace_mgr = namespace_manager([10, 40, 50])
 												
 if __name__ == '__main__' :
 	print ('module namespace')
+	
+	global NUM_CHANNELS
+	global WAYS_PER_CHANNELS
+	global NUM_WAYS	
+		
+	NUM_CHANNELS = 8
+	WAYS_PER_CHANNELS = 1
+	NUM_WAYS = (NUM_CHANNELS * WAYS_PER_CHANNELS) 
 	
 #	ftl = ftl_iod_manager(None)
 			

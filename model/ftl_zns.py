@@ -58,6 +58,7 @@ class zone_desc :
 		# write_cmd_queue try to gather write commands before programing data to nand
 		self.write_cmd_queue = queue(32)
 		self.num_chunks_to_write = 0
+		self.min_chunks_for_page = CHUNKS_PER_PAGE
 		
 		self.write_buffer = []
 	
@@ -69,7 +70,7 @@ class zone_desc :
 			return False
 				
 	def is_ready_to_write(self) :
-		if self.num_chunks_to_write >= CHUNKS_PER_PAGE and len(self.write_buffer) >= CHUNKS_PER_PAGE :
+		if self.num_chunks_to_write >= self.min_chunks_for_page and len(self.write_buffer) >= self.min_chunks_for_page :
 			if self.write_cmd_queue.length() == 0 :
 				print('error zone : %d, num_chunks_to_write : %d, length write buffer : %d'%(self.no, self.num_chunks_to_write, len(self.write_buffer)))
 
@@ -238,7 +239,6 @@ class ftl_zns_manager :
 		
 		# register hic now in order to use interface queue									
 		self.hic_model = hic
-		self.chunks_per_page = CHUNKS_PER_PAGE
 		
 		self.run_mode = True
 		
@@ -366,12 +366,9 @@ class ftl_zns_manager :
 				# check twice for adjacent read(same nand page address), it reduces the power and read latency from nand
 				
 				log_print('chunk : %d, map_entry : %x, next_map_entry : %x'%(lba_index, map_entry, next_map_entry))
-				#log_print('map_entry : %x, next_map_entry : %x'%(int(map_entry/CHUNKS_PER_PAGE), int(next_map_entry/CHUNKS_PER_PAGE)))
 				
 				if next_map_entry == map_entry + 1 :
-					if int(next_map_entry / CHUNKS_PER_PAGE) == int(map_entry / CHUNKS_PER_PAGE) :
-						#log_print('do read : adjecent')
-
+					if check_same_physical_page(next_map_entry, map_entry) == True :
 						# go to check next adjacent
 						lba_index = lba_index + 1
 						continue		
@@ -490,7 +487,6 @@ class ftl_zns_manager :
 			# validate "valid chunk bitmap", "valid chunk count", "map table" with new physical address
 			meta.map_table[lba_index] = map_entry + index
 
-			# CHUNKS_PER_PAGE is calculated in the MLC mode, we need to consider another cell mode
 			chunk_index = build_chunk_index(page, index)
 			meta.set_valid_bitmap(way, block, chunk_index)					
 									
@@ -569,8 +565,6 @@ class ftl_zns_manager :
 		# update num_chunks_to_write
 		zone.update_write_info(num_chunks)			
 																																																				
-		log_print('do write')
-
 	def do_trim(self, lba, sector_count) :
 		log_print('do trim - lba : %d, sector_count : %d'%(lba, sector_count))
 		

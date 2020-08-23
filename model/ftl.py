@@ -45,7 +45,6 @@ class ftl_manager :
 		
 		# register hic now in order to use interface queue									
 		self.hic_model = hic
-		self.chunks_per_page = CHUNKS_PER_PAGE
 		
 		self.run_mode = True
 		
@@ -61,7 +60,8 @@ class ftl_manager :
 		# write_cmd_queue try to gather write commands before programing data to nand
 		self.write_cmd_queue = queue(32)
 		self.num_chunks_to_write = 0
-		
+		self.min_chunks_for_page = CHUNKS_PER_PAGE
+
 		# gc context
 		self.gc_cmd_id = gc_id_context(32)
 		self.gc_cmd_queue = queue(32)
@@ -145,7 +145,7 @@ class ftl_manager :
 		if nandcmd_table.get_free_slot_num() < num_remain_chunks :
 			return		
 		
-		if ENABLE_RAMDISK_MODE == True and bm.get_num_free_slots(BM_READ) < CHUNKS_PER_PAGE : 			
+		if ENABLE_RAMDISK_MODE == True and bm.get_num_free_slots(BM_READ) < self.min_chunks_for_page : 			
 			return		
 
 		# look up map entry and get physical address
@@ -169,12 +169,9 @@ class ftl_manager :
 				# check twice for adjacent read(same nand page address), it reduces the power and read latency from nand
 				
 				log_print('chunk : %d, map_entry : %x, next_map_entry : %x'%(lba_index, map_entry, next_map_entry))
-				#log_print('map_entry : %x, next_map_entry : %x'%(int(map_entry/CHUNKS_PER_PAGE), int(next_map_entry/CHUNKS_PER_PAGE)))
 				
 				if next_map_entry == map_entry + 1 :
-					if int(next_map_entry / CHUNKS_PER_PAGE) == int(map_entry / CHUNKS_PER_PAGE) :
-						#log_print('do read : adjecent')
-
+					if check_same_physical_page(next_map_entry, map_entry) == True :
 						# go to check next adjacent
 						lba_index = lba_index + 1
 						continue		
@@ -253,7 +250,7 @@ class ftl_manager :
 			next_map_entry = 0xFFFFFFFF
 			num_chunks_to_read = 0
 
-			if ENABLE_RAMDISK_MODE == True and bm.get_num_free_slots(BM_READ) < CHUNKS_PER_PAGE : 			
+			if ENABLE_RAMDISK_MODE == True and bm.get_num_free_slots(BM_READ) < self.min_chunks_for_page : 			
 				break		
 
 		# check remain chunk, if do_read can't finish because of lack of resource of buffer/controller
@@ -286,9 +283,6 @@ class ftl_manager :
 		# get new physical address from open block	
 		way, block, page = sb.get_physical_addr()
 		map_entry = build_map_entry(way, block, page, 0)
-
-		# CHUNKS_PER_PAGE is calculated in the MLC mode, we need to consider another cell mode
-		#chunk_base = build_chunk_index(page)
 																												
 		# meta data update (meta datum are valid chunk bitmap, valid chunk count, map table
 		# valid chunk bitamp and valid chunk count use in gc and trim 
@@ -305,7 +299,6 @@ class ftl_manager :
 			# validate "valid chunk bitmap", "valid chunk count", "map table" with new physical address
 			meta.map_table[lba_index] = map_entry + index
 
-			# CHUNKS_PER_PAGE is calculated in the MLC mode, we need to consider another cell mode
 			chunk_index = build_chunk_index(page, index)
 			meta.set_valid_bitmap(way, block, chunk_index)					
 									
@@ -385,8 +378,6 @@ class ftl_manager :
 		# update num_chunks_to_write
 		self.num_chunks_to_write = self.num_chunks_to_write - num_chunks			
 																																																											
-		#log_print('do write')
-
 	def do_trim(self, lba, sector_count) :
 		log_print('do trim - lba : %d, sector_count : %d'%(lba, sector_count))
 		
@@ -414,8 +405,6 @@ class ftl_manager :
 		if self.gc_cmd_id.get_num_free_slot() < 8 :
 			return 
 
-		log_print('do gc read')
-
 		issue_count = 0
 		while issue_count < 4 and src_sb.is_open() == True :
 									
@@ -428,7 +417,7 @@ class ftl_manager :
 			if page_bmp > 0 :
 				chunk_offset = -1
 				num_chunks = 0
-				for index in range(CHUNKS_PER_PAGE) :
+				for index in range(self.min_chunks_for_page) :
 					mask = 1 << index
 					if page_bmp & mask == mask :
 						num_chunks = num_chunks + 1
@@ -498,7 +487,7 @@ class ftl_manager :
 					self.num_chunks_to_gc_read = self.num_chunks_to_gc_read + num_chunks																																				
 					num_chunks = 0	
 																														
-				log_print(str)
+				log_print('do gc read : ' + str)
 				issue_count = issue_count + 1
 				
 #				self.gc_issue_credit = self.gc_issue_credit - 1
@@ -540,7 +529,7 @@ class ftl_manager :
 	def gc_gather_write_data(self) :				
 		ret_val = False
 		
-		if self.num_chunks_to_gc_write < CHUNKS_PER_PAGE :
+		if self.num_chunks_to_gc_write < self.min_chunks_for_page :
 			return False		
 		
 		num_chunks = self.num_chunks_to_gc_write
@@ -584,7 +573,7 @@ class ftl_manager :
 					# get next command from queue
 					gc_cmd = self.gc_cmd_queue.pop()
 
-			if gc_cmd_comp.count > CHUNKS_PER_PAGE :
+			if gc_cmd_comp.count > self.min_chunks_for_page :
 				ret_val = True
 				break						
 						
@@ -716,8 +705,7 @@ class ftl_manager :
 		# update num_chunks_to_gc_write
 		self.num_chunks_to_gc_write = self.num_chunks_to_gc_write - num_chunks			
 																																																									
-		log_print('do gc write')
-		log_print(buffer_ids)	
+		log_print('do gc write' + str(buffer_ids))
 
 	def do_gc_write_completion(self, sb) :
 		log_print('do gc write completion')
@@ -743,7 +731,7 @@ class ftl_manager :
 		self.try_to_fetch_cmd()
 						
 		# do write
-		if self.num_chunks_to_write >= CHUNKS_PER_PAGE :
+		if self.num_chunks_to_write >= self.min_chunks_for_page :
 			self.do_write(self.host_sb)
 
 		# do read

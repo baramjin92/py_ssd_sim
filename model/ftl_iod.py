@@ -47,7 +47,7 @@ class ftl_iod_manager :
 				
 		# register hic now in order to use interface queue									
 		self.hic_model = hic
-		self.chunks_per_page = CHUNKS_PER_PAGE
+		self.min_chunks_for_page = CHUNKS_PER_PAGE
 		
 		self.run_mode = True
 		
@@ -160,12 +160,9 @@ class ftl_iod_manager :
 				# check twice for adjacent read(same nand page address), it reduces the power and read latency from nand
 				
 				log_print('chunk : %d, map_entry : %x, next_map_entry : %x'%(lba_index, map_entry, next_map_entry))
-				#log_print('map_entry : %x, next_map_entry : %x'%(int(map_entry/CHUNKS_PER_PAGE), int(next_map_entry/CHUNKS_PER_PAGE)))
 				
 				if next_map_entry == map_entry + 1 :
-					if int(next_map_entry / CHUNKS_PER_PAGE) == int(map_entry / CHUNKS_PER_PAGE) :
-						#log_print('do read : adjecent')
-
+					if check_same_physical_page(next_map_entry, map_entry) == True :
 						# go to check next adjacent
 						lba_index = lba_index + 1
 						continue		
@@ -287,7 +284,6 @@ class ftl_iod_manager :
 			# validate "valid chunk bitmap", "valid chunk count", "map table" with new physical address
 			meta.map_table[lba_index] = map_entry + index
 
-			# CHUNKS_PER_PAGE is calculated in the MLC mode, we need to consider another cell mode
 			chunk_index = build_chunk_index(page, index)
 			meta.set_valid_bitmap(way, block, chunk_index)					
 									
@@ -366,8 +362,6 @@ class ftl_iod_manager :
 		# update num_chunks_to_write
 		ns.update_write_info(num_chunks)			
 																																																				
-		log_print('do write')
-
 	def do_trim(self, lba, sector_count) :
 		log_print('do trim - lba : %d, sector_count : %d'%(lba, sector_count))
 		
@@ -396,8 +390,6 @@ class ftl_iod_manager :
 		if ns.gc_cmd_id.get_num_free_slot() < 8 :
 			return 
 
-		log_print('do gc read')
-
 		issue_count = 0
 		while issue_count < 4 and src_sb.is_open() == True :
 									
@@ -410,7 +402,7 @@ class ftl_iod_manager :
 			if page_bmp > 0 :
 				chunk_offset = -1
 				num_chunks = 0
-				for index in range(CHUNKS_PER_PAGE) :
+				for index in range(self.min_chunks_for_page) :
 					mask = 1 << index
 					if page_bmp & mask == mask :
 						num_chunks = num_chunks + 1
@@ -480,7 +472,7 @@ class ftl_iod_manager :
 					ns.num_chunks_to_gc_read = ns.num_chunks_to_gc_read + num_chunks																																				
 					num_chunks = 0	
 																														
-				log_print(str)
+				log_print('do gc read : ' + str)
 				issue_count = issue_count + 1
 				
 #				ns.gc_issue_credit = ns.gc_issue_credit - 1
@@ -527,7 +519,7 @@ class ftl_iod_manager :
 	def gc_gather_write_data(self, ns) :				
 		ret_val = False
 		
-		if ns.num_chunks_to_gc_write < CHUNKS_PER_PAGE :
+		if ns.num_chunks_to_gc_write < self.min_chunks_for_page :
 			return False		
 		
 		num_chunks = ns.num_chunks_to_gc_write
@@ -572,7 +564,7 @@ class ftl_iod_manager :
 					# get next command from queue
 					gc_cmd = ns.gc_cmd_queue.pop()
 
-			if gc_cmd_comp.count > CHUNKS_PER_PAGE :
+			if gc_cmd_comp.count > self.min_chunks_for_page :
 				ret_val = True
 				break						
 						
