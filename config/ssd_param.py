@@ -59,10 +59,6 @@ BYTES_PER_PAGE = 8192 * 4
 PAGES_PER_BLOCK = 256
 BLOCKS_PER_WAY = 1024
 
-CHUNKS_PER_PAGE = int(BYTES_PER_PAGE / BYTES_PER_CHUNK)
-CHUNKS_PER_BLOCK = int(CHUNKS_PER_PAGE * PAGES_PER_BLOCK)
-CHUNKS_PER_WAY = int(CHUNKS_PER_BLOCK * BLOCKS_PER_WAY)
-
 # SSD controller parameter
 # HIC (host interface controller)
 # define queue depth of host command (it is same with NUM_HOST_CMD_TABLE, however it is changed by HIC architecture)
@@ -80,7 +76,7 @@ FTL_CMD_QUEUE_DEPTH = 256
 # if we use 32 dies of nand and nfc has 8 channels, the number of ways is 32, ways per channel is 4
 # if channle is own by one way,  the other way can not use channel. (?)  
 NUM_CHANNELS = 8
-WAYS_PER_CHANNELS = 1
+WAYS_PER_CHANNELS = 4
 NUM_WAYS = (NUM_CHANNELS * WAYS_PER_CHANNELS) 
 
 # BM (buffer managerment)
@@ -106,9 +102,9 @@ NUM_LBA = 97696368 + (1953504 * (SSD_CAPACITY - 50))
 #SSD_CAPACITY_ACTUAL = SSD_CAPACITY * 1953125 / 2097152
 
 # ZNS definition
-ZONE_SIZE = 64 * 1024 * 1024
+ZONE_SIZE = 32 * 1024 * 1024
 ZONE_NUM_WAYS = int(NUM_WAYS / 4)
-NUM_OPEN_ZONES = 6
+NUM_OPEN_ZONES = 3
 NUM_ZONES = int((NUM_LBA * BYTES_PER_SECTOR) / ZONE_SIZE)
 
 def ssd_info(report = None) :

@@ -20,9 +20,9 @@ class nand_256gb_g3 :
 		self.size = 256 						# Gb
 		self.page_size = 8*1024		# byte
 		self.spare_size = 1024
-		self.page_num = 1152
+		self.page_num = 256		#1152
 		self.plane_num = 4		
-		self.main_block_num = 1214
+		self.main_block_num = 1024		#1214
 		self.add_block_num = 48
 		self.ext_block_num = 10
 		self.spare_block_num = self.add_block_num + self.ext_block_num
