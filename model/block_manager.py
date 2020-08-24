@@ -22,6 +22,16 @@ from sim_event import *
 def log_print(message) :
 	event_log_print('[ftl]', message)
 
+class block_nand_info :
+	def __init__(self, bits_per_cell, page_size, page_num ,block_num) :
+		self.bits_per_cell = bits_per_cell
+		self.bytes_per_page = page_size
+		self.pages_per_block = page_num 
+		self.blocks_per_way = block_num
+
+cell_mode_name = { NAND_MODE_SLC : 'SLC', NAND_MODE_MLC : 'MLC', NAND_MODE_TLC : 'TLC', NAND_MODE_QLC : 'QLC' }
+default_nand_info = block_nand_info(2, BYTES_PER_PAGE, PAGES_PER_BLOCK, BLOCKS_PER_WAY)
+
 FREE_BLOCKS_THRESHOLD_HIGH = 20
 FREE_BLOCKS_THRESHOLD_LOW = 10
 
@@ -51,7 +61,7 @@ class block_status :
 # if we use super block concept, one block manager is needed
 # if we want to separate block concept, it extend to number of way
 class block_manager :
-	def __init__(self, num_way, way_list, start_block, end_block, threshold_low = 1, threshold_high = 2, cell_mode = NAND_MODE_MLC) :
+	def __init__(self, num_way, way_list, start_block, end_block, threshold_low = 1, threshold_high = 2, cell_mode = NAND_MODE_MLC, nand_info = None) :
 		self.exhausted = False
 		self.start_block = start_block
 		self.end_block = end_block
@@ -62,13 +72,17 @@ class block_manager :
 		self.threshold_high = threshold_high
 		self.cell_mode = cell_mode
 		
+		self.nand_info = nand_info
+		if self.nand_info == None :
+			self.nand_info = default_nand_info
+			
 		# when we use super block concept in conventional ssd, we only need representative value for blk_status and way_list
 		# we extend then to list type, in order to use sub block policy for zns or sata ssd. 
 		self.num_way = num_way
 		self.blk_status = []
 		self.way_list = []
 		for index in range(num_way) :
-			self.blk_status.append(block_status(BLOCKS_PER_WAY))
+			self.blk_status.append(block_status(self.nand_info.blocks_per_way))
 			if way_list == None :
 				self.way_list.append(index)
 			else :
@@ -301,7 +315,7 @@ class block_group :
 																								
 	def print_info(self) :		
 		blk_name = {'block manager' : ['name', 'start block', 'end_block', 'ways', 'cell']}				
-						
+												
 		blk_pd = pd.DataFrame(blk_name)																
 		for index, blk in enumerate(self.blk) :				
 			blk_name = self.name[index]
@@ -312,16 +326,7 @@ class block_group :
 			blk_columns.append(blk_range[0])
 			blk_columns.append(blk_range[1])
 			blk_columns.append(blk.way_list)
-
-			if blk.cell_mode == NAND_MODE_SLC :
-				cell_mode = 'SLC'
-			elif blk.cell_mode == NAND_MODE_MLC :
-				cell_mode = 'MLC'
-			elif blk.cell_mode == NAND_MODE_TLC :
-				cell_mode = 'TLC'
-			elif blk.cell_mode == NAND_MODE_QLC :
-				cell_mode = 'QLC'
-			blk_columns.append(cell_mode)
+			blk_columns.append(cell_mode_name[blk.cell_mode])
 																																														
 			blk_pd['%d'%(index)] = pd.Series(blk_columns, index=blk_pd.index)
 				
@@ -357,7 +362,7 @@ class super_block :
 
 		self.name = name
 
-	def open(self, block_addr, way_list, meta_info, cell_mode = NAND_MODE_MLC) :	
+	def open(self, block_addr, way_list, meta_info, cell_mode = NAND_MODE_MLC, nand_info = None) :	
 		self.block_addr = block_addr	
 		# in order to start from 0, cur_way_index is initialized by last value
 		self.cur_way_index = self.num_way - 1 		
@@ -378,11 +383,16 @@ class super_block :
 		
 		self.allocated_num = self.num_way
 		self.cell_mode = cell_mode
-		if self.cell_mode == NAND_MODE_MLC or self.cell_mode == NAND_MODE_TLC :
-			self.end_page = PAGES_PER_BLOCK
-		elif self.cell_mode == NAND_MODE_SLC :
-			self.end_page = PAGES_PER_BLOCK / 2		# this calculation is based on MLC nand
 
+		self.nand_info = nand_info
+		if self.nand_info == None :
+			self.nand_info = default_nand_info
+		
+		if self.cell_mode == NAND_MODE_SLC :
+			self.end_page = int(self.nand_info.pages_per_block / self.nand_info.bits_per_cell)
+		else :
+			self.end_page = self.nand_info.pages_per_block
+			
 		print('\n%s sb open : %d, way list : %s, alloc num : %d'%(self.name, block_addr, str(self.ways), self.allocated_num))
 
 	def is_open(self) :
@@ -395,12 +405,11 @@ class super_block :
 		return self.cell_mode
 
 	def get_num_chunks_to_write(self, num_chunks_to_write) :
-		# when we decide num_chunks with CHUNKS_PER_PAGE, it is basic policy based on MLC multi-plane nand. 
-		# in order to consider TLC we need to change num_chunks decision logic
-		if self.cell_mode == NAND_MODE_MLC or self.cell_mode == NAND_MODE_SLC :
-		 	num_chunks = min(num_chunks_to_write, CHUNKS_PER_PAGE)
+		# TLC use one shot program method, the other nand use page program method
+		if self.cell_mode == NAND_MODE_TLC :
+		 	num_chunks = min(num_chunks_to_write, (CHUNKS_PER_PAGE *3))
 		else :
-		 	num_chunks = min(num_chunks_to_write, (CHUNKS_PER_PAGE  * 3))			# one shot program
+		 	num_chunks = min(num_chunks_to_write, CHUNKS_PER_PAGE)
 
 		return num_chunks
 		                 
@@ -445,11 +454,14 @@ class super_block :
 		return False, self.block_addr, self.ways
 
 	def report_get_label(self) :
-		return {'super block' : ['name', 'size', 'block addr', 'way_list', 'valid count', 'last page']}
+		return {'super block' : ['name', 'cell_mode', 'size', 'block addr', 'way_list', 'valid count', 'last page']}
 		
 	def report_get_columns(self, meta_info = None) :
-		block_size = self.num_way * PAGES_PER_BLOCK * BYTES_PER_PAGE
-												
+		if self.cell_mode == NAND_MODE_SLC :
+			block_size = self.num_way * self.nand_info.pages_per_block * self.nand_info.bytes_per_page / self.nand_info.bits_per_cell
+		else :
+			block_size = self.num_way * self.nand_info.pages_per_block * self.nand_info.bytes_per_page
+																	
 		last_page = []
 		valid_count = 0
 		for index in range(self.num_way) :			
@@ -460,6 +472,7 @@ class super_block :
 
 		columns = []
 		columns.append(self.name)
+		columns.append(cell_mode_name[self.cell_mode])
 		columns.append('%d MB'%(block_size/1024/1024))
 		columns.append(self.block_addr)
 		columns.append(self.ways)

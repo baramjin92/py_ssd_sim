@@ -9,7 +9,7 @@ import pandas as pd
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
-from config.sim_config import unit
+from config.sim_config import *
 from config.ssd_param import *
 
 from model.queue import *
@@ -19,6 +19,10 @@ from sim_event import *
 def log_print(message) :
 	event_log_print('[ftl]', message)
 
+
+# define term of chunk
+# size of chunk is 4K, chunk is minimum unit for saving data
+# nand page has multiple chunks, if the size of nand page is 8k, nand page has 2 chunks 
 CHUNKS_PER_PAGE = int(BYTES_PER_PAGE / BYTES_PER_CHUNK)
 CHUNKS_PER_BLOCK = int(CHUNKS_PER_PAGE * PAGES_PER_BLOCK)
 CHUNKS_PER_WAY = int(CHUNKS_PER_BLOCK * BLOCKS_PER_WAY)

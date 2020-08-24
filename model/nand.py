@@ -29,6 +29,8 @@ NAND_STATUS_PROGRAM = 0x80
 def log_print(message) :
 	event_log_print('[nand]', message)
 
+nand_cell_mode = [None, NAND_MODE_SLC, NAND_MODE_MLC, NAND_MODE_TLC, NAND_MODE_QLC]
+
 # nand class represent one die of nand
 # it manages data with nand_ctx
 class nand_context :
@@ -38,6 +40,7 @@ class nand_context :
 		# nand information (it manages cell of nand)		
 		# block = main_block + spare_block (additional block + extended block)
 		self.block_num = block_num
+		self.bits_per_cell = param.bits_per_cell
 		self.page_num = param.page_num
 		self.plane_num = param.plane_num
 		self.bytes_per_page = int(param.page_size * param.plane_num)
@@ -61,17 +64,21 @@ class nand_context :
 	
 		# tR calculation will be changed
 		self.mean_tR = [0, 0, 0, 0]
-		self.mean_tR[0] = param.nand_t_read_full # NAND_MODE_MLC and NAND_MODE_TLC 
+		self.mean_tR[NAND_MODE_MLC] = param.nand_t_read_full
+		self.mean_tR[NAND_MODE_TLC] = param.nand_t_read_full
 		self.mean_tR[NAND_MODE_SLC] = 30*1000
 		self.mean_tR[NAND_MODE_QLC] = 120*1000
 	
 		self.mean_tProg = [0, 0, 0, 0]
-		self.mean_tProg[0] = param.nand_t_prog_avg # NAND_MODE_MLC and NAND_MODE_TLC 
+		self.mean_tProg[NAND_MODE_MLC] = param.nand_t_prog_avg
+		self.mean_tProg[NAND_MODE_TLC] = param.nand_t_prog_avg
 		self.mean_tProg[NAND_MODE_SLC] = param.nand_t_prog_slc
 		self.mean_tProg[NAND_MODE_QLC] = 3000
 	
 		self.mean_tBERS = param.nand_t_bers
-	
+		
+		self.mode = nand_cell_mode[self.bits_per_cell]
+		
 		# reserve area for nand
 		# cell structure : cell[block][chunk]
 		self.cell = np.empty((self.block_num, self.chunks_per_blk), np.int32)
@@ -160,9 +167,7 @@ class nand_context :
 		# make tR (mean, max deviation) 
 		
 		# get mean time by the page num (LSB/MSB in MLC, LSB/CSB/MSB in TLC)
-		mode = self.status[self.nand_block] & 0x03		
-		
-		mean = self.mean_tR[mode]
+		mean = self.mean_tR[self.mode]
 			
 		# deviation is 3% from mean
 		diviation = mean * 0.03
@@ -176,10 +181,8 @@ class nand_context :
 	def calculate_tProg(self) :
 		# make tPROG (mean, max deviation) 
 		
-		# get mean time by the page num (LSB/MSB in MLC, LSB/CSB/MSB in TLC)
-		mode = self.status[self.nand_block] & 0x03		
-		
-		mean = self.mean_tProg[mode]				
+		# get mean time by the page num (LSB/MSB in MLC, LSB/CSB/MSB in TLC)		
+		mean = self.mean_tProg[self.mode]				
 								
 		# deviation is 1% from mean (5% -> 1%)
 		diviation = mean * 0.01
@@ -194,7 +197,7 @@ class nand_context :
 		# so far, we don't distinguish tBERS by mode 
 		# it will be changed later
 
-		mode = self.status[self.nand_block] & 0x03		
+		mode = self.mode		
 
 		# make tBERS (min, max)
 		nand_t_bers = self.mean_tBERS
@@ -213,7 +216,8 @@ class nand_context :
 		
 		value = self.status[nand_block] & ~0x03
 		value = value | mode
-		self.status[nand_block] = value		
+		self.status[nand_block] = value
+		self.mode = mode		
 		
 		#log_print('change mode - way : %d, block : %d, mode : %d'%(self.nand_id, nand_block, mode))
 
@@ -255,7 +259,7 @@ class nand_manager :
 	
 	def get_nand_dimension(self, nand_id = 0) :
 		nand_ctx = self.nand_ctx[nand_id]
-		return (nand_ctx.bytes_per_page, nand_ctx.page_num, nand_ctx.block_num)
+		return (nand_ctx.bits_per_cell, nand_ctx.bytes_per_page, nand_ctx.page_num, nand_ctx.block_num)
 			
 	def get_chunk_info(self, nand_id = 0) :
 		nand_ctx = self.nand_ctx[nand_id]
@@ -415,21 +419,21 @@ class nand_manager :
 		info = self.nand_info
 
 		# calculate ssd information
-		bit_per_cel = 3
+		bits_per_cell = info.bits_per_cell
 		small_block_size = info.page_size * info.page_num
 		big_block_size = small_block_size * info.plane_num
 	
-		info_name = {'name' : ['bit per cell', 'capacity[Gb]', 'page size[KB]', 'page num', 'plane num', 'wordline num', 'block num', 'small block size[MB]', 'big block size[MB]']}				
+		info_name = {'name' : ['bits per cell', 'capacity[Gb]', 'page size[KB]', 'page num', 'plane num', 'wordline num', 'block num', 'small block size[MB]', 'big block size[MB]']}				
 						
 		info_pd = pd.DataFrame(info_name)				
 						
 		info_columns = []
-		info_columns.append(bit_per_cel)
+		info_columns.append(bits_per_cell)
 		info_columns.append(info.size)
 		info_columns.append(int(info.page_size / unit.scale_KB))
 		info_columns.append(info.page_num)
 		info_columns.append(info.plane_num)
-		info_columns.append(int(info.page_num / bit_per_cel))
+		info_columns.append(int(info.page_num / bits_per_cell))
 		info_columns.append(info.main_block_num)
 		info_columns.append(int(small_block_size / unit.scale_MB))
 		info_columns.append(int(big_block_size / unit.scale_MB))
