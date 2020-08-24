@@ -47,17 +47,9 @@ NAND_CMD_MODE = 4
 
 # define cell mode
 NAND_MODE_MLC = 0x00				# default cell mode should be 0
-NAND_MODE_TLC = 0x00			
-NAND_MODE_SLC = 0x01
-NAND_MODE_QLC = 0x02
-
-# define term of chunk
-# size of chunk is 4K, chunk is minimum unit for saving data
-# nand page has multiple chunks, if the size of nand page is 8k, nand page has 2 chunks 
-# BYTES_PER_PAGE = single plane page size x plane number
-BYTES_PER_PAGE = 8192 * 4
-PAGES_PER_BLOCK = 256
-BLOCKS_PER_WAY = 1024
+NAND_MODE_TLC = 0x01			
+NAND_MODE_SLC = 0x02
+NAND_MODE_QLC = 0x03
 
 # SSD controller parameter
 # HIC (host interface controller)
@@ -68,7 +60,6 @@ NUM_CMD_EXEC_TABLE = 64
 # ftl cmd queue communication between ftl and fil
 # there are two priority queue
 FTL_CMD_QUEUE_DEPTH = 256
-
 
 # NFC (nand flash controller)
 # The nfc has channels, each channel can handle several dies of nand (using ce, lun adderss)
