@@ -20,6 +20,8 @@ from model.nand import *
 
 from model.workload import *
 
+from model.vcd_ssd import *
+
 from config.sim_config import unit
 from config.sim_config import nand_info
 
@@ -92,7 +94,7 @@ def host_run() :
 																								
 if __name__ == '__main__' :
 	log.open(None, False)
-	
+		
 	#global NUM_HOST_QUEUE
 	#NUM_HOST_QUEUE = 1
 
@@ -105,6 +107,7 @@ if __name__ == '__main__' :
 	NUM_WAYS = (NUM_CHANNELS * WAYS_PER_CHANNELS) 
 		
 	report = report_manager()
+	ssd_vcd_open('ssd.vcd', NUM_CHANNELS, WAYS_PER_CHANNELS)
 	
 	print('initialize model')
 	host_model = host_manager(NUM_HOST_CMD_TABLE)
@@ -112,7 +115,12 @@ if __name__ == '__main__' :
 	
 	nand_model = nand_manager(NUM_WAYS, nand_info)
 	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS)
-		
+
+	bits_per_cell, bytes_per_page, pages_per_block, blocks_per_way = nand_model.get_nand_dimension()
+	print('BYTES_PER_PAGE : %d, PAGES_PER_BLOCK : %d, BLOCKS_PER_WAY : %d'%(bytes_per_page, pages_per_block, blocks_per_way))																															
+	chunks_per_page, chunks_per_block, chunks_per_way  = nand_model.get_chunk_info()
+	print('CHUNKS_PER_PAGE : %d, CHUNKS_PER_BLOCK : %d, CHUNKS_PER_WAY : %d\n'%(chunks_per_page, chunks_per_block, chunks_per_way))																															
+						
 	print('initialize fw module')	
 	hil_module = hil_manager(hic_model)
 	ftl_module = ftl_manager(NUM_WAYS, hic_model)
@@ -132,8 +140,6 @@ if __name__ == '__main__' :
 
 	host_run()
 	
-	event_mgr.debug()
-
 	exit = False
 
 	wlm.set_group_active(NUM_HOST_QUEUE)
@@ -275,6 +281,7 @@ if __name__ == '__main__' :
 					exit = True
 									
 	bar.finish()
+	ssd_vcd_close()
 	log.close()
 	report.close()	
 			
