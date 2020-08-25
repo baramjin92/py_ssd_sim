@@ -13,22 +13,17 @@ class unit_context :
 		self.scale_MiB = 1024*1024
 		self.scale_GiB = 1024*1024*1024
 
-# BYTES_PER_PAGE = single plane page size x plane number
-BYTES_PER_PAGE = 8192 * 4
-PAGES_PER_BLOCK = 256
-BLOCKS_PER_WAY = 1024
-
 # MLC NAND 256Gb
 class nand_256gb_mlc :
 	def __init__(self) :
 		# nand basic information
 		self.bits_per_cell = 2
-		self.size = 256 														# Gb
-		self.page_size = int(BYTES_PER_PAGE / 4)		# byte
-		self.spare_size = 1024
-		self.page_num = PAGES_PER_BLOCK
+		self.size = 256 								# Gb
+		self.page_size = 8192					# byte
+		self.spare_size = 1024					# byte
+		self.page_num = 512
 		self.plane_num = 4		
-		self.main_block_num = BLOCKS_PER_WAY
+		self.main_block_num = 1024
 		self.add_block_num = 0
 		self.ext_block_num = 0
 		self.spare_block_num = self.add_block_num + self.ext_block_num
@@ -58,7 +53,7 @@ class nand_256gb_mlc :
 		self.nand_t_prog_lsb = 0
 		self.nand_t_prog_msb = 0				
 		self.nand_t_prog = (2100*1000)			# one shot time
-		self.nand_t_prog_avg = self.nand_t_prog / 3
+		self.nand_t_prog_avg = self.nand_t_prog / 2
 		self.nand_t_prog_slc = (300*1000)
 		self.nand_t_bers = (10000*1000)
 
@@ -191,4 +186,4 @@ nand_info = nand_256gb_mlc()
 #nand_info = nand_512gb()
 
 if __name__ == '__main__' :
-	print(nand_info)												
+	print('nand configuration')												
