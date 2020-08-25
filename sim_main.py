@@ -53,9 +53,9 @@ def build_workload_gc() :
 	if NUM_HOST_QUEUE >= 2 :
 		wlm.add_group(NUM_HOST_QUEUE - 1)
 	
-	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_256MB, 128, 128, 2048, WL_SIZE_MB, 0, True, False))
+	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_1GB, 128, 128, 2048, WL_SIZE_MB, 0, True, False))
 	#wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16MB, 128, 128, 8, WL_SIZE_MB, 0, True, False))
-	wlm.set_workload(workload(WL_SEQ_READ, 0, range_256MB, 128, 128, 2048, WL_SIZE_MB, 0, True, False))
+	wlm.set_workload(workload(WL_SEQ_READ, 0, range_1GB, 128, 128, 2048, WL_SIZE_MB, 0, True, False))
 	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16MB, 128, 128, 4, WL_SIZE_MB, 0, True, False))
 		
 	wlm.set_workload(workload(WL_RAND_WRITE, 0, range_16MB, 8, 8, 32, WL_SIZE_MB, 0, True, False), 1)
@@ -117,19 +117,19 @@ if __name__ == '__main__' :
 	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS)
 
 	bits_per_cell, bytes_per_page, pages_per_block, blocks_per_way = nand_model.get_nand_dimension()
-	print('BYTES_PER_PAGE : %d, PAGES_PER_BLOCK : %d, BLOCKS_PER_WAY : %d'%(bytes_per_page, pages_per_block, blocks_per_way))																															
-	chunks_per_page, chunks_per_block, chunks_per_way  = nand_model.get_chunk_info()
-	print('CHUNKS_PER_PAGE : %d, CHUNKS_PER_BLOCK : %d, CHUNKS_PER_WAY : %d\n'%(chunks_per_page, chunks_per_block, chunks_per_way))																															
-						
+	ftl_nand = ftl_nand_info(bits_per_cell, bytes_per_page, pages_per_block, blocks_per_way)
+	nand_mode = nand_cell_mode[bits_per_cell]
+
+	meta.config(NUM_WAYS, ftl_nand)
+																		
 	print('initialize fw module')	
 	hil_module = hil_manager(hic_model)
 	ftl_module = ftl_manager(NUM_WAYS, hic_model)
 	fil_module = fil_manager(nfc_model, hic_model)
 
-	meta.config(NUM_WAYS)
-	blk_grp.add('meta', block_manager(NUM_WAYS, None, 1, 9, 1, 3, NAND_MODE_SLC))
-	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, 1, 3, NAND_MODE_SLC))
-	blk_grp.add('user', block_manager(NUM_WAYS, None, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))
+	blk_grp.add('meta', block_manager(NUM_WAYS, None, 1, 9, 1, 3, NAND_MODE_SLC, ftl_nand))
+	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, 1, 3, NAND_MODE_SLC, ftl_nand))
+	blk_grp.add('user', block_manager(NUM_WAYS, None, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, nand_mode, ftl_nand))
 
 	ftl_module.start()
 

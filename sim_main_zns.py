@@ -60,6 +60,13 @@ if __name__ == '__main__' :
 	log.open(None, False)
 						
 	global NUM_HOST_QUEUE
+	global NUM_CHANNELS
+	global WAYS_PER_CHANNELS
+	global NUM_WAYS	
+		
+	NUM_CHANNELS = 8
+	WAYS_PER_CHANNELS = 1
+	NUM_WAYS = (NUM_CHANNELS * WAYS_PER_CHANNELS) 
 						
 	if NUM_HOST_QUEUE > 1 :					
 		print('NUM_HOST_QUEUE should be 1')					
@@ -73,7 +80,13 @@ if __name__ == '__main__' :
 	
 	nand_model = nand_manager(NUM_WAYS, nand_info)
 	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS)
-		
+
+	bits_per_cell, bytes_per_page, pages_per_block, blocks_per_way = nand_model.get_nand_dimension()
+	ftl_nand = ftl_nand_info(bits_per_cell, bytes_per_page, pages_per_block, blocks_per_way)
+	nand_mode = nand_cell_mode[bits_per_cell]		
+
+	meta.config(NUM_WAYS, ftl_nand)
+												
 	print('initialize fw module')
 	#num_zone_way = NUM_WAYS
 	num_zone_way = ZONE_NUM_WAYS
@@ -81,20 +94,17 @@ if __name__ == '__main__' :
 	hil_module = hil_manager(hic_model)
 	ftl_module = ftl_zns_manager(num_zone_way, hic_model)
 	fil_module = fil_manager(nfc_model, hic_model)
-
-	meta.config(NUM_WAYS)
 	
 	if num_zone_way == NUM_WAYS :
 		# large zone configuration : zone uses all dies 
-		blk_grp.add('slc_cache', block_manager(num_zone_way, None, 10, 19, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, NAND_MODE_SLC))
-		blk_grp.add('user1', block_manager(num_zone_way, None, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))	
+		blk_grp.add('slc_cache', block_manager(num_zone_way, None, 10, 19, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, NAND_MODE_SLC, ftl_nand))
+		blk_grp.add('user1', block_manager(num_zone_way, None, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, nand_mode, ftl_nand))	
 	else :	
 		# small zone configuration : zone uses a few dies 
-		#blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, 1, 2))
-		blk_grp.add('user1', block_manager(num_zone_way, [0,1], 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))	
-		blk_grp.add('user2', block_manager(num_zone_way, [2,3], 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))
-		blk_grp.add('user3', block_manager(num_zone_way, [4,5], 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))	
-		blk_grp.add('user4', block_manager(num_zone_way, [6,7], 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))
+		blk_grp.add('user1', block_manager(num_zone_way, [0,1], 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, nand_mode, ftl_nand))	
+		blk_grp.add('user2', block_manager(num_zone_way, [2,3], 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, nand_mode, ftl_nand))
+		blk_grp.add('user3', block_manager(num_zone_way, [4,5], 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, nand_mode, ftl_nand))	
+		blk_grp.add('user4', block_manager(num_zone_way, [6,7], 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, nand_mode, ftl_nand))
 	
 	ftl_module.start()
 
