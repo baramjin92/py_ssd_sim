@@ -58,7 +58,6 @@ class zone_desc :
 		# write_cmd_queue try to gather write commands before programing data to nand
 		self.write_cmd_queue = queue(32)
 		self.num_chunks_to_write = 0
-		self.min_chunks_for_page = CHUNKS_PER_PAGE
 		
 		self.write_buffer = []
 	
@@ -69,8 +68,9 @@ class zone_desc :
 			self.debug()
 			return False
 				
-	def is_ready_to_write(self) :
-		if self.num_chunks_to_write >= self.min_chunks_for_page and len(self.write_buffer) >= self.min_chunks_for_page :
+	def is_ready_to_write(self, cell_mode) :
+		program_unit = get_num_chunks_for_write(cell_mode)
+		if self.num_chunks_to_write >= program_unit and len(self.write_buffer) >= program_unit :
 			if self.write_cmd_queue.length() == 0 :
 				print('error zone : %d, num_chunks_to_write : %d, length write buffer : %d'%(self.no, self.num_chunks_to_write, len(self.write_buffer)))
 
@@ -175,7 +175,7 @@ class zone_manager :
 				blk_no, way_list = blk_manager.get_free_block(erase_request = True)
 
 				# meta is global variable, it is required for reseting during open, current setting is None
-				zone.logical_blk.open(blk_no, way_list, None, blk_manager.cell_mode)
+				zone.logical_blk.open(blk_no, way_list, None, blk_manager.cell_mode, blk_manager.nand_info)
 													
 				return zone
 			else :
@@ -595,10 +595,10 @@ class ftl_zns_manager :
 					blk_no, way_list = blk_manager.get_free_block(erase_request = True)
 
 					# meta is global variable, it is required for reseting during open, current setting is None
-					zone.logical_blk.open(blk_no, way_list, None, blk_manager.cell_mode)
+					zone.logical_blk.open(blk_no, way_list, None, blk_manager.cell_mode, blk_manager.nand_info)
 				
 				# check ready to write to zone
-				if zone.is_ready_to_write() == True:
+				if zone.is_ready_to_write(zone.logical_blk.cell_mode) == True:
 					self.do_write(zone)
 					
 					if zone.state == ZONE_STATE_FULL :

@@ -9,7 +9,7 @@ import pandas as pd
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
-from config.sim_config import unit
+from config.sim_config import *
 from config.ssd_param import *
 
 from model.queue import *
@@ -20,40 +20,14 @@ from sim_event import *
 def log_print(message) :
 	event_log_print('[ftl]', message)
 
-def build_map_entry(way, block, page, chunk_offset) :
-	address = way * CHUNKS_PER_WAY + block * CHUNKS_PER_BLOCK + page * CHUNKS_PER_PAGE + chunk_offset
+# define term of chunk
+# size of chunk is 4K, chunk is minimum unit for saving data
+# nand page has multiple chunks, if the size of nand page is 8k, nand page has 2 chunks 
+# BYTES_PER_PAGE = single plane page size x plane number
+#CHUNKS_PER_PAGE = int(BYTES_PER_PAGE / BYTES_PER_CHUNK)
+#CHUNKS_PER_BLOCK = int(CHUNKS_PER_PAGE * PAGES_PER_BLOCK)
+#CHUNKS_PER_WAY = int(CHUNKS_PER_BLOCK * BLOCKS_PER_WAY)
 
-	return address
-
-def build_map_entry2(way, nand_addr, chunk_offset) :
-	address = way * CHUNKS_PER_WAY + nand_addr + chunk_offset
-	
-	return address
-
-def get_nand_addr(address) :
-	return int(address % CHUNKS_PER_WAY)
-
-# CHUNKS_PER_PAGE is calculated in the MLC mode, we need to consider another cell mode
-def build_chunk_index(page, chunk_offset = 0) :
-	return page * CHUNKS_PER_PAGE + chunk_offset
-
-# use to check adjacent address in same way, block, page (only difference is chunk offset)
-def check_same_physical_page(next_map_entry, map_entry) :
-	if int(next_map_entry / CHUNKS_PER_PAGE) == int(map_entry / CHUNKS_PER_PAGE) :
-		#log_print('To check adjecent is true between %x and %x'%(next_map_entry, map_entry))
-		return True
-	else :
-		return False
-
-def parse_map_entry(address) :
-	way = int(address / CHUNKS_PER_WAY) 
-	block = int((address % CHUNKS_PER_WAY) / CHUNKS_PER_BLOCK) 
-	page = int((address % CHUNKS_PER_BLOCK) / CHUNKS_PER_PAGE)
-	chunk_offset = int((address % CHUNKS_PER_PAGE))
-	
-	return way, block, page, chunk_offset
-
-PAGE_MASK = (0x01 << CHUNKS_PER_PAGE) - 1
 
 # ftl should have meta datum for managing nand and mapping
 # in this simulation, it has 3 meta datum.
@@ -68,16 +42,28 @@ class ftl_meta :
 #		for index in range(NUM_LBA) :
 #			self.map_table[index] = 0xFFFFFFFF
 
-		# valid chunk bitmap
-		self.size_of_bitmap = int(CHUNKS_PER_BLOCK / 32)
+	def config(self, num_way, nand_info) :
+		self.nand_info = nand_info
+		blocks_per_way = nand_info.blocks_per_way
+		chunks_per_block = nand_info.chunks_per_block
 
-	def config(self, num_way, blocks_per_way = BLOCKS_PER_WAY) :
+		self.PAGE_MASK = (0x01 << nand_info.chunks_per_page) - 1
+												
+		# valid chunk bitmap
+		self.size_of_bitmap = int(chunks_per_block / 32)
+
 		# valid chunk bitmap
 		self.valid_bitmap = np.empty((num_way, blocks_per_way, self.size_of_bitmap), np.uint32)
 
 		# valid chunk count data  : valid_count[way][block]
 		self.valid_count = np.empty((num_way, blocks_per_way), np.uint32)
 		self.valid_sum = np.empty((blocks_per_way), np.uint32)
+		
+		self.CHUNKS_PER_PAGE = nand_info.chunks_per_page
+		self.CHUNKS_PER_BLOCK = nand_info.chunks_per_block
+		self.CHUNKS_PER_WAY = nand_info.chunks_per_way
+																							
+		self.print_meta_constants()
 
 	# this is only useful in conventional ssd using super block concept
 	def get_valid_sum(self, block) :			
@@ -123,18 +109,56 @@ class ftl_meta :
 		index = int(chunk / 32)
 		
 		# result has all bitmap info of page
-		result = (bmp[index] >> int(chunk % 32)) & PAGE_MASK		
+		result = (bmp[index] >> int(chunk % 32)) & self.PAGE_MASK		
 		return result
-									
-	def print_meta_constants(self) :
-		print('ftl meta constants')
-		print('BYTES_PER_PAGE : %d KB'%int(BYTES_PER_PAGE/1024))																													
-		print('PAGES_PER_BLOCK : %d'%PAGES_PER_BLOCK)
-		print('BLOCKS_PER_WAY : %d\n'%BLOCKS_PER_WAY)
+
+	def build_map_entry(self, way, block, page, chunk_offset) :
+		address = way * self.CHUNKS_PER_WAY + block * self.CHUNKS_PER_BLOCK + page * self.CHUNKS_PER_PAGE + chunk_offset
+	
+		return address
+	
+	def build_map_entry2(self, way, nand_addr, chunk_offset) :
+		address = way * self.CHUNKS_PER_WAY + nand_addr + chunk_offset
 		
-		print('CHUNKS_PER_PAGE : %d'%CHUNKS_PER_PAGE)																													
-		print('CHUNKS_PER_BLOCK : %d'%CHUNKS_PER_BLOCK)
-		print('CHUNKS_PER_WAY : %d\n'%CHUNKS_PER_WAY)
+		return address
+	
+	def get_nand_addr(self, address) :
+		return int(address % self.CHUNKS_PER_WAY)
+	
+	# CHUNKS_PER_PAGE is calculated in the MLC mode, we need to consider another cell mode
+	def build_chunk_index(self, page, chunk_offset = 0) :
+		return page * self.CHUNKS_PER_PAGE + chunk_offset
+	
+	# use to check adjacent address in same way, block, page (only difference is chunk offset)
+	def check_same_physical_page(self, next_map_entry, map_entry) :
+		if int(next_map_entry / self.CHUNKS_PER_PAGE) == int(map_entry / self.CHUNKS_PER_PAGE) :
+			#log_print('To check adjecent is true between %x and %x'%(next_map_entry, map_entry))
+			return True
+		else :
+			return False
+	
+	def parse_map_entry(self, address) :
+		way = int(address / self.CHUNKS_PER_WAY) 
+		block = int((address % self.CHUNKS_PER_WAY) / self.CHUNKS_PER_BLOCK) 
+		page = int((address % self.CHUNKS_PER_BLOCK) / self.CHUNKS_PER_PAGE)
+		chunk_offset = int((address % self.CHUNKS_PER_PAGE))
+		
+		return way, block, page, chunk_offset
+	
+	def get_num_chunks_for_page(self) :
+		return self.CHUNKS_PER_PAGE
+
+	def get_num_chunks_for_write(self, cell_mode) :
+		if cell_mode == NAND_MODE_TLC :
+		 	self.program_unit = self.CHUNKS_PER_PAGE *3		
+		else :
+		 	self.program_unit = self.CHUNKS_PER_PAGE
+		
+		return self.program_unit
+																							
+	def print_meta_constants(self) :
+		print('%s : BYTES_PER_PAGE : %d, PAGES_PER_BLOCK : %d, BLOCKS_PER_WAY : %d'%(self.__class__.__name__, self.nand_info.bytes_per_page, self.nand_info.pages_per_block, self.nand_info.blocks_per_way))		
+		print('%s : CHUNKS_PER_PAGE : %d, CHUNKS_PER_BLOCK : %d, CHUNKS_PER_WAY : %d\n'%(self.__class__.__name__, self.CHUNKS_PER_PAGE, self.CHUNKS_PER_BLOCK, self.CHUNKS_PER_WAY))		
 																																																																								
 	def print_map_table(self, lba, num_sectors) :
 		print('\nmap table - start lba : %d, end lba : %d'%(lba, lba+num_sectors-SECTORS_PER_CHUNK))
@@ -171,13 +195,21 @@ class ftl_meta :
 				
 		print(str)
 
-meta = ftl_meta() 																																				 																																				 																																				 																																				
+meta = ftl_meta() 				
+
+build_map_entry = meta.build_map_entry
+build_map_entry2 = meta.build_map_entry2
+get_nand_addr = meta.get_nand_addr
+build_chunk_index = meta.build_chunk_index
+check_same_physical_page = meta.check_same_physical_page
+parse_map_entry = meta.parse_map_entry
+get_num_chunks_for_page = meta.get_num_chunks_for_page
+get_num_chunks_for_write = meta.get_num_chunks_for_write		 																																				 																																				
 if __name__ == '__main__' :
 	print ('module ftl (flash translation layer) common')
 	
-	meta.config(NUM_WAYS)
-
-	meta.print_meta_constants()
+	ftl_nand = ftl_nand_info(3, 8192*4, 256, 1024)
+	meta.config(NUM_WAYS, ftl_nand)
 
 	print('.....test mapping table')
 	start_lba = 40

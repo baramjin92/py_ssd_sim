@@ -19,13 +19,16 @@ from sim_event import *
 def log_print(message) :
 	event_log_print('[ftl]', message)
 
+class ftl_nand_info :
+	def __init__(self, bits_per_cell, page_size, page_num ,block_num) :
+		self.bits_per_cell = bits_per_cell
+		self.bytes_per_page = page_size			# page size is multi-plane page
+		self.pages_per_block = page_num 
+		self.blocks_per_way = block_num
 
-# define term of chunk
-# size of chunk is 4K, chunk is minimum unit for saving data
-# nand page has multiple chunks, if the size of nand page is 8k, nand page has 2 chunks 
-CHUNKS_PER_PAGE = int(BYTES_PER_PAGE / BYTES_PER_CHUNK)
-CHUNKS_PER_BLOCK = int(CHUNKS_PER_PAGE * PAGES_PER_BLOCK)
-CHUNKS_PER_WAY = int(CHUNKS_PER_BLOCK * BLOCKS_PER_WAY)
+		self.chunks_per_page = int(self.bytes_per_page / BYTES_PER_CHUNK)
+		self.chunks_per_block = int(self.chunks_per_page * self.pages_per_block)
+		self.chunks_per_way = int(self.chunks_per_block * self.blocks_per_way)
 
 class gc_cmd_desc :
 	def __init__(self, nsid, cmd_tag) :

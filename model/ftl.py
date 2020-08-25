@@ -60,7 +60,7 @@ class ftl_manager :
 		# write_cmd_queue try to gather write commands before programing data to nand
 		self.write_cmd_queue = queue(32)
 		self.num_chunks_to_write = 0
-		self.min_chunks_for_page = CHUNKS_PER_PAGE
+		self.min_chunks_for_page = get_num_chunks_for_page()
 
 		# gc context
 		self.gc_cmd_id = gc_id_context(32)
@@ -388,9 +388,9 @@ class ftl_manager :
 			meta.map_table[chunk_addr_start] = 0xFFFFFFFF	
 			chunk_addr_start = chunk_addr_start + 1
 	
-	def select_victim_block(self, block_addr, way_list, cell_mode) :
+	def select_victim_block(self, block_addr, way_list, cell_mode, nand_info = None) :
 		if self.gc_src_sb.is_open() == False :
-			self.gc_src_sb.open(block_addr, way_list, meta, cell_mode)
+			self.gc_src_sb.open(block_addr, way_list, meta, cell_mode, nand_info)
 			log_print('select victim block : %d'%(block_addr))
 			return True
 			
@@ -719,19 +719,19 @@ class ftl_manager :
 				blk_manager = blk_grp.get_block_manager_by_name('user')
 				
 			blk_no, way_list = blk_manager.get_free_block(erase_request = True)
-			self.host_sb.open(blk_no, way_list, meta, blk_manager.cell_mode)
+			self.host_sb.open(blk_no, way_list, meta, blk_manager.cell_mode, blk_manager.nand_info)
 		
 		if self.gc_sb.is_open() == False :
 			blk_manager = blk_grp.get_block_manager_by_name('user')
 			blk_no, way_list = blk_manager.get_free_block(erase_request = True)
-			self.gc_sb.open(blk_no, way_list, meta, blk_manager.cell_mode)
+			self.gc_sb.open(blk_no, way_list, meta, blk_manager.cell_mode, blk_manager.nand_info)
 
 		# do host workload operation		
 		# fetch command
 		self.try_to_fetch_cmd()
 						
 		# do write
-		if self.num_chunks_to_write >= self.min_chunks_for_page :
+		if self.num_chunks_to_write >= get_num_chunks_for_write(self.host_sb.cell_mode) :
 			self.do_write(self.host_sb)
 
 		# do read
@@ -744,13 +744,13 @@ class ftl_manager :
 		if blk_manager.get_exhausted_status() == True  and self.gc_src_sb.is_open() == False :
 			block, way_list, ret_val = blk_manager.get_victim_block()
 			if ret_val == True :
-				self.select_victim_block(block, way_list, blk_manager.cell_mode)
+				self.select_victim_block(block, way_list, blk_manager.cell_mode, blk_manager.nand_info)
 			
 		blk_manager = blk_grp.get_block_manager_by_name('user')
 		if blk_manager.get_exhausted_status() == True and self.gc_src_sb.is_open() == False :
 			block, way_list, ret_val = blk_manager.get_victim_block()
 			if ret_val == True :
-				self.select_victim_block(block, way_list, blk_manager.cell_mode)
+				self.select_victim_block(block, way_list, blk_manager.cell_mode, blk_manager.nand_info)
 				
 		# collect valid chunk from source super block
 		if self.run_mode == True :		

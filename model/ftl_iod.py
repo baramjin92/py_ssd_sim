@@ -47,7 +47,7 @@ class ftl_iod_manager :
 				
 		# register hic now in order to use interface queue									
 		self.hic_model = hic
-		self.min_chunks_for_page = CHUNKS_PER_PAGE
+		self.min_chunks_for_page = get_num_chunks_for_page()
 		
 		self.run_mode = True
 		
@@ -372,9 +372,9 @@ class ftl_iod_manager :
 			meta.map_table[chunk_addr_start] = 0xFFFFFFFF	
 			chunk_addr_start = chunk_addr_start + 1
 
-	def select_victim_block(self, ns, block_addr, way_list, cell_mode) :		
+	def select_victim_block(self, ns, block_addr, way_list, cell_mode, nand_info) :		
 		if ns.gc_src_blk.is_open() == False :
-			ns.gc_src_blk.open(block_addr, way_list, meta, cell_mode)
+			ns.gc_src_blk.open(block_addr, way_list, meta, cell_mode, nand_info)
 			return True
 			
 		return False	
@@ -723,10 +723,10 @@ class ftl_iod_manager :
 					blk_no, way_list = blk_manager.get_free_block(erase_request = True)
 
 					# meta is global variable, it is required for reseting during open, current setting is None
-					ns.logical_blk.open(blk_no, way_list, None, blk_manager.cell_mode)
+					ns.logical_blk.open(blk_no, way_list, None, blk_manager.cell_mode, blk_manager.nand_info)
 				
 				# check ready to write of current namespace
-				if ns.is_ready_to_write() == True:
+				if ns.is_ready_to_write(ns.logical_blk.cell_mode) == True:
 					self.do_write(ns)
 					break
 							
@@ -741,7 +741,7 @@ class ftl_iod_manager :
 			if blk_manager.get_exhausted_status() == True and ns.gc_src_blk.is_open() == False :
 				block, way_list, ret_val = blk_manager.get_victim_block()
 				if ret_val == True :
-					self.select_victim_block(ns, block, way_list, blk_manager.cell_mode)
+					self.select_victim_block(ns, block, way_list, blk_manager.cell_mode, blk_manager.nand_info)
 					
 			# collect valid chunk from source super block
 			if self.run_mode == True :		
@@ -756,7 +756,7 @@ class ftl_iod_manager :
 				blk_no, way_list = blk_manager.get_free_block(erase_request = True)
 
 				# meta is global variable, it is required for reseting during open, current setting is None
-				ns.gc_blk.open(blk_no, way_list, None, blk_manager.cell_mode)
+				ns.gc_blk.open(blk_no, way_list, None, blk_manager.cell_mode, blk_manager.nand_info)
 			  
 			if self.gc_gather_write_data(ns) == True :
 				self.do_gc_write(ns)

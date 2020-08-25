@@ -45,7 +45,7 @@ class nand_context :
 		self.plane_num = param.plane_num
 		self.bytes_per_page = int(param.page_size * param.plane_num)
 		self.chunks_per_page = int(self.bytes_per_page / BYTES_PER_CHUNK)
-		self.chunks_per_blk = self.page_num * self.chunks_per_page
+		self.chunks_per_blk =  self.chunks_per_page * self.page_num
 		self.chunks_per_way = self.chunks_per_blk * self.block_num
 		
 		# this code will be removed in future

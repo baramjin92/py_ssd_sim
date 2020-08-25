@@ -35,7 +35,6 @@ class namespace_desc :
 		# write_cmd_queue try to gather write commands before programing data to nand
 		self.write_cmd_queue = queue(32)
 		self.num_chunks_to_write = 0
-		self.min_chunks_for_page = CHUNKS_PER_PAGE
 			
 		self.write_buffer = []
 	
@@ -66,8 +65,9 @@ class namespace_desc :
 		else :
 			return False
 				
-	def is_ready_to_write(self) :
-		if self.num_chunks_to_write >= self.min_chunks_for_page and len(self.write_buffer) >= self.min_chunks_for_page :
+	def is_ready_to_write(self, cell_mode) :
+		program_unit = get_num_chunks_for_write(cell_mode)
+		if self.num_chunks_to_write >= program_unit and len(self.write_buffer) >= program_unit :
 			if self.write_cmd_queue.length() == 0 :
 				print('error : is_ready_to_write')
 				self.debug
@@ -83,7 +83,7 @@ class namespace_desc :
 		self.num_chunks_to_write = self.num_chunks_to_write - num_chunks			
 		
 	def report_get_label(self) :
-		return {'namespace' : ['id', 'slba', 'elba', 'meta range', 'blk_name', 'min_chunk_for_page', 'num_chunk_to_write', 'write_buffer']}
+		return {'namespace' : ['id', 'slba', 'elba', 'meta range', 'blk_name', 'num_chunk_to_write', 'write_buffer']}
 		
 	def report_get_columns(self, meta_range) :
 		columns = []
@@ -92,7 +92,6 @@ class namespace_desc :
 		columns.append(self.elba)
 		columns.append(meta_range)
 		columns.append(self.blk_name)
-		columns.append(self.min_chunks_for_page)			
 		columns.append(self.num_chunks_to_write)			
 		columns.append(str(self.write_buffer))
 		

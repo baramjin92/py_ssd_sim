@@ -14,23 +14,17 @@ from config.ssd_param import *
 
 from model.nandcmd import *
 from model.ftl_common import *
+from model.ftl_meta import *
 
 from sim_event import *
 
-# block manager 
+# block manager and super block need nand info
+# this information is shared from block manager to super block when new super block is opend.
 
 def log_print(message) :
 	event_log_print('[ftl]', message)
 
-class block_nand_info :
-	def __init__(self, bits_per_cell, page_size, page_num ,block_num) :
-		self.bits_per_cell = bits_per_cell
-		self.bytes_per_page = page_size
-		self.pages_per_block = page_num 
-		self.blocks_per_way = block_num
-
 cell_mode_name = { NAND_MODE_SLC : 'SLC', NAND_MODE_MLC : 'MLC', NAND_MODE_TLC : 'TLC', NAND_MODE_QLC : 'QLC' }
-default_nand_info = block_nand_info(2, BYTES_PER_PAGE, PAGES_PER_BLOCK, BLOCKS_PER_WAY)
 
 FREE_BLOCKS_THRESHOLD_HIGH = 20
 FREE_BLOCKS_THRESHOLD_LOW = 10
@@ -73,9 +67,7 @@ class block_manager :
 		self.cell_mode = cell_mode
 		
 		self.nand_info = nand_info
-		if self.nand_info == None :
-			self.nand_info = default_nand_info
-			
+						
 		# when we use super block concept in conventional ssd, we only need representative value for blk_status and way_list
 		# we extend then to list type, in order to use sub block policy for zns or sata ssd. 
 		self.num_way = num_way
@@ -385,16 +377,24 @@ class super_block :
 		self.cell_mode = cell_mode
 
 		self.nand_info = nand_info
-		if self.nand_info == None :
-			self.nand_info = default_nand_info
-		
+		#	print('%s : BYTES_PER_PAGE : %d, PAGES_PER_BLOCK : %d, BLOCKS_PER_WAY : %d'%(self.__class__.__name__, self.nand_info.bytes_per_page, self.nand_info.pages_per_block, self.nand_info.blocks_per_way))
+					
 		if self.cell_mode == NAND_MODE_SLC :
 			self.end_page = int(self.nand_info.pages_per_block / self.nand_info.bits_per_cell)
+			self.size = int((self.num_way * self.nand_info.pages_per_block * self.nand_info.bytes_per_page / self.nand_info.bits_per_cell)/1024/1024)
 		else :
 			self.end_page = self.nand_info.pages_per_block
-			
-		print('\n%s sb open : %d, way list : %s, alloc num : %d'%(self.name, block_addr, str(self.ways), self.allocated_num))
+			self.size = int((self.num_way * self.nand_info.pages_per_block * self.nand_info.bytes_per_page)/1024/1024)
 
+		# TLC use one shot program method, the other nand use page program method
+		if self.cell_mode == NAND_MODE_TLC :
+		 	self.program_unit = self.nand_info.chunks_per_page *3		
+		else :
+		 	self.program_unit = self.nand_info.chunks_per_page
+												
+		print('\n%s [%s] open : %d, alloc num : %d, mode : %s, size : %d MB, end_page : %d'%(self.__class__.__name__, self.name, block_addr, self.allocated_num, cell_mode_name[self.cell_mode], self.size, self.end_page))
+		#print('way list : ' + str(self.ways))
+		
 	def is_open(self) :
 		if self.allocated_num == 0 :
 			return False
@@ -405,13 +405,7 @@ class super_block :
 		return self.cell_mode
 
 	def get_num_chunks_to_write(self, num_chunks_to_write) :
-		# TLC use one shot program method, the other nand use page program method
-		if self.cell_mode == NAND_MODE_TLC :
-		 	num_chunks = min(num_chunks_to_write, (CHUNKS_PER_PAGE *3))
-		else :
-		 	num_chunks = min(num_chunks_to_write, CHUNKS_PER_PAGE)
-
-		return num_chunks
+		 return min(num_chunks_to_write, self.program_unit)
 		                 
 	def get_block_addr(self) :
 		return self.block_addr  
@@ -456,12 +450,7 @@ class super_block :
 	def report_get_label(self) :
 		return {'super block' : ['name', 'cell_mode', 'size', 'block addr', 'way_list', 'valid count', 'last page']}
 		
-	def report_get_columns(self, meta_info = None) :
-		if self.cell_mode == NAND_MODE_SLC :
-			block_size = self.num_way * self.nand_info.pages_per_block * self.nand_info.bytes_per_page / self.nand_info.bits_per_cell
-		else :
-			block_size = self.num_way * self.nand_info.pages_per_block * self.nand_info.bytes_per_page
-																	
+	def report_get_columns(self, meta_info = None) :																	
 		last_page = []
 		valid_count = 0
 		for index in range(self.num_way) :			
@@ -473,7 +462,7 @@ class super_block :
 		columns = []
 		columns.append(self.name)
 		columns.append(cell_mode_name[self.cell_mode])
-		columns.append('%d MB'%(block_size/1024/1024))
+		columns.append('%d MB'%self.size)
 		columns.append(self.block_addr)
 		columns.append(self.ways)
 		columns.append(valid_count)			
