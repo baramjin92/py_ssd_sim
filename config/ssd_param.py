@@ -34,7 +34,7 @@ HOST_ZSA_RESET = 4
 NUM_HOST_QUEUE = 1
 
 # define queue depth of host command
-NUM_HOST_CMD_TABLE = 32
+NUM_HOST_CMD_TABLE = 128			#32
 
 # Nand
 # define command type
@@ -54,7 +54,7 @@ NAND_MODE_QLC = 0x03
 # SSD controller parameter
 # HIC (host interface controller)
 # define queue depth of host command (it is same with NUM_HOST_CMD_TABLE, however it is changed by HIC architecture)
-NUM_CMD_EXEC_TABLE = 64
+NUM_CMD_EXEC_TABLE = 128			#64
 
 # Global queue depth definition
 # ftl cmd queue communication between ftl and fil
@@ -72,7 +72,7 @@ NUM_WAYS = (NUM_CHANNELS * WAYS_PER_CHANNELS)
 
 # BM (buffer managerment)
 #Write Buffer : 1M Byte, Read Buffer : 3M Byte
-SSD_WRITE_BUFFER_SIZE = 1 * 1024 * 1024
+SSD_WRITE_BUFFER_SIZE = 8 * 1024 * 1024
 SSD_READ_BUFFER_SIZE = 16 * 1024 * 1024
 SSD_BUFFER_SIZE = (SSD_WRITE_BUFFER_SIZE + SSD_READ_BUFFER_SIZE) 
 
