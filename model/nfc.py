@@ -305,14 +305,12 @@ class nfc :
 		# calculate way wait time
 		bstat.wait_time = bstat.wait_time + (current_time - bstat.prev_time)
 		bstat.prev_time = current_time
-		
-		# print('channel %d idle time %d'%(channel, cstat.idle_time))
-		
+				
 		# register channel owner by way
 		self.channel_owner[channel] = way
 		
-		###if channel == 0 :
-		###	print('grant channel : %d, %d'%(channel, way))
+		#if channel == 0 :
+		#	print('grant channel %d way %d, idle time %f us'%(channel, way, cstat.idle_time / 1000))
 		
 		# start io operation
 		self.begin_io(way)
@@ -322,7 +320,7 @@ class nfc :
 		return way
 		
 	def release_channel(self, channel, way) :
-		#log_print('release channel - way : %d'%(way))
+		#log_print('%s : way %d'%(self.__class__.__name__, way))
 				
 		# check current channel owner and invalidate owner
 		if self.channel_owner[channel] == way :
@@ -343,7 +341,7 @@ class nfc :
 		#ssd_vcd_set_nfc_busy(channel, 0)
 		
 	def release_channel_condition(self, channel, way) :
-		#log_print('conditional release channel')
+		#log_print('%s'%self.__class__.__name__)
 
 		release = True
 		
@@ -601,12 +599,12 @@ class nfc :
 				#print('....................................................%d'%(self.debug[channel]))
 				self.debug[channel] = 0
 				granted_way = self.grant_channel(channel)
-				
+					
 				'''
 				cell, io, wait, = nfc_seq_state[self.way_ctx[granted_way].state]
 				ssd_vcd_set_nfc_state(granted_way, self.way_ctx[granted_way].state, cell, io, wait)			
 				'''
-								
+									
 	def print_cmd_descriptor(self, report = None) :
 		print('command descriptor')
 

@@ -71,7 +71,7 @@ class nand_context :
 	
 		self.mean_tProg = [0, 0, 0, 0]
 		self.mean_tProg[NAND_MODE_MLC] = param.nand_t_prog_avg
-		self.mean_tProg[NAND_MODE_TLC] = param.nand_t_prog_avg
+		self.mean_tProg[NAND_MODE_TLC] = param.nand_t_prog
 		self.mean_tProg[NAND_MODE_SLC] = param.nand_t_prog_slc
 		self.mean_tProg[NAND_MODE_QLC] = 3000
 	
@@ -126,8 +126,12 @@ class nand_context :
 				
 		#log_print('die %d program block %x page %s'%(self.nand_id, nand_block, nand_page))
 
+		# check one shot mode
+		#if int(self.chunks_num / self.chunks_per_page) > 1 :
+		#	print('%s : way : %d, blk %d, page %d, offset %d, num : %d'%(self.__class__.__name__, self.nand_id, nand_block, nand_page, chunk_offset, self.chunks_num))
+
 		self.status[nand_block] = self.status[nand_block] | NAND_STATUS_PROGRAM
-						
+										
 		# calculte chunk index in page
 		chunk_index = nand_page * self.chunks_per_page + chunk_offset
 								
@@ -143,7 +147,7 @@ class nand_context :
 			
 			# increas chunk address
 			chunk_index = chunk_index + 1
-			
+
 			#log_print('main data : %d, meta_data : %d'%(self.main_data[index], self.meta_data[index]))
 									  
 		return True
@@ -183,7 +187,7 @@ class nand_context :
 		
 		# get mean time by the page num (LSB/MSB in MLC, LSB/CSB/MSB in TLC)		
 		mean = self.mean_tProg[self.mode]				
-								
+																
 		# deviation is 1% from mean (5% -> 1%)
 		diviation = mean * 0.01
 			
@@ -203,8 +207,8 @@ class nand_context :
 		nand_t_bers = self.mean_tBERS
 		
 		# deviation is 10%
-		min = nand_t_bers * 0.9
-		max = nand_t_bers * 1.1
+		min = int(nand_t_bers * 0.9)
+		max = int(nand_t_bers * 1.1)
 		# generate tBER by randomize funtion
 		tBERS = random.randrange(min, max) 
 

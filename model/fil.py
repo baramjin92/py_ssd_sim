@@ -85,7 +85,7 @@ class fil_manager :
 			# send new event to nfc if lengh of fil2nfc queue is 1
 			if self.nfc_model.fil2nfc_queue[way].length() >= 1 :
 				# this code make undefined event to NFC, it should be change later
-				next_event = event_mgr.alloc_new_event(0)
+				next_event = event_mgr.alloc_new_event(1)
 				next_event.dest = event_dst.MODEL_NFC
 				next_event.nand_id = way
 				

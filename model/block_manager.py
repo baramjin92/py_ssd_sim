@@ -388,8 +388,10 @@ class super_block :
 
 		# TLC use one shot program method, the other nand use page program method
 		if self.cell_mode == NAND_MODE_TLC :
-		 	self.program_unit = self.nand_info.chunks_per_page *3		
+		 	self.page_unit = 3
+		 	self.program_unit = self.nand_info.chunks_per_page * self.page_unit		
 		else :
+		 	self.page_unit = 1
 		 	self.program_unit = self.nand_info.chunks_per_page
 												
 		print('\n%s [%s] open : %d, alloc num : %d, mode : %s, size : %d MB, end_page : %d'%(self.__class__.__name__, self.name, block_addr, self.allocated_num, cell_mode_name[self.cell_mode], self.size, self.end_page))
@@ -429,7 +431,7 @@ class super_block :
 		way = self.ways[index]
 		
 		# increase page addr
-		self.page[index] = self.page[index] + 1
+		self.page[index] = self.page[index] + self.page_unit
 				 							 			
 		# check last page
 		if self.page[index] == self.end_page :

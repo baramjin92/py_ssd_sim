@@ -81,11 +81,11 @@ hil2ftl_low_queue = queue(FTL_CMD_QUEUE_DEPTH)
 
 # initialize ftl2fil queue
 # ftl2fil_queue conveys cmd_index of nandcmd_table
-ftl2fil_queue = queue(32)
+ftl2fil_queue = queue(64)
 
 # initialize fil2ftl queue
 # fil2ftl queue conveys gc contents
-fil2ftl_queue = queue(32) 																
+fil2ftl_queue = queue(64) 																
  																																				 																																				
 if __name__ == '__main__' :
 	print ('module ftl (flash translation layer) common')
