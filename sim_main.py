@@ -114,7 +114,7 @@ if __name__ == '__main__' :
 	hic_model = hic_manager(NUM_CMD_EXEC_TABLE * NUM_HOST_QUEUE)
 	
 	nand_model = nand_manager(NUM_WAYS, nand_info)
-	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS)
+	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS, nand_info)
 
 	bits_per_cell, bytes_per_page, pages_per_block, blocks_per_way = nand_model.get_nand_dimension()
 	ftl_nand = ftl_nand_info(bits_per_cell, bytes_per_page, pages_per_block, blocks_per_way)
@@ -128,7 +128,7 @@ if __name__ == '__main__' :
 	fil_module = fil_manager(nfc_model, hic_model)
 
 	blk_grp.add('meta', block_manager(NUM_WAYS, None, 1, 9, 1, 3, NAND_MODE_SLC, ftl_nand))
-	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, 1, 3, NAND_MODE_SLC, ftl_nand))
+	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, 1, 3, nand_mode, ftl_nand))
 	blk_grp.add('user', block_manager(NUM_WAYS, None, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, nand_mode, ftl_nand))
 
 	ftl_module.start()

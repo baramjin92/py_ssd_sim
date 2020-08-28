@@ -89,10 +89,12 @@ def host_run() :
 if __name__ == '__main__' :
 	log.open(None, False)
 	
+	global NUM_HOST_QUEUE
 	global NUM_CHANNELS
 	global WAYS_PER_CHANNELS
 	global NUM_WAYS
-		
+	
+	#NUM_HOST_QUEUE = 3		
 	NUM_CHANNELS = 8
 	WAYS_PER_CHANNELS = 1
 	NUM_WAYS = (NUM_CHANNELS * WAYS_PER_CHANNELS) 
@@ -104,7 +106,7 @@ if __name__ == '__main__' :
 	hic_model = hic_manager(NUM_CMD_EXEC_TABLE * NUM_HOST_QUEUE)
 	
 	nand_model = nand_manager(NUM_WAYS, nand_info)
-	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS)
+	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS, nand_info)
 
 	bits_per_cell, bytes_per_page, pages_per_block, blocks_per_way = nand_model.get_nand_dimension()
 	ftl_nand = ftl_nand_info(bits_per_cell, bytes_per_page, pages_per_block, blocks_per_way)

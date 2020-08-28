@@ -79,7 +79,7 @@ if __name__ == '__main__' :
 	hic_model = hic_manager(NUM_CMD_EXEC_TABLE * NUM_HOST_QUEUE)
 	
 	nand_model = nand_manager(NUM_WAYS, nand_info)
-	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS)
+	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS, nand_info)
 
 	bits_per_cell, bytes_per_page, pages_per_block, blocks_per_way = nand_model.get_nand_dimension()
 	ftl_nand = ftl_nand_info(bits_per_cell, bytes_per_page, pages_per_block, blocks_per_way)
