@@ -45,12 +45,15 @@ class ftl_meta :
 	def config(self, num_way, nand_info) :
 		self.nand_info = nand_info
 		blocks_per_way = nand_info.blocks_per_way
-		chunks_per_block = nand_info.chunks_per_block
 
-		self.PAGE_MASK = (0x01 << nand_info.chunks_per_page) - 1
+		self.CHUNKS_PER_PAGE = nand_info.chunks_per_page
+		self.CHUNKS_PER_BLOCK = nand_info.chunks_per_block
+		self.CHUNKS_PER_WAY = nand_info.chunks_per_way
+
+		self.PAGE_MASK = (0x01 << self.CHUNKS_PER_PAGE) - 1
 												
 		# valid chunk bitmap
-		self.size_of_bitmap = int(chunks_per_block / 32)
+		self.size_of_bitmap = int(self.CHUNKS_PER_BLOCK / 32)
 
 		# valid chunk bitmap
 		self.valid_bitmap = np.empty((num_way, blocks_per_way, self.size_of_bitmap), np.uint32)
@@ -58,11 +61,7 @@ class ftl_meta :
 		# valid chunk count data  : valid_count[way][block]
 		self.valid_count = np.empty((num_way, blocks_per_way), np.uint32)
 		self.valid_sum = np.empty((blocks_per_way), np.uint32)
-		
-		self.CHUNKS_PER_PAGE = nand_info.chunks_per_page
-		self.CHUNKS_PER_BLOCK = nand_info.chunks_per_block
-		self.CHUNKS_PER_WAY = nand_info.chunks_per_way
-																							
+																									
 		self.print_meta_constants()
 
 	# this is only useful in conventional ssd using super block concept

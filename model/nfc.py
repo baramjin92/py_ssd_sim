@@ -9,9 +9,8 @@ import pandas as pd
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
-from config.sim_config import unit
-from config.sim_config import nand_info
 from config.ssd_param import *
+from config.sim_config import *
 
 from model.buffer import *
 from model.queue import *
@@ -92,7 +91,7 @@ class way_context :
 
 # nand flash controller
 class nfc :
-	def __init__(self, channel_num, ways_per_channel) :
+	def __init__(self, channel_num, ways_per_channel, nand_info) :
 		way_num = channel_num * ways_per_channel
 				
 		self.way_num = way_num
@@ -706,7 +705,7 @@ class way_statistics :
 if __name__ == '__main__' :
 	print ('module nfc(nand flash controller) main')
 	
-	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS)
+	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS, nand_info)
 				
 	print('nand parameter for nfc event')
 	print('write command and address time : %d ns'%(nfc_model.nand_t_cna_w))

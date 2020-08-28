@@ -9,8 +9,7 @@ import pandas as pd
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
-from config.sim_config import unit
-from config.sim_config import nand_info
+from config.sim_config import *
 from config.ssd_param import *
 
 from sim_event import *
@@ -47,7 +46,7 @@ class nand_context :
 		self.chunks_per_page = int(self.bytes_per_page / BYTES_PER_CHUNK)
 		self.chunks_per_blk =  self.chunks_per_page * self.page_num
 		self.chunks_per_way = self.chunks_per_blk * self.block_num
-		
+				
 		# this code will be removed in future
 		#if self.chunks_per_page != CHUNKS_PER_PAGE :
 		#	print('.....error : self.chunks_per_page is not same with CHUNKS_PER_PAGE')
@@ -66,7 +65,7 @@ class nand_context :
 		self.mean_tR = [0, 0, 0, 0]
 		self.mean_tR[NAND_MODE_MLC] = param.nand_t_read_full
 		self.mean_tR[NAND_MODE_TLC] = param.nand_t_read_full
-		self.mean_tR[NAND_MODE_SLC] = 30*1000
+		self.mean_tR[NAND_MODE_SLC] = param.nand_t_read_slc
 		self.mean_tR[NAND_MODE_QLC] = 120*1000
 	
 		self.mean_tProg = [0, 0, 0, 0]
@@ -74,7 +73,7 @@ class nand_context :
 		self.mean_tProg[NAND_MODE_TLC] = param.nand_t_prog
 		self.mean_tProg[NAND_MODE_SLC] = param.nand_t_prog_slc
 		self.mean_tProg[NAND_MODE_QLC] = 3000
-	
+		
 		self.mean_tBERS = param.nand_t_bers
 		
 		self.mode = nand_cell_mode[self.bits_per_cell]
@@ -387,64 +386,6 @@ class nand_manager :
 			next_event.nand_id = nand.nand_id								
 		
 		return True						
-
-	def print_param(self) :
-		print('nand parameter')
-		
-		param = self.nand_info
-		param_name = {'name' : ['extra_data_size', 'crc_size', 'ecc_size', 'nand_t_cna_w', 'nand_t_cna_r', 'nand_t_cna_e', 'nand_t_chk', 'nand_t_xfer', 'nand_t_read_lsb', 'nand_t_read_msb', 'nand_t_prog_lsb', 'nand_t_prog_msb', 'nand_t_bers']}				
-						
-		param_pd = pd.DataFrame(param_name)				
-						
-		param_columns = []
-		param_columns.append(param.extra_data_size)
-		param_columns.append(param.crc_size)
-		param_columns.append(param.ecc_size)
-		
-		param_columns.append(param.nand_t_cna_w)
-		param_columns.append(param.nand_t_cna_r)
-		param_columns.append(param.nand_t_cna_e)
-		param_columns.append(param.nand_t_chk)
-		param_columns.append(param.nand_t_xfer)
-		
-		param_columns.append(param.nand_t_read_lsb)
-		param_columns.append(param.nand_t_read_msb)
-		param_columns.append(param.nand_t_prog_lsb)
-		param_columns.append(param.nand_t_prog_msb)
-		param_columns.append(param.nand_t_bers)
-																		
-		param_pd['value'] = pd.Series(param_columns, index=param_pd.index)
-		
-		print(param_pd)								
-
-	def print_type(self) :
-		print('nand type')
-
-		info = self.nand_info
-
-		# calculate ssd information
-		bits_per_cell = info.bits_per_cell
-		small_block_size = info.page_size * info.page_num
-		big_block_size = small_block_size * info.plane_num
-	
-		info_name = {'name' : ['bits per cell', 'capacity[Gb]', 'page size[KB]', 'page num', 'plane num', 'wordline num', 'block num', 'small block size[MB]', 'big block size[MB]']}				
-						
-		info_pd = pd.DataFrame(info_name)				
-						
-		info_columns = []
-		info_columns.append(bits_per_cell)
-		info_columns.append(info.size)
-		info_columns.append(int(info.page_size / unit.scale_KB))
-		info_columns.append(info.page_num)
-		info_columns.append(info.plane_num)
-		info_columns.append(int(info.page_num / bits_per_cell))
-		info_columns.append(info.main_block_num)
-		info_columns.append(int(small_block_size / unit.scale_MB))
-		info_columns.append(int(big_block_size / unit.scale_MB))
-																		
-		info_pd['value'] = pd.Series(info_columns, index=info_pd.index)
-
-		print(info_pd)											
 																																										
 class nand_statistics :
 	def __init__(self) :
@@ -456,9 +397,10 @@ class nand_statistics :
 def unit_test_nand() :		
 	nand_mgr = nand_manager(2, nand_info)	
 	
-	nand_mgr.print_type()
-	nand_mgr.print_param()
+	nand_mgr.nand_info.print_type()
+	nand_mgr.nand_info.print_param()
 	
+	print('n')
 	nand = nand_mgr.nand_ctx[0]
 	nand.print_block_data(0, 0, 10)			
 										
