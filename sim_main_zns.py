@@ -45,6 +45,31 @@ def init_log_time() :
 
 	log_time_data['start_time'] = time.time()
 
+bar = None
+progress_save = 0
+
+def init_progress() :
+	global progress_save
+	global bar
+		
+	index, total_num = wlm.get_info()
+	workload_title = 'workload [%d/%d] processing'%(index+1, total_num)
+	bar = Bar(workload_title, max=100)
+	progress_save = 0
+
+	return index
+	
+def check_progress() :
+	global progress_save
+	
+	progress = wlm.get_progress(async_group = False)
+	if progress_save != progress :
+		progress_save = progress
+		bar.index = progress
+		bar.next()
+		
+	return progress+1
+
 def build_workload_zns() :
 	wlm.set_capacity(range_16GB)
 		
@@ -63,7 +88,8 @@ if __name__ == '__main__' :
 	global NUM_CHANNELS
 	global WAYS_PER_CHANNELS
 	global NUM_WAYS	
-		
+	
+	NUM_HOST_QUEUE = 3	
 	NUM_CHANNELS = 8
 	WAYS_PER_CHANNELS = 1
 	NUM_WAYS = (NUM_CHANNELS * WAYS_PER_CHANNELS) 
@@ -119,10 +145,7 @@ if __name__ == '__main__' :
 
 	wlm.set_group_active(NUM_HOST_QUEUE)
 	wlm.print_all()
-	index, total_num = wlm.get_info()
-	workload_title = 'workload [%d/%d] processing'%(index+1, total_num)
-	bar = Bar(workload_title, max=100)
-	progress_save = 0
+	index = init_progress()
 	
 	report.set_model(wlm, host_model, hic_model, nfc_model, nand_model)
 	report.set_module(hil_module, ftl_module, fil_module)
@@ -169,13 +192,7 @@ if __name__ == '__main__' :
 				event_mgr.prev_time = event_mgr.timetick
 
 				# show the progress status of current workload			
-				progress = wlm.get_progress(async_group = False)
-				if progress_save != progress :
-					progress_save = progress
-					bar.index = progress
-					bar.next()
-					
-				if progress == 99 :
+				if check_progress() == 100 :
 					ftl_module.disable_background()
 					report.disable()
 					
@@ -216,9 +233,7 @@ if __name__ == '__main__' :
 				print('press the button to run next workload')									
 				name = input()
 				if wlm.goto_next_workload(async_group = False) == True :
-					index, total_num = wlm.get_info()
-					workload_title = 'workload [%d/%d] processing'%(index+1, total_num)
-					bar = Bar(workload_title, max=100)
+					index = init_progress()
 					
 					event_mgr.timetick = 0
 					host_model.host_stat.clear()
