@@ -31,7 +31,7 @@ HOST_ZSA_OPEN = 3
 HOST_ZSA_RESET = 4
 
 # define number of queue
-NUM_HOST_QUEUE = 1
+NUM_HOST_QUEUE = 3
 
 # define queue depth of host command
 NUM_HOST_CMD_TABLE = 128			#32
