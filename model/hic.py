@@ -63,6 +63,8 @@ class cmd_queue_context :
 class hic_manager :
 	def __init__(self, cet_size, queue_num = NUM_HOST_QUEUE) :
 
+		print('hic_manager - cet %d, queue %d'%(cet_size, queue_num))
+
 		self.cmd_queue = []
 		for index in range(queue_num) :
 			self.cmd_queue.append(cmd_queue_context(cet_size))

@@ -705,6 +705,7 @@ class way_statistics :
 if __name__ == '__main__' :
 	print ('module nfc(nand flash controller) main')
 	
+	nand_info = nand_config(nand_256gb_g3)
 	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS, nand_info)
 				
 	print('nand parameter for nfc event')

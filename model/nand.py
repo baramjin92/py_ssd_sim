@@ -394,7 +394,8 @@ class nand_statistics :
 	def print(self) :
 		print('nand statstics')
 																		
-def unit_test_nand() :		
+def unit_test_nand() :	
+	nand_info = nand_config(nand_256gb_g3)	
 	nand_mgr = nand_manager(2, nand_info)	
 	
 	nand_mgr.nand_info.print_type()
