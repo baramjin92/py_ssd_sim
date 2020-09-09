@@ -20,9 +20,7 @@ from model.nand import *
 
 from model.workload import *
 
-from config.sim_config import unit
-from config.sim_config import nand_info
-
+from config.sim_config import *
 from config.ssd_param import *
 
 from model.buffer import *
@@ -128,8 +126,9 @@ if __name__ == '__main__' :
 	
 	print('initialize model')
 	host_model = host_manager(NUM_HOST_CMD_TABLE, NUM_HOST_QUEUE, [int(NUM_LBA*0.1), int(NUM_LBA*0.4), int(NUM_LBA*0.5)])
-	hic_model = hic_manager(NUM_CMD_EXEC_TABLE * NUM_HOST_QUEUE)
+	hic_model = hic_manager(NUM_CMD_EXEC_TABLE * NUM_HOST_QUEUE, NUM_HOST_QUEUE)
 	
+	nand_info = nand_config(nand_256gb_g3)		
 	nand_model = nand_manager(NUM_WAYS, nand_info)
 	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS, nand_info)
 

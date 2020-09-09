@@ -22,9 +22,7 @@ from model.workload import *
 
 from model.vcd_ssd import *
 
-from config.sim_config import unit
-from config.sim_config import nand_info
-
+from config.sim_config import *
 from config.ssd_param import *
 
 from model.buffer import *
@@ -78,9 +76,9 @@ def build_workload_gc() :
 	if NUM_HOST_QUEUE >= 2 :
 		wlm.add_group(NUM_HOST_QUEUE - 1)
 	
-	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_1GB, 128, 128, 2048, WL_SIZE_MB, 0, True, False))
+	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16GB, 128, 128, 2, WL_SIZE_GB, 0, True, False))
 	#wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16MB, 128, 128, 8, WL_SIZE_MB, 0, True, False))
-	wlm.set_workload(workload(WL_SEQ_READ, 0, range_1GB, 128, 128, 2048, WL_SIZE_MB, 0, True, False))
+	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16GB, 128, 128, 2, WL_SIZE_GB, 0, True, False))
 	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16MB, 128, 128, 4, WL_SIZE_MB, 0, True, False))
 		
 	wlm.set_workload(workload(WL_RAND_WRITE, 0, range_16MB, 8, 8, 32, WL_SIZE_MB, 0, True, False), 1)
@@ -138,6 +136,7 @@ if __name__ == '__main__' :
 	host_model = host_manager(NUM_HOST_CMD_TABLE)
 	hic_model = hic_manager(NUM_CMD_EXEC_TABLE * NUM_HOST_QUEUE)
 	
+	nand_info = nand_config(nand_256gb_g3)	
 	nand_model = nand_manager(NUM_WAYS, nand_info)
 	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS, nand_info)
 
