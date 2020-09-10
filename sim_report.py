@@ -3,7 +3,7 @@
 import os
 import sys
 import csv
-import numpy as np
+
 import matplotlib.pyplot as plt
 
 import datetime
@@ -77,8 +77,27 @@ def html_put_end() :
 	</html>
 	'''
 	html_fp.write(html_string_end)	
-		
+
 def html_put_table(dataframe) :
+	fp = html_fp
+
+	if type(dataframe) is str :
+		str1 = '<h5>'+dataframe
+		fp.write(str1)
+	else :			 	
+		fp.write('<center>')
+		fp.write('<table>')
+		#for header in dataframe[0] :
+		#	fp.write('<th>'+str(header)+'</th>')
+		for i, row in enumerate(dataframe) :
+			fp.write('<tr>')
+			for value in row :
+				fp.write('<td style="text-align:right;">' + str(value) + '</td>')
+			fp.write('</tr>')
+		fp.write('</table>')
+		fp.write('</center>')
+								
+def html_put_table_pd(dataframe) :
 	fp = html_fp
 
 	if type(dataframe) is str :
@@ -349,13 +368,22 @@ if __name__ == '__main__' :
 	host_model = host_manager(NUM_HOST_CMD_TABLE)
 	hic_model = hic_manager(NUM_CMD_EXEC_TABLE * NUM_HOST_QUEUE)
 	
+	nand_info = nand_config(nand_256gb_g3)		
 	nand_model = nand_manager(NUM_WAYS, nand_info)
-	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS)
+	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS, nand_info)
 
-	#meta.config(NUM_WAYS)
-	blk_grp.add('meta', block_manager(NUM_WAYS, 1, 9))
-	blk_grp.add('slc_cache', block_manager(NUM_WAYS, 10, 19, 1, 2))
-	blk_grp.add('user', block_manager(NUM_WAYS, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))
+	bits_per_cell, bytes_per_page, pages_per_block, blocks_per_way = nand_model.get_nand_dimension()
+	ftl_nand = ftl_nand_info(bits_per_cell, bytes_per_page, pages_per_block, blocks_per_way)
+
+	meta.config(NUM_WAYS, ftl_nand)
+	
+	hil_module = hil_manager(hic_model)
+	ftl_module = ftl_manager(NUM_WAYS, hic_model)
+	fil_module = fil_manager(nfc_model, hic_model)
+		
+	blk_grp.add('meta', block_manager(NUM_WAYS, 1, 9, 1, 2, NAND_MODE_SLC, ftl_nand))
+	blk_grp.add('slc_cache', block_manager(NUM_WAYS, 10, 19, 1, 2, NAND_MODE_SLC, ftl_nand))
+	blk_grp.add('user', block_manager(NUM_WAYS, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, NAND_MODE_TLC, ftl_nand))
 				
 	host_stat = host_statistics(2)
 
