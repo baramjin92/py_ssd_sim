@@ -38,6 +38,9 @@ class ftl_meta :
 		# meta data of ftl																				
 		# so far, we use simple np, in order to support real capacity of ssd, we should change it by "memmap" of numpy		
 		self.map_table = np.empty((NUM_LBA), np.uint32)
+		'''
+		self.map_table = [0xFFFFFFFF for x in range(NUM_LBA)]
+		'''
 #		for index in range(NUM_LBA) :
 #			self.map_table[index] = 0xFFFFFFFF
 
@@ -60,7 +63,11 @@ class ftl_meta :
 		# valid chunk count data  : valid_count[way][block]
 		self.valid_count = np.empty((num_way, blocks_per_way), np.uint32)
 		self.valid_sum = np.empty((blocks_per_way), np.uint32)
-																									
+		'''
+		self.valid_bitmap = [[[0 for x in range(self.size_of_bitmap)] for y in range(blocks_per_way)] for z in range(num_way)]		
+		self.valid_count = [[0 for x in range(blocks_per_way)] for y in range(num_way)]
+		self.valid_sum = [0 for x in range(blocks_per_way)]
+		'''																							
 		self.print_meta_constants()
 
 	# this is only useful in conventional ssd using super block concept
@@ -77,9 +84,12 @@ class ftl_meta :
 
 	def reset_valid_info(self, way, block) :
 		self.valid_bitmap[way][block] = np.zeros(self.size_of_bitmap)
+		'''
+		self.valid_bitmap[way][block] = [0 for x in range(self.size_of_bitmap)]
+		'''
 		self.valid_count[way][block] = 0
 		self.valid_sum[block] = 0
-
+	
 	def set_valid_bitmap(self, way, block, chunk) :
 		bmp = self.valid_bitmap[way][block]
 		index = int(chunk / 32)

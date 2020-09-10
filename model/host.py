@@ -6,7 +6,7 @@ import random
 
 import tabulate
 
-import numpy as np
+#import numpy as np
 
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
@@ -100,12 +100,14 @@ class host_manager :
 		self.use_namespace = False
 		self.data_table = []
 		if len(namespace) == 0 :
-			self.data_table.append(np.empty((NUM_LBA), np.int32))
+			#self.data_table.append(np.empty((NUM_LBA), np.int32))
+			self.data_table.append([0 for x in range(NUM_LBA)])
 		else :
 			self.use_namespace = True
 			for max_lba in namespace :
-				self.data_table.append(np.empty((max_lba), np.int32))		
-		
+				#self.data_table.append(np.empty((max_lba), np.int32))		
+				self.data_table.append([0 for x in range(max_lba)])
+				
 		self.host_stat = host_statistics(queue_num)
 	
 	def get_nsid(self, qid) :
@@ -338,15 +340,16 @@ class host_manager :
 		lba_index = int(event.host_lba / SECTORS_PER_CHUNK)
 		
 		# verify read data
-		#if ENABLE_RAMDISK_MODE == False :
-		#	data = event.main_data.pop(0)
+		
+		if ENABLE_RAMDISK_MODE == False :
+			data = event.main_data.pop(0)
 			
-		#	nsid = self.get_nsid(queue_id)
-		#	host_data = self.data_table[nsid]
+			nsid = self.get_nsid(queue_id)
+			host_data = self.data_table[nsid]
 			
-		#	if host_data[lba_index] != data : 
-		#		print('..................................................error : verify data : lba %d : expect[%d] return[%d]'%(event.host_lba, host_data[lba_index], data))
-				#input()
+			if host_data[lba_index] != data : 
+				print('..................................................error : verify data : lba %d : expect[%d] return[%d]'%(event.host_lba, host_data[lba_index], data))
+				input()
 					
 		# update completed sectors
 		host_cmd.num_sectors_completed = host_cmd.num_sectors_completed + num_sectors
