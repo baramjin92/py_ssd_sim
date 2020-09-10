@@ -3,6 +3,8 @@
 import os
 import sys
 
+import tabulate
+
 import pandas as pd
 
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
@@ -304,74 +306,63 @@ class nand_config :
 		self.nand_t_prog_avg = int(self.nand_t_prog / self.bits_per_cell)
 		self.nand_t_prog_slc = int(nand_param['nand_t_prog_slc'])
 		self.nand_t_bers = int(nand_param['nand_t_bers'])
-																													
-	def get_type_label(self) :
-		return {'name' : ['bits per cell', 'capacity[Gb]', 'page size[KB]', 'page num', 'plane num', 'wordline num', 'block num', 'small block size[MB]', 'big block size[MB]', 'extra_data_size', 'crc_size', 'ecc_size']}				
-	
+																														
 	def get_type_value(self) :
 		# calculate ssd information
 		small_block_size = self.page_size * self.page_num
 		big_block_size = small_block_size * self.plane_num
 													
-		info_columns = []
-		info_columns.append(self.bits_per_cell)
-		info_columns.append(self.size)
-		info_columns.append(int(self.page_size / unit.scale_KB))
-		info_columns.append(self.page_num)
-		info_columns.append(self.plane_num)
-		info_columns.append(int(self.page_num / self.bits_per_cell))
-		info_columns.append(self.main_block_num)
-		info_columns.append(int(small_block_size / unit.scale_MB))
-		info_columns.append(int(big_block_size / unit.scale_MB))
-		info_columns.append(self.extra_data_size)
-		info_columns.append(self.crc_size)
-		info_columns.append(self.ecc_size)
+		bits_per_cell = ['bits_per_cell', self.bits_per_cell]
+		capacity = ['capacity[Gb]', self.size]
+		page_size = ['page size[KB]', int(self.page_size / unit.scale_KB)]
+		page_num = ['page_num', self.page_num]
+		plane_num = ['plane_num', self.plane_num]
+		wordline_num = ['wordline_num', int(self.page_num / self.bits_per_cell)]
+		block_num = ['block_num', self.main_block_num]
+		small_block = ['small block size[MB]', int(small_block_size / unit.scale_MB)]
+		big_block = ['big block size[MB]', int(big_block_size / unit.scale_MB)]
 
-		return info_columns
+		extra_data = ['extra data size', self.extra_data_size]
+		crc = ['crc size', self.crc_size]
+		ecc = ['ecc size', self.ecc_size]
 
-	def get_param_lable(self) :
-		return {'name' : ['interface speed', 'nand_t_xfer(us/4KB)', 'nand_t_xfer(us/multi-plane)', 'nand_t_cna_w', 'nand_t_cna_r', 'nand_t_cna_e', 'nand_t_chk', 'nand_t_read_full [us]', 'nand_t_read_half [us]', 'nand_t_read_slc [us]', 'nand_t_prog [us]', 'nand_t_prog_avg [us]', 'nand_t_prog_slc [us]', 'nand_t_bers [ms]']}
+		nand_type = [bits_per_cell, capacity, page_size, page_num, plane_num, wordline_num, block_num, small_block, big_block, extra_data, crc, ecc]
+		return nand_type
 		
 	def get_param_value(self) :
-		param_columns = []
-
-		param_columns.append(self.nand_if)
-		param_columns.append(int(self.nand_t_xfer/1000))
+		interface_speed = ['interface speed [MHz]', self.nand_if]
+		t_xfer1 = ['nand_t_xfer(us/4KB)', int(self.nand_t_xfer/1000)]
 		
 		num_chunks = self.page_size / BYTES_PER_CHUNK * self.plane_num		
-		param_columns.append(int(self.nand_t_xfer * num_chunks /1000))
+		t_xfer2 = ['nand_t_xfer(us/multi-plane)', int(self.nand_t_xfer * num_chunks/1000)]
 				
-		param_columns.append(self.nand_t_cna_w)
-		param_columns.append(self.nand_t_cna_r)
-		param_columns.append(self.nand_t_cna_e)
-		param_columns.append(self.nand_t_chk)
+		t_cna_w = ['nand_t_cna_w [us]', self.nand_t_cna_w]
+		t_cna_r = ['nand_t_cna_r [us]', self.nand_t_cna_r]
+		t_cna_e = ['nand_t_cna_e [us]', self.nand_t_cna_e]
+		t_chk = ['nand_t_chk [us]', self.nand_t_chk]
 
-		param_columns.append(int(self.nand_t_read_full/1000))
-		param_columns.append(int(self.nand_t_read_half/1000))
-		param_columns.append(int(self.nand_t_read_slc/1000))
+		t_read_f = ['nand_t_read_full [us]' , int(self.nand_t_read_full/1000)]
+		t_read_h = ['nand_t_read_half [us]', int(self.nand_t_read_half/1000)]
+		t_read_slc = ['nand_t_read_slc [us]', int(self.nand_t_read_slc/1000)]
 				
-		param_columns.append(int(self.nand_t_prog/1000))
-		param_columns.append(int(self.nand_t_prog_avg/1000))
-		param_columns.append(int(self.nand_t_prog_slc/1000))
-		param_columns.append(int(self.nand_t_bers/1000000))
+		t_prog = ['nand_t_prog [us]', int(self.nand_t_prog/1000)]
+		t_prog_avg = ['nand_t_prog_avg [us]',  int(self.nand_t_prog_avg/1000)]
+		t_prog_slc = ['nand_t_prog_slc [us]', int(self.nand_t_prog_slc/1000)]
+		
+		t_bers = ['nand_t_bers [ms]', int(self.nand_t_bers/1000000)]
 
-		return param_columns
-																				
+		nand_param = [interface_speed, t_xfer1, t_xfer2, t_cna_w, t_cna_r, t_cna_e, t_chk, t_read_f, t_read_h, t_read_slc, t_prog, t_prog_avg, t_prog_slc, t_bers]
+		return nand_param																																																																															
+																																																												
 	def print_type(self) :
 		print('\nnand type')
-							
-		info_pd = pd.DataFrame(self.get_type_label())																																	
-		info_pd['value'] = pd.Series(self.get_type_value(), index=info_pd.index)
-
-		print(info_pd)											
+					
+		print(tabulate.tabulate(self.get_type_value()))											
 
 	def print_param(self) :
 		print('\nnand parameter')
-														
-		param_pd = pd.DataFrame(self.get_param_lable())																																																																																												
-		param_pd['value'] = pd.Series(self.get_param_value(), index=param_pd.index)
-		
-		print(param_pd)								
+
+		print(tabulate.tabulate(self.get_param_value()))											
 													
 if __name__ == '__main__' :
 	print('nand configuration')				
