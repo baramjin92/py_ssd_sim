@@ -650,32 +650,13 @@ class nfc :
 		desc_columns.append(['chunk_num', cmd_desc.chunk_num])
 		desc_columns.append(['buffer_ids', cmd_desc.buffer_ids])						
 
-		table = tabulate.tabulate(desc_columns)
-		if report == None :
-			print(table)
+		if report == None :																																												
+			print(tabulate.tabulate(desc_columns))
 		else :
-			report(table)						
-				
-												
+			report(desc_columns)
+															
 	def print_ch_statistics(self, report = None) :
 		print('channel statistics')
-
-		'''
-		ch_statistics_name = {'name' : ['idle_time', 'release_time']}
-	
-		ch_statistics_pd= pd.DataFrame(ch_statistics_name)
-
-		for index in range(self.channel_num) :
-			ch_columns = []
-			ch_columns.append(self.channel_stat[index].idle_time)
-			ch_columns.append(self.channel_stat[index].release_time)
-			ch_statistics_pd['ch'+str(index)] = pd.Series(ch_columns, index=ch_statistics_pd.index)
-
-		if report == None :
-			print(ch_statistics_pd)
-		else :
-			report(ch_statistics_pd)
-		'''
 
 		ch_statistics_name = {'name' : ['idle_time', 'release_time']}
 
@@ -687,37 +668,15 @@ class nfc :
 			idle_time.append(int(ch_stat.idle_time))
 			release_time.append(int(ch_stat.release_time))
 
-		table = tabulate.tabulate([ch_name, idle_time, release_time])
-		if report == None :
-			print(table)
+		table = [ch_name, idle_time, release_time]
+		if report == None :																																												
+			print(tabulate.tabulate(table))
 		else :
-			report(table)						
+			report(table)
 												
 	def print_way_statistics(self, report = None) : 
 		print('way statistics')
-		
-		'''
-		way_statistics_name = {'name' : ['idle_time', 'wait_time', 'io_time', 'cell_time', 'read_count', 'write_count', 'erase_count']}
-	
-		way_statistics_pd= pd.DataFrame(way_statistics_name)
-
-		for index in range(self.way_num) :
-			way_columns = []
-			way_columns.append(self.way_stat[index].idle_time)
-			way_columns.append(self.way_stat[index].wait_time)
-			way_columns.append(self.way_stat[index].io_time)
-			way_columns.append(self.way_stat[index].cell_time)
-			way_columns.append(self.way_stat[index].read_count)
-			way_columns.append(self.way_stat[index].write_count)
-			way_columns.append(self.way_stat[index].erase_count)
-			way_statistics_pd['way'+str(index)] = pd.Series(way_columns, index=way_statistics_pd.index)
-
-		if report == None :																								
-			print(way_statistics_pd)
-		else :
-			report(way_statistics_pd)
-		'''
-		
+				
 		way_name = [' ']
 		idle_time = ['idle_time']
 		wait_time = ['wait_time']
@@ -736,11 +695,11 @@ class nfc :
 			write_count.append(int(w_stat.write_count))
 			erase_count.append(int(w_stat.erase_count))
 
-		table = tabulate.tabulate([way_name, idle_time, wait_time, io_time, cell_time, read_count, write_count, erase_count])
-		if report == None :
-			print(table)
+		table = [way_name, idle_time, wait_time, io_time, cell_time, read_count, write_count, erase_count]
+		if report == None :																																												
+			print(tabulate.tabulate(table))
 		else :
-			report(table)						
+			report(table)
 						
 	def clear_statistics(self) :
 		for ch_stat in self.channel_stat :

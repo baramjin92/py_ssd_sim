@@ -408,12 +408,7 @@ class workload_manager() :
 					
 		return table																														
 		 		 
-	def print_current(self, wl_index, report = None) :
-		if report == None :
-			report_print = print
-		else :
-			report_print = report
-		
+	def print_current(self, wl_index, report = None) :		
 		# only check first group
 		type = self.group[0].wl[wl_index].workload_type
 		if type == WL_ZNS_WRITE or type == WL_ZNS_READ:
@@ -430,8 +425,11 @@ class workload_manager() :
 			workload = grp_workloads[wl_index]
 			self.get_value(workload, table)
 																				
-		report_print(tabulate.tabulate(table))
-			
+		if report == None :																																												
+			print(tabulate.tabulate(table))
+		else :
+			report(table)
+						
 		print('\n\n')					
 																			
 	def print_all(self, report = None) :		

@@ -577,11 +577,9 @@ class host_statistics :
 			table[4].append(write_iops)
 																																												
 		if report == None :																																												
-			report_print = print
+			print(tabulate.tabulate(table))
 		else :
-			report_print = report
-			
-		report_print(tabulate.tabulate(table))
+			report(table)
 																																																																																								
 	def print(self, time, report = None) :
 		print('\nhost statstics')
@@ -636,12 +634,10 @@ class host_statistics :
 			throughputs.append([read_throughput, read_iops, write_throughput, write_iops])										
 																					
 		if report == None :																																												
-			report_print = print
+			print(tabulate.tabulate(table))
 		else :
-			report_print = report
+			report(table)
 			
-		report_print(tabulate.tabulate(table))
-
 		print('\nperformance')
 
 		perf_table = self.get_table(self.get_perf_label())
