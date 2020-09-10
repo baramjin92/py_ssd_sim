@@ -1,8 +1,6 @@
 #!/usr/bin/python
 
 import random
-import numpy as np
-import pandas as pd
 
 from sim_log import *
 

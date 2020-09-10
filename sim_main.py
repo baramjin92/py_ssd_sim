@@ -4,9 +4,6 @@ import os
 import sys
 import time
 
-import numpy as np
-import pandas as pd
-
 from model.host import host_manager
 from model.hic import hic_manager
 
@@ -76,9 +73,9 @@ def build_workload_gc() :
 	if NUM_HOST_QUEUE >= 2 :
 		wlm.add_group(NUM_HOST_QUEUE - 1)
 	
-	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16GB, 128, 128, 2, WL_SIZE_GB, 0, True, False))
+	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_1GB, 128, 128, 2, WL_SIZE_GB, 0, True, False))
 	#wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16MB, 128, 128, 8, WL_SIZE_MB, 0, True, False))
-	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16GB, 128, 128, 2, WL_SIZE_GB, 0, True, False))
+	wlm.set_workload(workload(WL_SEQ_READ, 0, range_1GB, 128, 128, 2, WL_SIZE_GB, 0, True, False))
 	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16MB, 128, 128, 4, WL_SIZE_MB, 0, True, False))
 		
 	wlm.set_workload(workload(WL_RAND_WRITE, 0, range_16MB, 8, 8, 32, WL_SIZE_MB, 0, True, False), 1)
