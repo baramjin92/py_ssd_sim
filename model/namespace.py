@@ -3,8 +3,8 @@
 import os
 import sys
 import random
-import numpy as np
-import pandas as pd
+
+import tabulate
 
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
@@ -81,33 +81,21 @@ class namespace_desc :
 																																																
 	def update_write_info(self, num_chunks) :
 		self.num_chunks_to_write = self.num_chunks_to_write - num_chunks			
+	
+	def get_label(self) :
+		return ['id', 'slba', 'elba', 'meta range', 'blk name', 'num chunks to write', 'write buffer']
 		
-	def report_get_label(self) :
-		return {'namespace' : ['id', 'slba', 'elba', 'meta range', 'blk_name', 'num_chunk_to_write', 'write_buffer']}
+	def get_value(self, meta_range) :
+		return [self.nsid, self.slba, self.elba, meta_range, self.blk_name, self.num_chunks_to_write, self.write_buffer] 																										
 		
-	def report_get_columns(self, meta_range) :
-		columns = []
-		columns.append(self.nsid)
-		columns.append(self.slba)
-		columns.append(self.elba)
-		columns.append(meta_range)
-		columns.append(self.blk_name)
-		columns.append(self.num_chunks_to_write)			
-		columns.append(str(self.write_buffer))
-		
-		return columns																				
-		
-	def debug(self) :
-		# report form
-		sb_info_label = self.report_get_label()
-		sb_info_columns = self.report_get_columns(None)						
-						
-		sb_info_pd = pd.DataFrame(sb_info_label)				
-		sb_info_pd['value'] = pd.Series(sb_info_columns, index=sb_info_pd.index)
-
-		print('\n')
-		print(sb_info_pd)
-			
+	def get_table(self) :
+		label = self.get_label()
+		table = []
+		for index, name in enumerate(label) :
+			table.append([name])
+					
+		return table																														
+																										
 class namespace_manager :
 	def __init__(self, ns_percent) :
 		self.meta_range = []
@@ -166,15 +154,15 @@ class namespace_manager :
 		print('\nnum of namespace : %d\n'%(self.num_namespace))
 		
 		ns = self.get(0)
-		sb_info_label = ns.report_get_label()					
-		sb_info_pd = pd.DataFrame(sb_info_label)				
+		sb_info = ns.get_table()
 		
 		for index, range in enumerate(self.meta_range) :
 			ns = self.get(index)			
-			sb_info_columns = ns.report_get_columns(range)							
-			sb_info_pd['ns %d'%index] = pd.Series(sb_info_columns, index=sb_info_pd.index)
+			value = ns.get_value(self.meta_range[index])
+			for i, info in enumerate(sb_info) :
+				info.append(value[i])
 
-		print(sb_info_pd)
+		print(tabulate.tabulate(sb_info))
 																											
 namespace_mgr = namespace_manager([10, 40, 50])
 												
@@ -188,7 +176,10 @@ if __name__ == '__main__' :
 	NUM_CHANNELS = 8
 	WAYS_PER_CHANNELS = 1
 	NUM_WAYS = (NUM_CHANNELS * WAYS_PER_CHANNELS) 
-	
+
+	ftl_nand = ftl_nand_info(3, 8192*4, 256, 1024)
+	meta.config(NUM_WAYS, ftl_nand)
+		
 #	ftl = ftl_iod_manager(None)
 			
 	print('ssd capacity : %d GB'%SSD_CAPACITY)
@@ -197,15 +188,15 @@ if __name__ == '__main__' :
 	print('num of logical chunk (4K unit) : %d'%(NUM_LBA/SECTORS_PER_CHUNK))	
 
 	blk_name = ['user1', 'user2', 'user3']	
-	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, 1, 2))
-	blk_grp.add(blk_name[0], block_manager(int(NUM_WAYS/2), [0, 1, 2, 3], 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))
-	blk_grp.add(blk_name[1], block_manager(int(NUM_WAYS/4), [4, 5], 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))
-	blk_grp.add(blk_name[2], block_manager(int(NUM_WAYS/4), [6, 7], 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))
+	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, 1, 2, NAND_MODE_SLC, ftl_nand))
+	blk_grp.add(blk_name[0], block_manager(int(NUM_WAYS/2), [0, 1, 2, 3], 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, NAND_MODE_MLC, ftl_nand))
+	blk_grp.add(blk_name[1], block_manager(int(NUM_WAYS/4), [4, 5], 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, NAND_MODE_MLC, ftl_nand))
+	blk_grp.add(blk_name[2], block_manager(int(NUM_WAYS/4), [6, 7], 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, NAND_MODE_MLC, ftl_nand))
 
 	for nsid in range(namespace_mgr.get_num()) :	
 		ns = namespace_mgr.get(nsid)
 		ns.set_blk_name(blk_name[nsid])
-		
+			
 	namespace_mgr.debug()
 
 	print('\ntest namespace operation')

@@ -3,8 +3,6 @@
 import os
 import sys
 import random
-import numpy as np
-import pandas as pd
 
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
@@ -13,7 +11,7 @@ from config.sim_config import unit
 from config.ssd_param import *
 
 def log_print(message) :
-	print('[zone] ' + message)
+	print('[host zone] ' + message)
 
 ZONE_STATE_EMPTY = 0
 ZONE_STATE_OPEN = 1
@@ -90,7 +88,7 @@ class zone :
 		
 		zone = self.zones[index]
 		if zone.issue_cmds > 0 :
-			print('zone issued cmd is remained : %d'%zone.issue_cmds)
+			log_print('zone issued cmd is remained : %d'%zone.issue_cmds)
 			zone.set_state(ZONE_STATE_WAIT)
 		else :
 			self.close(index)
@@ -164,7 +162,7 @@ class zone :
 workload_zone = zone(ZONE_SIZE, NUM_ZONES)
 																																											
 if __name__ == '__main__' :
-	log_print ('module zone main')			
+	print ('module zone main')			
 	
 	zn = zone(ZONE_SIZE, NUM_ZONES)
 	

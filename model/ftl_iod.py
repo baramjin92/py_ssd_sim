@@ -5,8 +5,6 @@ import sys
 import time
 
 import random
-import numpy as np
-import pandas as pd
 
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
@@ -784,6 +782,9 @@ class ftl_iod_statistics :
 												
 if __name__ == '__main__' :
 	print ('module ftl (flash translation layer for iod)')
+	
+	ftl_nand = ftl_nand_info(3, 8192*4, 256, 1024)
+	meta.config(NUM_WAYS, ftl_nand)
 	
 	ftl = ftl_iod_manager(None)
 			

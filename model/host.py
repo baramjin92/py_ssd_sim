@@ -3,8 +3,10 @@
 import os
 import sys
 import random
+
+import tabulate
+
 import numpy as np
-import pandas as pd
 
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
@@ -531,19 +533,29 @@ class host_statistics :
 		
 		self.link_stat_clear()														
 
+	def get_perf_label(self) :
+		return [' ', 'read throughput [MB/s]', 'read iops [kiops]', 'write throughput [MB/s]', 'write iops [kiops]']
+
+	def get_stat_label(self) :
+		return [' ', 'num_cmd', 'num_read_cmd', 'num_read_sectors', 'read_latency[avg]', 'read_latency[max]', 'read_latency[min]', 
+														'num_write_cmd', 'num_write_sectors', 'write_latency[avg]', 'wrtie_latency[max]', 'write_latency[min]']				
+								
+	def get_table(self, label) :
+		table = []
+		for index, name in enumerate(label) :
+			table.append([name])
+					
+		return table																														
+
 	def show_performance(self, time, report = None) :
 		print('\nperformance')
 		
 		# time is ns
 		time_seconds = time / 1000000000
 				
-		host_stat_name = {'performance' : ['read throughput [MB/s]', 'read iops [kiops]', 'write throughput [MB/s]', 'write iops [kiops]']}				
-						
-		host_stat_pd = pd.DataFrame(host_stat_name)				
-		
-		for index, perf_param in enumerate(self.perf) :									
-			host_stat_columns = []
-																								
+		table = self.get_table(self.get_perf_label())
+				
+		for index, perf_param in enumerate(self.perf) :																																	
 			if time_seconds > 0 :	
 				read_throughput = (perf_param.num_read_sectors * BYTES_PER_SECTOR / (1024*1024)) / time_seconds																				
 				write_throughput = (perf_param.num_write_sectors * BYTES_PER_SECTOR / (1024*1024)) / time_seconds
@@ -555,19 +567,18 @@ class host_statistics :
 				read_iops = 0
 				write_iops = 0
 
-			host_stat_columns.append(read_throughput)
-			host_stat_columns.append(read_iops)
-			host_stat_columns.append(write_throughput)			
-			host_stat_columns.append(write_iops)
-
-			host_stat_pd['queue %d'%(index)] = pd.Series(host_stat_columns, index=host_stat_pd.index)
+			table[0].append('queue %d'%index)
+			table[1].append(read_throughput)
+			table[2].append(read_iops)
+			table[3].append(write_throughput)			
+			table[4].append(write_iops)
 																																												
 		if report == None :																																												
 			report_print = print
 		else :
 			report_print = report
 			
-		report_print(host_stat_pd)
+		report_print(tabulate.tabulate(table))
 																																																																																								
 	def print(self, time, report = None) :
 		print('\nhost statstics')
@@ -575,47 +586,39 @@ class host_statistics :
 		# time is ns
 		time_seconds = time / 1000000000
 		
-		throughputs = []
+		table = self.get_table(self.get_stat_label())
 		
-		host_stat_name = {'name' : ['num_cmd', 'num_read_cmd', 'num_read_sectors', 'read_latency[avg]', 'read_latency[max]', 'read_latency[min]', 
-														'num_write_cmd', 'num_write_sectors', 'write_latency[avg]', 'wrtie_latency[max]', 'write_latency[min]']}				
-						
-		host_stat_pd = pd.DataFrame(host_stat_name)				
-		
-		for index in range(len(self.perf)) :				
-			perf_param = self.perf[index]				
-							
-			host_stat_columns = []
-			host_stat_columns.append(int(perf_param.num_cmd))
+		throughputs = []				
+		for index, perf_param in enumerate(self.perf) :					
+			table[0].append('queue %d'%index)						
+			table[1].append(int(perf_param.num_cmd))
 			
 			# read command statistics
-			host_stat_columns.append(int(perf_param.num_read_cmd))
-			host_stat_columns.append(int(perf_param.num_read_sectors))
+			table[2].append(int(perf_param.num_read_cmd))
+			table[3].append(int(perf_param.num_read_sectors))
 			if perf_param.num_read_cmd > 0 :
-				host_stat_columns.append(int(perf_param.sum_read_latency / perf_param.num_read_cmd))
+				table[4].append(int(perf_param.sum_read_latency / perf_param.num_read_cmd))
 			else :
-				host_stat_columns.append(0)
-			host_stat_columns.append(int(perf_param.max_read_latency))
+				table[4].append(0)
+			table[5].append(int(perf_param.max_read_latency))
 			if perf_param.min_read_latency == 1000000000 :
-				host_stat_columns.append(0)
+				table[6].append(0)
 			else :
-				host_stat_columns.append(int(perf_param.min_read_latency))
+				table[6].append(int(perf_param.min_read_latency))
 			
 			# write command statistics
-			host_stat_columns.append(int(perf_param.num_write_cmd))
-			host_stat_columns.append(int(perf_param.num_write_sectors))
+			table[7].append(int(perf_param.num_write_cmd))
+			table[8].append(int(perf_param.num_write_sectors))
 			if perf_param.num_write_cmd > 0 :
-				host_stat_columns.append(int(perf_param.sum_write_latency / perf_param.num_write_cmd))
+				table[9].append(int(perf_param.sum_write_latency / perf_param.num_write_cmd))
 			else :
-				host_stat_columns.append(0)
-			host_stat_columns.append(int(perf_param.max_write_latency))
+				table[9].append(0)
+			table[10].append(int(perf_param.max_write_latency))
 			if perf_param.min_write_latency == 1000000000 :
-				host_stat_columns.append(0)
+				table[11].append(0)
 			else :
-				host_stat_columns.append(int(perf_param.min_write_latency))
-																			
-			host_stat_pd['queue %d'%(index)] = pd.Series(host_stat_columns, index=host_stat_pd.index)
-		
+				table[11].append(int(perf_param.min_write_latency))
+																					
 			if time_seconds > 0 :	
 				read_throughput = (perf_param.num_read_sectors * BYTES_PER_SECTOR / (1024*1024)) / time_seconds																				
 				write_throughput = (perf_param.num_write_sectors * BYTES_PER_SECTOR / (1024*1024)) / time_seconds
@@ -627,22 +630,28 @@ class host_statistics :
 				read_iops = 0
 				write_iops = 0
 	
-			throughputs.append([read_iops, read_throughput, write_iops, write_throughput])										
+			throughputs.append([read_throughput, read_iops, write_throughput, write_iops])										
 																					
 		if report == None :																																												
 			report_print = print
 		else :
 			report_print = report
 			
-		report_print(host_stat_pd)
-		
+		report_print(tabulate.tabulate(table))
+
+		print('\nperformance')
+
+		perf_table = self.get_table(self.get_perf_label())
+						
 		for index, rw_perf in enumerate(throughputs) :
-			print('\nqueue %d'%(index))
-			print('read iops : %f, read throughput : %f MB/s'%(rw_perf[0], rw_perf[1]))
-			print('write iops : %f, write throughput : %f MB/s'%(rw_perf[2], rw_perf[3]))
-			
-		print('\n')									
-																																																																									
+			perf_table[0].append('queue %d'%(index))
+			perf_table[1].append(rw_perf[0])
+			perf_table[2].append(rw_perf[1])
+			perf_table[3].append(rw_perf[2])
+			perf_table[4].append(rw_perf[3])
+
+		print(tabulate.tabulate(perf_table))
+																														
 if __name__ == '__main__' :
 	print ('module host main')			
 	

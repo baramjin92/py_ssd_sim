@@ -3,8 +3,8 @@
 import os
 import sys
 import random
-import numpy as np
-import pandas as pd
+
+import tabulate
 
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
@@ -238,21 +238,29 @@ class block_manager :
 				str = ''			
 		print(str + '\n')
 
-	def report_get_label(self) :
-		return {'block manager' : ['start block no', 'end block no', 'num of free block', 'num of close block', 'threshold1', 'threshold2']}
+	def get_label(self) :
+		return ['name', 'start block no', 'end block no', 'num of free block', 'num of close block', 'threshold1', 'threshold2']
+		
+	def get_table(self) :
+		label = self.get_label()
+		table = []
+		for index, item in enumerate(label) :
+			table.append([item])
+					
+		return table																														
 
-	def report_get_columns(self) :
-		return [self.start_block, self.end_block, self.num_free_block, self.num_close_block, self.threshold_high, self.threshold_low]
+	def get_value(self, name) :
+		return [name, self.start_block, self.end_block, self.num_free_block, self.num_close_block, self.threshold_high, self.threshold_low]
 
 	def debug(self, meta_info = None, name = 'default') :
 		# report form
-		info_label = self.report_get_label()
-		info_columns = self.report_get_columns()						
+		table = self.get_table()
+		value = self.get_value(name)						
 						
-		info_pd = pd.DataFrame(info_label)				
-		info_pd[name] = pd.Series(info_columns, index=info_pd.index)
-
-		print(info_pd)
+		for index, item in enumerate(table) :
+			item.append(value[index])
+		
+		print(tabulate.tabulate(table))
 		
 		self.print_sb_valid_info(meta_info, name)
 						
@@ -304,27 +312,33 @@ class block_group :
 					return self.blk[index]
 				
 		return None		
-																								
+
+	def get_label(self) :
+		return ['name', 'start block', 'end_block', 'ways', 'cell']
+		
+	def get_table(self) :
+		label = self.get_label()
+		table = []
+		for index, name in enumerate(label) :
+			table.append([name])
+					
+		return table																														
+																																																
 	def print_info(self) :		
-		blk_name = {'block manager' : ['name', 'start block', 'end_block', 'ways', 'cell']}				
+		table = self.get_table()				
 												
-		blk_pd = pd.DataFrame(blk_name)																
 		for index, blk in enumerate(self.blk) :				
 			blk_name = self.name[index]
 			blk_range = self.range[index]							
-							
-			blk_columns = []
-			blk_columns.append(blk_name)
-			blk_columns.append(blk_range[0])
-			blk_columns.append(blk_range[1])
-			blk_columns.append(blk.way_list)
-			blk_columns.append(cell_mode_name[blk.cell_mode])
-																																														
-			blk_pd['%d'%(index)] = pd.Series(blk_columns, index=blk_pd.index)
+																					
+			table[0].append(blk_name)
+			table[1].append(blk_range[0])
+			table[2].append(blk_range[1])
+			table[3].append(blk.way_list)
+			table[4].append(cell_mode_name[blk.cell_mode])
 				
 		print('block group info')		
-		print(blk_pd)
-		print('\n')					
+		print(tabulate.tabulate(table))
 
 	def debug(self, meta_info = None) :
 		for index, blk_manager in enumerate(self.blk) :
@@ -448,11 +462,8 @@ class super_block :
 			return True, self.block_addr, self.ways
 		
 		return False, self.block_addr, self.ways
-
-	def report_get_label(self) :
-		return {'super block' : ['name', 'cell_mode', 'size', 'block addr', 'way_list', 'valid count', 'last page']}
 		
-	def report_get_columns(self, meta_info = None) :																	
+	def get_value(self, meta_info = None) :																	
 		last_page = []
 		valid_count = 0
 		for index in range(self.num_way) :			
@@ -462,31 +473,26 @@ class super_block :
 				valid_count = valid_count + meta_info.valid_count[way][self.block_addr]
 
 		columns = []
-		columns.append(self.name)
-		columns.append(cell_mode_name[self.cell_mode])
-		columns.append('%d MB'%self.size)
-		columns.append(self.block_addr)
-		columns.append(self.ways)
-		columns.append(valid_count)			
-		columns.append(last_page)
+		columns.append(['name', self.name])
+		columns.append(['cell_mode', cell_mode_name[self.cell_mode]])
+		columns.append(['size', '%d MB'%self.size])
+		columns.append(['block addr', self.block_addr])
+		columns.append(['way_list', self.ways])
+		columns.append(['valid_count', valid_count])			
+		columns.append(['last page', last_page])
 		
 		return columns																				
 		 
 	def debug(self, meta_info = None) :
-		# report form
-		sb_info_label = self.report_get_label()
-		sb_info_columns = self.report_get_columns()						
-						
-		sb_info_pd = pd.DataFrame(sb_info_label)				
-		sb_info_pd['value'] = pd.Series(sb_info_columns, index=sb_info_pd.index)
-
 		print('\n')
-		print(sb_info_pd)
+		print(tabulate.tabulate(self.get_value()))
 
 def unit_test_conv_ssd() :
-	blk_grp.add('meta', block_manager(NUM_WAYS, None, 1, 9, 1,  2, NAND_MODE_SLC))
-	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 20, 1, 2, NAND_MODE_SLC))
-	blk_grp.add('user', block_manager(NUM_WAYS, None, 20, 100, 1, 2, NAND_MODE_TLC))
+	ftl_nand = ftl_nand_info(3, 8192*4, 256, 1024)
+
+	blk_grp.add('meta', block_manager(NUM_WAYS, None, 1, 9, 1,  2, NAND_MODE_SLC, ftl_nand))
+	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 20, 1, 2, NAND_MODE_SLC, ftl_nand))
+	blk_grp.add('user', block_manager(NUM_WAYS, None, 20, 100, 1, 2, NAND_MODE_TLC, ftl_nand))
 	
 	blk_grp.print_info()
 	blk_grp.debug()
@@ -499,11 +505,13 @@ def unit_test_conv_ssd() :
 	print(block)
 
 def unit_test_zns_ssd() :
+	ftl_nand = ftl_nand_info(3, 8192*4, 256, 1024)
+
 	num_way = 2
-	blk_grp.add('user1', block_manager(num_way, [0,4], 1, 100))
-	blk_grp.add('user2', block_manager(num_way, [1,5], 1, 100))
-	blk_grp.add('user3', block_manager(num_way, [2,6], 1, 100))
-	blk_grp.add('user4', block_manager(num_way, [3,7], 1, 100))
+	blk_grp.add('user1', block_manager(num_way, [0,4], 1, 100, 1, 2, NAND_MODE_MLC, ftl_nand))
+	blk_grp.add('user2', block_manager(num_way, [1,5], 1, 100, 1, 2, NAND_MODE_MLC, ftl_nand))
+	blk_grp.add('user3', block_manager(num_way, [2,6], 1, 100, 1, 2, NAND_MODE_MLC, ftl_nand))
+	blk_grp.add('user4', block_manager(num_way, [3,7], 1, 100, 1, 2, NAND_MODE_MLC, ftl_nand))
 
 	blk_grp.print_info()
 
@@ -519,9 +527,11 @@ def unit_test_zns_ssd() :
 	
 def unit_test_sb() :
 	print('test super block operation')
+	ftl_nand = ftl_nand_info(3, 8192*4, 256, 1024)
+
 	sb = super_block(4, 'host')
 	if sb.is_open() == False :
-		sb.open(10, [1, 5, 3, 10],  None, NAND_MODE_MLC)
+		sb.open(10, [1, 5, 3, 10],  None, NAND_MODE_MLC, ftl_nand)
 		
 	print('chunk num to write of SB : %d'%sb.get_num_chunks_to_write(10))
 

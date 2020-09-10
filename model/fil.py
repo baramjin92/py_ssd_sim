@@ -5,6 +5,9 @@ import sys
 import time
 
 import random
+
+import tabulate
+
 import numpy as np
 import pandas as pd
 
@@ -182,12 +185,11 @@ class fil_statistics :
 		self.num_gc_written_chunks = 0
 								
 		self.num_erased_blocks = 0
-																										
+
 	def print(self) :
 		print('fil statstics')
-		
-		cmd_desc = nfc_desc()
-
+			
+		'''
 		fil_stat_name = {'name' : ['num_user_read_pages', 'num_user_read_chunks', 'num_user_written_pages', 'num_user_written_chunks', 'num_gc_read_pages', 'num_gc_read_chunks', 'num_gc_written_pages', 'num_gc_written_chunks', 'num_erased_blocks']}				
 						
 		fil_stat_pd = pd.DataFrame(fil_stat_name)				
@@ -207,8 +209,24 @@ class fil_statistics :
 																		
 		fil_stat_pd['value'] = pd.Series(fil_stat_columns, index=fil_stat_pd.index)
 		
-		print(fil_stat_pd)						
-		
+		print(fil_stat_pd)								
+		'''														
+																																				
+		fil_stat = []
+		fil_stat.append(['num_user_read_pages', self.num_user_read_pages])
+		fil_stat.append(['num_user_read_chunks', self.num_user_read_chunks])
+		fil_stat.append(['num_user_written_pages', self.num_user_written_pages])
+		fil_stat.append(['num_user_written_chunks', self.num_user_written_chunks])
+
+		fil_stat.append(['num_gc_read_pages', self.num_gc_read_pages])
+		fil_stat.append(['num_gc_read_chunks', self.num_gc_read_chunks])
+		fil_stat.append(['num_gc_written_pages', self.num_gc_written_pages])
+		fil_stat.append(['num_gc_written_chunks', self.num_gc_written_chunks])
+
+		fil_stat.append(['num_erased_blocks', self.num_erased_blocks])
+																						
+		print(tabulate.tabulate(fil_stat))						
+																																																						
 if __name__ == '__main__' :
 	print ('module fil')
 	

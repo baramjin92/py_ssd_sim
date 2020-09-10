@@ -5,8 +5,7 @@ import sys
 import random
 import time
 
-import numpy as np
-import pandas as pd
+import tabulate
 
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
@@ -46,6 +45,26 @@ range_64MB = 64 * unit.scale_MiB / BYTES_PER_SECTOR
 range_256MB = 256 * unit.scale_MiB / BYTES_PER_SECTOR
 range_1GB = 1 * unit.scale_GiB / BYTES_PER_SECTOR
 range_16GB = 16 * unit.scale_GiB / BYTES_PER_SECTOR
+
+wl_type = {
+	WL_SEQ_READ : 'Sequential Read',
+	WL_SEQ_WRITE : 'Sequential Write',
+	WL_RAND_READ : 'Random Read',
+	WL_RAND_WRITE : 'Random Write',
+	WL_RAND_RW : 'Random Mixed',
+	#WL_JEDEC_ENTERPRISE : 'Jedec enterprise',
+	#WL_JEDEC_CLIENT : 'Jedec client',
+	WL_ZNS_WRITE : 'ZNS Write',
+	WL_ZNS_READ : 'ZNS Read'
+}		
+		
+amount_type = {
+	WL_SIZE_MB : 'MB',
+	WL_SIZE_GB : 'GB',
+	WL_SIZE_SEC : 'sec',
+	WL_SIZE_COND : 'continuous',
+	WL_SIZE_FOREVET : 'forever'
+}
 
 def log_print(message) :
 	print('[workload] ' + message)	
@@ -360,137 +379,82 @@ class workload_manager() :
 			
 			return workload.get_progress()
 
+	def get_label(self, zone = False) :
+		if zone == False :
+			return ['type', 'start lba', 'range', 'min kb', 'max kb', 'total size', 'unit', 'read ratio', 'align', 'force gc']
+		else :							
+			return ['type', 'start zone', 'end zone', 'min kb', 'max kb', 'total size', 'unit', 'read ratio', 'align', 'force gc']
+
+	def get_value(self, workload, table) :
+			table[0].append(wl_type[workload.workload_type])
+			if workload.workload_type == WL_ZNS_WRITE or workload.workload_type == WL_ZNS_READ :
+				table[1].append(workload.zone_start)
+				table[2].append(workload.zone_end)
+			else :
+				table[1].append(workload.lba_base)
+				table[2].append(int(workload.range))								
+			table[3].append(workload.kb_min)
+			table[4].append(workload.kb_max)
+			table[5].append(workload.amount)
+			table[6].append(amount_type[workload.amount_type])
+			table[7].append(workload.read_ratio)
+			table[8].append(workload.align)
+			table[9].append(workload.gc)
+		
+	def get_table(self, label) :
+		table = []
+		for index, name in enumerate(label) :
+			table.append([name])
+					
+		return table																														
+		 		 
 	def print_current(self, wl_index, report = None) :
-		wl_type = {
-			WL_SEQ_READ : 'Sequential Read',
-			WL_SEQ_WRITE : 'Sequential Write',
-			WL_RAND_READ : 'Random Read',
-			WL_RAND_WRITE : 'Random Write',
-			WL_RAND_RW : 'Random Mixed',
-			#WL_JEDEC_ENTERPRISE : 'Jedec enterprise',
-			#WL_JEDEC_CLIENT : 'Jedec client',
-			WL_ZNS_WRITE : 'ZNS Write',
-			WL_ZNS_READ : 'ZNS Read'
-		}		
-		
-		amount_type = {
-			WL_SIZE_MB : 'MB',
-			WL_SIZE_GB : 'GB',
-			WL_SIZE_SEC : 'sec',
-			WL_SIZE_COND : 'continuous',
-			WL_SIZE_FOREVET : 'forever'
-		}
-		
 		if report == None :
 			report_print = print
 		else :
 			report_print = report
 		
-		wl_name = {'name' : ['type', 'start lba', 'range', 'min kb', 'max kb', 'total size', 'unit', 'read ratio', 'align', 'force gc']}								
-		wl_name_zone = {'name' : ['type', 'start zone', 'end zone', 'min kb', 'max kb', 'total size', 'unit', 'read ratio', 'align', 'force gc']}
-
 		# only check first group
 		type = self.group[0].wl[wl_index].workload_type
 		if type == WL_ZNS_WRITE or type == WL_ZNS_READ:
-			wl_pd = pd.DataFrame(wl_name_zone)				
+			table = self.get_table(self.get_label(True)) 				
 		else :
-			wl_pd = pd.DataFrame(wl_name)
+			table = self.get_table(self.get_label(False))
 			
-		for group_id, wl_group in enumerate(self.group) :																																		
-		
+		for group_id, wl_group in enumerate(self.group) :		
 			grp_workloads = wl_group.wl
 			
 			if wl_index >= len(grp_workloads) :
 				continue							
 
 			workload = grp_workloads[wl_index]
-					
-			wl_columns = []
-			wl_columns.append(wl_type[workload.workload_type])
-			if workload.workload_type == WL_ZNS_WRITE or workload.workload_type == WL_ZNS_READ :
-				wl_columns.append(workload.zone_start)
-				wl_columns.append(workload.zone_end)
-			else :
-				wl_columns.append(workload.lba_base)
-				wl_columns.append(int(workload.range))								
-			wl_columns.append(workload.kb_min)
-			wl_columns.append(workload.kb_max)
-			wl_columns.append(workload.amount)
-			wl_columns.append(amount_type[workload.amount_type])
-			wl_columns.append(workload.read_ratio)
-			wl_columns.append(workload.align)
-			wl_columns.append(workload.gc)
+			self.get_value(workload, table)
 																				
-			wl_pd['group id(queue) : %d'%(group_id)] = pd.Series(wl_columns, index=wl_pd.index)
-				
-		report_print(wl_pd)
+		report_print(tabulate.tabulate(table))
 			
 		print('\n\n')					
 																			
-	def print_all(self, report = None) :
-		wl_type = {
-			WL_SEQ_READ : 'Sequential Read',
-			WL_SEQ_WRITE : 'Sequential Write',
-			WL_RAND_READ : 'Random Read',
-			WL_RAND_WRITE : 'Random Write',
-			WL_RAND_RW : 'Random Mixed',
-			#WL_JEDEC_ENTERPRISE : 'Jedec enterprise',
-			#WL_JEDEC_CLIENT : 'Jedec client',
-			WL_ZNS_WRITE : 'ZNS Write',
-			WL_ZNS_READ : 'ZNS Read'
-		}		
-		
-		amount_type = {
-			WL_SIZE_MB : 'MB',
-			WL_SIZE_GB : 'GB',
-			WL_SIZE_SEC : 'sec',
-			WL_SIZE_COND : 'continuous',
-			WL_SIZE_FOREVET : 'forever'
-		}
-		
+	def print_all(self, report = None) :		
 		if report == None :
 			report_print = print
 		else :
 			report_print = report
-		
-		wl_name = {'name' : ['type', 'start lba', 'range', 'min kb', 'max kb', 'total size', 'unit', 'read ratio', 'align', 'force gc']}
-		wl_name_zone = {'name' : ['type', 'start zone', 'end zone', 'min kb', 'max kb', 'total size', 'unit', 'read ratio', 'align', 'force gc']}
-																
+																		
 		for group_id, wl_group in enumerate(self.group) :		
 			# only check first workload in group
 			type = wl_group.wl[0].workload_type
 			if type == WL_ZNS_WRITE or type == WL_ZNS_READ:
-				wl_pd = pd.DataFrame(wl_name_zone)				
+				table = self.get_table(self.get_label(True))				
 			else :
-				wl_pd = pd.DataFrame(wl_name)
+				table = self.get_table(self.get_label(False))
 								
-			grp_workloads = wl_group.wl							
-	
+			grp_workloads = wl_group.wl								
 			print('\n\nworkload : group %d'%(group_id))
-
-			wl_columns = []
 		
 			for index, workload in enumerate(grp_workloads) :
-				wl_columns.clear()						
-				wl_columns.append(wl_type[workload.workload_type])
-				if workload.workload_type == WL_ZNS_WRITE or workload.workload_type == WL_ZNS_READ :
-					wl_columns.append(workload.zone_start)
-					wl_columns.append(workload.zone_end)
-				else :
-					wl_columns.append(workload.lba_base)
-					wl_columns.append(int(workload.range))
-								
-				wl_columns.append(workload.kb_min)
-				wl_columns.append(workload.kb_max)
-				wl_columns.append(workload.amount)
-				wl_columns.append(amount_type[workload.amount_type])
-				wl_columns.append(workload.read_ratio)
-				wl_columns.append(workload.align)
-				wl_columns.append(workload.gc)
-																				
-				wl_pd['%d'%(index)] = pd.Series(wl_columns, index=wl_pd.index)
+				self.get_value(workload, table)
 				
-			report_print(wl_pd)
+			report_print(tabulate.tabulate(table))
 			
 		print('\n\n')					
 			

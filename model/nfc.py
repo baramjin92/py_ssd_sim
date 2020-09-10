@@ -3,6 +3,9 @@
 import os
 import sys
 import random
+
+import tabulate
+
 import numpy as np
 import pandas as pd
 
@@ -608,7 +611,8 @@ class nfc :
 		print('command descriptor')
 
 		cmd_desc = nfc_desc()
-
+		
+		'''
 		desc_name = {'name' : ['queue_id', 'cmd_tag', 'way', 'op_code', 'seq_num', 'nand_addr', 'code', 'option', 'chunk_offset', 'chunk_num', 'buffer_ids']}										
 		cmd_desc_pd = pd.DataFrame(desc_name)				
 						
@@ -626,15 +630,37 @@ class nfc :
 		desc_columns.append(cmd_desc.buffer_ids)				
 						
 		cmd_desc_pd['value'] = pd.Series(desc_columns, index=cmd_desc_pd.index)
-		
+
 		if report == None :
 			print(cmd_desc_pd)
 		else :
 			report(cmd_desc_pd)						
+		'''
+		
+		desc_columns = []
+		desc_columns.append(['queue_id', cmd_desc.queue_id])
+		desc_columns.append(['cmd_tag', cmd_desc.cmd_tag])
+		desc_columns.append(['way', cmd_desc.way])
+		desc_columns.append(['op_code', cmd_desc.op_code])
+		desc_columns.append(['seq_num', cmd_desc.seq_num])
+		desc_columns.append(['nand_addr', cmd_desc.nand_addr])
+		desc_columns.append(['code', cmd_desc.code])
+		desc_columns.append(['option', cmd_desc.option])
+		desc_columns.append(['chunk_offset', cmd_desc.chunk_offset])
+		desc_columns.append(['chunk_num', cmd_desc.chunk_num])
+		desc_columns.append(['buffer_ids', cmd_desc.buffer_ids])						
+
+		table = tabulate.tabulate(desc_columns)
+		if report == None :
+			print(table)
+		else :
+			report(table)						
+				
 												
 	def print_ch_statistics(self, report = None) :
 		print('channel statistics')
 
+		'''
 		ch_statistics_name = {'name' : ['idle_time', 'release_time']}
 	
 		ch_statistics_pd= pd.DataFrame(ch_statistics_name)
@@ -649,9 +675,28 @@ class nfc :
 			print(ch_statistics_pd)
 		else :
 			report(ch_statistics_pd)
-				
+		'''
+
+		ch_statistics_name = {'name' : ['idle_time', 'release_time']}
+
+		ch_name = [' ']
+		idle_time = ['idle_time']
+		release_time=  ['release_time']	
+		for index, ch_stat in enumerate(self.channel_stat) :
+			ch_name.append('ch'+str(index))
+			idle_time.append(int(ch_stat.idle_time))
+			release_time.append(int(ch_stat.release_time))
+
+		table = tabulate.tabulate([ch_name, idle_time, release_time])
+		if report == None :
+			print(table)
+		else :
+			report(table)						
+												
 	def print_way_statistics(self, report = None) : 
 		print('way statistics')
+		
+		'''
 		way_statistics_name = {'name' : ['idle_time', 'wait_time', 'io_time', 'cell_time', 'read_count', 'write_count', 'erase_count']}
 	
 		way_statistics_pd= pd.DataFrame(way_statistics_name)
@@ -671,7 +716,32 @@ class nfc :
 			print(way_statistics_pd)
 		else :
 			report(way_statistics_pd)
-	
+		'''
+		
+		way_name = [' ']
+		idle_time = ['idle_time']
+		wait_time = ['wait_time']
+		io_time = ['io_time']
+		cell_time = ['cell_time']
+		read_count = ['read_count']
+		write_count = ['write_count']
+		erase_count = ['erase_count']
+		for index, w_stat in enumerate(self.way_stat) :
+			way_name.append('way'+str(index))
+			idle_time.append(int(w_stat.idle_time))
+			wait_time.append(int(w_stat.wait_time))
+			io_time.append(int(w_stat.io_time))
+			cell_time.append(int(w_stat.cell_time))
+			read_count.append(int(w_stat.read_count))
+			write_count.append(int(w_stat.write_count))
+			erase_count.append(int(w_stat.erase_count))
+
+		table = tabulate.tabulate([way_name, idle_time, wait_time, io_time, cell_time, read_count, write_count, erase_count])
+		if report == None :
+			print(table)
+		else :
+			report(table)						
+						
 	def clear_statistics(self) :
 		for ch_stat in self.channel_stat :
 			ch_stat.clear()
@@ -714,5 +784,10 @@ if __name__ == '__main__' :
 	print('erase command and address time : %d ns'%(nfc_model.nand_t_cna_e))
 	print('check status time  : %d ns'%(nfc_model.nand_t_chk))
 	print('data transfer time for chunk : %d ns'%(nfc_model.nand_t_xfer))
+	
+	print('\n\n')
+	nfc_model.print_cmd_descriptor()
+	nfc_model.print_ch_statistics()
+	nfc_model.print_way_statistics()
 										
 								

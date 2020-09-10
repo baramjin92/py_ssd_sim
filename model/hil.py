@@ -5,8 +5,6 @@ import sys
 import time
 
 import random
-import numpy as np
-import pandas as pd
 
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))

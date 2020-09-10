@@ -5,8 +5,6 @@ import sys
 import time
 
 import random
-import numpy as np
-import pandas as pd
 
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
@@ -636,6 +634,8 @@ zone_mgr = zone_manager(NUM_ZONES, NUM_WAYS, NUM_OPEN_ZONES)
 if __name__ == '__main__' :
 	print ('module ftl (flash translation layer of zns)')
 	
+	ftl_nand = ftl_nand_info(3, 8192*4, 256, 1024)
+	meta.config(NUM_WAYS, ftl_nand)	
 	ftl = ftl_zns_manager(NUM_WAYS, None)
 			
 	print('ssd capacity : %d GB'%SSD_CAPACITY)
@@ -646,8 +646,8 @@ if __name__ == '__main__' :
 	print('size of zone : %d MB'%(ZONE_SIZE / 1024 / 1024))
 	print('num of zone : %d'%NUM_ZONES)
 
-	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, 1, 2))
-	blk_grp.add('user', block_manager(NUM_WAYS, None, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))
+	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, 1, 2, NAND_MODE_SLC, ftl_nand))
+	blk_grp.add('user', block_manager(NUM_WAYS, None, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, NAND_MODE_MLC, ftl_nand))
 
 	print('\ntest zone operation')
 

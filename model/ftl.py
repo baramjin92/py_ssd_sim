@@ -5,8 +5,6 @@ import sys
 import time
 
 import random
-import numpy as np
-import pandas as pd
 
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
@@ -788,23 +786,24 @@ class ftl_statistics :
 												
 if __name__ == '__main__' :
 	print ('module ftl (flash translation layer)')
-	
+
+	ftl_nand = ftl_nand_info(3, 8192*4, 256, 1024)
+	meta.config(NUM_WAYS, ftl_nand)
 	ftl = ftl_manager(NUM_WAYS, None)
-	meta.config(NUM_WAYS)
 	
 	print('ssd capacity : %d GB'%SSD_CAPACITY)
 #	print('ssd actual capacity : %d'%SSD_CAPACITY_ACTUAL)
 	print('num of lba (512 byte sector) : %d'%NUM_LBA)
 	print('num of logical chunk (4K unit) : %d'%(NUM_LBA/SECTORS_PER_CHUNK))	
 	
-	blk_grp.add('meta', block_manager(NUM_WAYS, None, 1, 9))
-	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, 1, 2))
-	blk_grp.add('user', block_manager(NUM_WAYS, None, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))
+	blk_grp.add('meta', block_manager(NUM_WAYS, None, 1, 9, 1, 2, NAND_MODE_SLC, ftl_nand))
+	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, 1, 2, NAND_MODE_MLC, ftl_nand))
+	blk_grp.add('user', block_manager(NUM_WAYS, None, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, NAND_MODE_MLC, ftl_nand))
 	
 	ftl.start()
 	ftl.debug()
 		
 	print('......select victim block')
 	way_list = []
-	ftl.select_victim_block(10, way_list, NAND_MODE_MLC)	
+	ftl.select_victim_block(10, way_list, NAND_MODE_MLC, ftl_nand)	
 																			
