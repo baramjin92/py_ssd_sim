@@ -27,6 +27,8 @@ def log_print(message) :
 #CHUNKS_PER_BLOCK = int(CHUNKS_PER_PAGE * PAGES_PER_BLOCK)
 #CHUNKS_PER_WAY = int(CHUNKS_PER_BLOCK * BLOCKS_PER_WAY)
 
+#UNMAP_ENTRY = 0
+UNMAP_ENTRY = 0xFFFFFFFF
 
 # ftl should have meta datum for managing nand and mapping
 # in this simulation, it has 3 meta datum.
@@ -37,8 +39,7 @@ class ftl_meta :
 	def __init__(self) :
 		# meta data of ftl																				
 		# so far, we use simple np, in order to support real capacity of ssd, we should change it by "memmap" of numpy		
-		#self.map_table = make_1d_array(NUM_LBA, 0xFFFFFFFF)
-		self.map_table = make_1d_array(NUM_LBA)
+		self.map_table = make_1d_array(NUM_LBA, UNMAP_ENTRY)
 		
 	def config(self, num_way, nand_info) :
 		self.nand_info = nand_info

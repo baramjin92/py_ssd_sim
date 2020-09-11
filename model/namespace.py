@@ -77,8 +77,9 @@ class namespace_desc :
 			return False							
 						
 	def get_num_chunks_to_write(self) :					
-		return self.logical_blk.get_num_chunks_to_write(self.num_chunks_to_write)																				
-																																																
+		num_chunks, num_dummy = self.logical_blk.get_num_chunks_to_write(self.num_chunks_to_write)																				
+		return num_chunks, num_dummy
+																																																																																														
 	def update_write_info(self, num_chunks) :
 		self.num_chunks_to_write = self.num_chunks_to_write - num_chunks			
 	

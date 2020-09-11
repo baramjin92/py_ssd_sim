@@ -250,7 +250,7 @@ class ftl_iod_manager :
 		# do_write try to program data to nand
 				
 		sb = ns.logical_blk							
-		num_chunks = ns.get_num_chunks_to_write()
+		num_chunks, num_dummy = ns.get_num_chunks_to_write()
 		 		 		 					
 		# check free slots of nandcmd_table
 		# in order to send cell mode command, we need one more nandcmd slot
@@ -584,7 +584,7 @@ class ftl_iod_manager :
 			print('namespace %d -  %s superblock is not open'%(ns.nsid, sb.name))
 			return
 		
-		num_chunks = sb.get_num_chunks_to_write(ns.num_chunks_to_gc_write)
+		num_chunks, num_dummy = sb.get_num_chunks_to_write(ns.num_chunks_to_gc_write)
 		 						
 		# check free slots of nandcmd_table
 		# in order to send cell mode command, we need one more nandcmd slot		

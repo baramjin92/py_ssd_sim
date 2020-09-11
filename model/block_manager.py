@@ -421,8 +421,11 @@ class super_block :
 		return self.cell_mode
 
 	def get_num_chunks_to_write(self, num_chunks_to_write) :
-		 return min(num_chunks_to_write, self.program_unit)
-		                 
+		 num_chunks = min(num_chunks_to_write, self.program_unit)
+		 num_dummy = self.program_unit - num_chunks
+		 
+		 return num_chunks, num_dummy
+			                 	                 
 	def get_block_addr(self) :
 		return self.block_addr  
 

@@ -66,7 +66,10 @@ class ftl_manager :
 		self.gc_issue_credit = 8
 		self.num_chunks_to_gc_read = 0
 		self.num_chunks_to_gc_write = 0
-																																										
+
+		# flush
+		self.flush_req = False
+		
 		self.ftl_stat = ftl_statistics()
 		
 		self.debug_mode = 0											
@@ -80,7 +83,7 @@ class ftl_manager :
 		self.run_mode = True
 		
 	def disable_background(self) :
-		self.run_mode = False	
+		self.run_mode = False
 	
 	def try_to_fetch_cmd(self) : 
 		# check high priority queue
@@ -116,9 +119,9 @@ class ftl_manager :
 			if ftl_cmd.code == HOST_CMD_WRITE :				
 				# write cmd should be saved for gathering write chunks in order to meet physical size of nand
 				self.write_cmd_queue.push(ftl_cmd)
-				self.num_chunks_to_write = self.num_chunks_to_write + ftl_cmd.sector_count
+				self.num_chunks_to_write = self.num_chunks_to_write + int(ftl_cmd.sector_count / SECTORS_PER_CHUNK)
 
-				log_print('host cmd write')
+				log_print('host cmd write : %d'%ftl_cmd.sector_count)
 
 				self.hic_model.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)
 			else :
@@ -166,7 +169,7 @@ class ftl_manager :
 				next_map_entry = meta.map_table[lba_index+1]			
 				# check twice for adjacent read(same nand page address), it reduces the power and read latency from nand
 				
-				log_print('chunk : %d, map_entry : %x, next_map_entry : %x'%(lba_index, map_entry, next_map_entry))
+				log_print('lba  : %d, map_entry : %x, next_map_entry : %x'%(lba_index*SECTORS_PER_CHUNK, map_entry, next_map_entry))
 				
 				if next_map_entry == map_entry + 1 :
 					if check_same_physical_page(next_map_entry, map_entry) == True :
@@ -177,17 +180,20 @@ class ftl_manager :
 			# try to read with map_entry from nand, because next_map_entry is not adjacent
 			self.seq_num = self.seq_num + 1
 			
-			way, block, page, end_chunk_offset = parse_map_entry(map_entry)
-			# in order to calculate nand address, way and page are 0 
-			nand_addr = build_map_entry(0, block, page, 0)
-			start_chunk_offset = end_chunk_offset - (num_chunks_to_read - 1)
-
-			# update lba_index for last chunk
-			lba_index = lba_index + 1
-
-			if nand_addr == 0 :
-				print('do read - chunk : %d [offset : %d - num : %d], remain_num : %d, way : %d, nan_addr : %x, block : %d, page : %d'%(lba_index, start_chunk_offset, num_chunks_to_read, num_remain_chunks, way, nand_addr, block, page))
-						
+			if map_entry != UNMAP_ENTRY :
+				way, block, page, end_chunk_offset = parse_map_entry(map_entry)
+				# in order to calculate nand address, way and page are 0 
+				nand_addr = build_map_entry(0, block, page, 0)
+				start_chunk_offset = end_chunk_offset - (num_chunks_to_read - 1)
+	
+				# update lba_index for last chunk
+				lba_index = lba_index + 1
+	
+				if nand_addr == 0 :
+					print('do read - lba : %d [offset : %d - num : %d], remain_num : %d, way : %d, nan_addr : %x, block : %d, page : %d'%(lba_index*SECTORS_PER_CHUNK, start_chunk_offset, num_chunks_to_read, num_remain_chunks, way, nand_addr, block, page))
+			else :
+				print('unmap read - lba : %d, entry : %x'%(lba_index*SECTORS_PER_CHUNK, map_entry))
+											
 			# issue command to fil								
 			if ENABLE_RAMDISK_MODE == False :
 				# if we use buffer cache, we will check buffer id from cache instead of sending command to fil
@@ -263,8 +269,8 @@ class ftl_manager :
 			log_print('%s superblock is not open'%(sb.name))
 			return
 		
-		num_chunks = sb.get_num_chunks_to_write(self.num_chunks_to_write)
-		 
+		num_chunks, num_dummy = sb.get_num_chunks_to_write(self.num_chunks_to_write)		 
+		   
 		# check for arrival of data (check inequality between number of write and sum of write sector counts)
 		if len(self.hic_model.rx_buffer_done) < num_chunks :
 			#log_print('data transfer is not finished')
@@ -302,7 +308,7 @@ class ftl_manager :
 									
 			# invalidate "valid chunk bitmap", "valid chunk count" with old physical address
 			# if mapping address is 0, it is unmapped address 
-			if old_physical_addr != 0 :
+			if old_physical_addr != UNMAP_ENTRY :
 				# calculate way, block, page of old physical address
 				old_way, old_nand_block, old_nand_page, old_chunk_offset = parse_map_entry(old_physical_addr)
 						
@@ -359,6 +365,9 @@ class ftl_manager :
 			cmd_desc.seq_num = self.seq_num
 		
 			ftl2fil_queue.push(cmd_index)
+			
+			if num_dummy > 0 :
+				print('program dummy')
 		else :
 			for index in range(num_chunks) :
 				# buffer_id is allocated by hil, and data is saved by hic
@@ -374,8 +383,12 @@ class ftl_manager :
 			blk_manager.set_close_block(block_addr)
 
 		# update num_chunks_to_write
-		self.num_chunks_to_write = self.num_chunks_to_write - num_chunks			
-																																																											
+		self.num_chunks_to_write = self.num_chunks_to_write - num_chunks
+		
+		if self.flush_req == True  and self.num_chunks_to_write == 0 :
+				self.flush_req = False
+				print('flush done')																																																															
+																																																												
 	def do_trim(self, lba, sector_count) :
 		log_print('do trim - lba : %d, sector_count : %d'%(lba, sector_count))
 		
@@ -584,7 +597,7 @@ class ftl_manager :
 		return ret_val
 
 	def do_gc_write(self, sb) :
-		# do_write try to program data to nand
+		# do_gc_write try to program data to nand
 		buffer_ids = []
 		
 		# check preparation of target block of nand
@@ -592,7 +605,7 @@ class ftl_manager :
 			print('%s superblock is not open'%(sb.name))
 			return
 		
-		num_chunks = sb.get_num_chunks_to_write(self.num_chunks_to_gc_write)
+		num_chunks, num_dummy = sb.get_num_chunks_to_write(self.num_chunks_to_gc_write)
 		 						
 		# check free slots of nandcmd_table
 		# in order to send cell mode command, we need one more nandcmd slot		
@@ -707,7 +720,12 @@ class ftl_manager :
 
 	def do_gc_write_completion(self, sb) :
 		log_print('do gc write completion')
-				
+	
+	def flush_request(self) :
+		if self.flush_req == False and self.num_chunks_to_write > 0 :
+			print('flush request remained chunks : %d'%self.num_chunks_to_write)
+			self.flush_req = True
+							
 	@measure_time			
 	def handler(self, log_time = None) :
 		# super block allocation
@@ -731,11 +749,14 @@ class ftl_manager :
 		# do write
 		if self.num_chunks_to_write >= get_num_chunks_for_write(self.host_sb.cell_mode) :
 			self.do_write(self.host_sb)
+		elif self.flush_req == True and self.num_chunks_to_write > 0 :
+			# do flush
+			self.do_write(self.host_sb)						
 
 		# do read
 		if self.num_chunks_to_read > 0 :
 			self.do_read()
-								
+																
 		# do garbage collection
 		# select victim block between slc_cache and user area
 		blk_manager = blk_grp.get_block_manager_by_name('slc_cache')
