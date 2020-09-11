@@ -73,9 +73,9 @@ def build_workload_gc() :
 	if NUM_HOST_QUEUE >= 2 :
 		wlm.add_group(NUM_HOST_QUEUE - 1)
 	
-	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16GB, 128, 128, 2, WL_SIZE_GB, 0, True, False))
+	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16GB, 128, 128, 1, WL_SIZE_GB, 0, True, False))
 	#wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16MB, 128, 128, 8, WL_SIZE_MB, 0, True, False))
-	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16GB, 128, 128, 2, WL_SIZE_GB, 0, True, False))
+	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16GB, 128, 128, 1, WL_SIZE_GB, 0, True, False))
 	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16MB, 128, 128, 4, WL_SIZE_MB, 0, True, False))
 		
 	wlm.set_workload(workload(WL_RAND_WRITE, 0, range_16MB, 8, 8, 32, WL_SIZE_MB, 0, True, False), 1)
@@ -123,7 +123,7 @@ if __name__ == '__main__' :
 	global NUM_WAYS	
 				
 	NUM_CHANNELS = 8
-	WAYS_PER_CHANNELS = 4
+	WAYS_PER_CHANNELS = 2
 	NUM_WAYS = (NUM_CHANNELS * WAYS_PER_CHANNELS) 
 		
 	report = report_manager()
@@ -133,8 +133,8 @@ if __name__ == '__main__' :
 	host_model = host_manager(NUM_HOST_CMD_TABLE)
 	hic_model = hic_manager(NUM_CMD_EXEC_TABLE * NUM_HOST_QUEUE)
 	
-	nand_info = nand_config(nand_256gb_mlc)		
-	#nand_info = nand_config(nand_256gb_g3)	
+	#nand_info = nand_config(nand_256gb_mlc)		
+	nand_info = nand_config(nand_256gb_g3)	
 	nand_model = nand_manager(NUM_WAYS, nand_info)
 	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS, nand_info)
 
@@ -150,7 +150,7 @@ if __name__ == '__main__' :
 	fil_module = fil_manager(nfc_model, hic_model)
 
 	blk_grp.add('meta', block_manager(NUM_WAYS, None, 1, 9, 1, 3, NAND_MODE_SLC, ftl_nand))
-	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, 1, 3, nand_mode, ftl_nand))
+	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, 1, 3, NAND_MODE_SLC, ftl_nand))
 	blk_grp.add('user', block_manager(NUM_WAYS, None, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, nand_mode, ftl_nand))
 
 	ftl_module.start()
@@ -229,7 +229,8 @@ if __name__ == '__main__' :
 						accel_num = accel_num + 1
 						
 						# show the progress status of current workload
-						if check_progress() == 100 :
+						if check_progress() == 100 and host_model.get_pending_cmd_num() == 0 :
+							ftl_module.flush_request()
 							ftl_module.disable_background()
 							report.disable()						
 		else :
