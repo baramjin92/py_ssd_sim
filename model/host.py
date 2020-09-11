@@ -6,18 +6,14 @@ import random
 
 import tabulate
 
-#import numpy as np
-
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
 from config.sim_config import unit
-#from config.sim_config import nand_param
-#from config.sim_config import nand_info
-
 from config.ssd_param import *
 
 from sim_event import *
+from sim_array import *
 
 from model.vcd_ssd import *
 
@@ -100,13 +96,11 @@ class host_manager :
 		self.use_namespace = False
 		self.data_table = []
 		if len(namespace) == 0 :
-			#self.data_table.append(np.empty((NUM_LBA), np.int32))
-			self.data_table.append([0 for x in range(NUM_LBA)])
+			self.data_table.append(make_1d_array(NUM_LBA))
 		else :
 			self.use_namespace = True
 			for max_lba in namespace :
-				#self.data_table.append(np.empty((max_lba), np.int32))		
-				self.data_table.append([0 for x in range(max_lba)])
+				self.data_table.append(make_1d_array(max_lba))
 				
 		self.host_stat = host_statistics(queue_num)
 	

@@ -4,8 +4,6 @@ import os
 import sys
 import random
 
-import numpy as np
-
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
@@ -13,6 +11,9 @@ from config.sim_config import *
 from config.ssd_param import *
 
 from sim_event import *
+from sim_array import *
+
+from progress.bar import Bar
 
 # define state
 NAND_STATE_IDLE = 0
@@ -80,14 +81,9 @@ class nand_context :
 		
 		# reserve area for nand
 		# cell structure : cell[block][chunk]
-		self.cell = np.empty((self.block_num, self.chunks_per_blk), np.int32)
-		self.spare = np.empty((self.block_num, self.chunks_per_blk), np.int32)
-		self.status = np.zeros(self.block_num, np.int8)
-		'''
-		self.cell = [[0 for x in range(self.chunks_per_blk)] for y in range(self.block_num)]
-		self.spare = [[0 for x in range(self.chunks_per_blk)] for y in range(self.block_num)]
-		self.status = [0 for x in range(self.block_num)]
-		'''
+		self.cell = make_2d_array(self.block_num, self.chunks_per_blk)
+		self.spare = make_2d_array(self.block_num, self.chunks_per_blk)
+		self.status = make_1d_array(self.block_num)
 		#log_print(self.cell.shape)	
 
 	def set_address(self, addr) :
@@ -255,12 +251,17 @@ class nand_manager :
 		self.nand_info = nand_info
 		
 		# set nand context
+		bar = Bar('nand init', max=nand_num)
+		
 		#block_num = nand_info.main_block_num + nand_info.spare_block_num
 		block_num = nand_info.main_block_num
 		self.nand_ctx = []
 		for index in range(nand_num) :
 			self.nand_ctx.append(nand_context(index, block_num, nand_info))
-			#print('nand init : %d'%index)
+			bar.index = index
+			bar.next()
+			
+		print('\nnand init complete')
 															
 	def get_nand_info(self) :
 		return self.nand_info																									

@@ -15,6 +15,7 @@ from model.queue import *
 from model.ftl_common import *
 
 from sim_event import *
+from sim_array import *
 
 def log_print(message) :
 	event_log_print('[ftl]', message)
@@ -37,13 +38,9 @@ class ftl_meta :
 	def __init__(self) :
 		# meta data of ftl																				
 		# so far, we use simple np, in order to support real capacity of ssd, we should change it by "memmap" of numpy		
-		self.map_table = np.empty((NUM_LBA), np.uint32)
-		'''
-		self.map_table = [0xFFFFFFFF for x in range(NUM_LBA)]
-		'''
-#		for index in range(NUM_LBA) :
-#			self.map_table[index] = 0xFFFFFFFF
-
+		#self.map_table = make_1d_array(NUM_LBA, 0xFFFFFFFF)
+		self.map_table = make_1d_array(NUM_LBA)
+		
 	def config(self, num_way, nand_info) :
 		self.nand_info = nand_info
 		blocks_per_way = nand_info.blocks_per_way
@@ -58,16 +55,12 @@ class ftl_meta :
 		self.size_of_bitmap = int(self.CHUNKS_PER_BLOCK / 32)
 
 		# valid chunk bitmap
-		self.valid_bitmap = np.empty((num_way, blocks_per_way, self.size_of_bitmap), np.uint32)
+		self.valid_bitmap = make_3d_array(num_way, blocks_per_way, self.size_of_bitmap)
 
 		# valid chunk count data  : valid_count[way][block]
-		self.valid_count = np.empty((num_way, blocks_per_way), np.uint32)
-		self.valid_sum = np.empty((blocks_per_way), np.uint32)
-		'''
-		self.valid_bitmap = [[[0 for x in range(self.size_of_bitmap)] for y in range(blocks_per_way)] for z in range(num_way)]		
-		self.valid_count = [[0 for x in range(blocks_per_way)] for y in range(num_way)]
-		self.valid_sum = [0 for x in range(blocks_per_way)]
-		'''																							
+		self.valid_count = make_2d_array(num_way, blocks_per_way)
+		self.valid_sum = make_1d_array(blocks_per_way)
+																									
 		self.print_meta_constants()
 
 	# this is only useful in conventional ssd using super block concept
@@ -83,10 +76,9 @@ class ftl_meta :
 		return sum			
 
 	def reset_valid_info(self, way, block) :
-		self.valid_bitmap[way][block] = np.zeros(self.size_of_bitmap)
-		'''
-		self.valid_bitmap[way][block] = [0 for x in range(self.size_of_bitmap)]
-		'''
+		#self.valid_bitmap[way][block] = np.zeros(self.size_of_bitmap)
+		self.valid_bitmap[way][block] = make_1d_array(self.size_of_bitmap)
+	
 		self.valid_count[way][block] = 0
 		self.valid_sum[block] = 0
 	
