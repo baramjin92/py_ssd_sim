@@ -212,7 +212,8 @@ if __name__ == '__main__' :
 				event_mgr.prev_time = event_mgr.timetick
 
 				# show the progress status of current workload								
-				if check_progress() == 100 :
+				if check_progress() == 100 and host_model.get_pending_cmd_num() == 0 :
+					ftl_module.flush_request()
 					ftl_module.disable_background()
 					report.disable()
 					

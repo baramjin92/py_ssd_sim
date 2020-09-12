@@ -99,7 +99,8 @@ if __name__ == '__main__' :
 	host_model = host_manager(NUM_HOST_CMD_TABLE, NUM_HOST_QUEUE)
 	hic_model = hic_manager(NUM_CMD_EXEC_TABLE * NUM_HOST_QUEUE)
 	
-	nand_info = nand_config(nand_256gb_mlc)
+	#nand_info = nand_config(nand_256gb_mlc)
+	nand_info = nand_config(nand_256gb_g3)	
 	nand_model = nand_manager(NUM_WAYS, nand_info)
 	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS, nand_info)
 
@@ -188,7 +189,7 @@ if __name__ == '__main__' :
 				event_mgr.prev_time = event_mgr.timetick
 
 				# show the progress status of current workload			
-				if check_progress() == 100 :
+				if check_progress() == 100 and host_model.get_pending_cmd_num() == 0:
 					ftl_module.disable_background()
 					report.disable()
 					

@@ -313,16 +313,19 @@ class report_manager :
 		if self.nand_model != None :
 			lba_index = 0			
 			map_entry = meta.map_table[lba_index]
-			way = int(map_entry / meta.CHUNKS_PER_WAY)
-			address = int((map_entry % meta.CHUNKS_PER_WAY) / meta.CHUNKS_PER_PAGE) * meta.CHUNKS_PER_PAGE	
+			if map_entry != UNMAP_ENTRY :
+				way = int(map_entry / meta.CHUNKS_PER_WAY)
+				address = int((map_entry % meta.CHUNKS_PER_WAY) / meta.CHUNKS_PER_PAGE) * meta.CHUNKS_PER_PAGE	
+							
+				nand = self.nand_model.nand_ctx[way]
+		
+				nand_block = int(address / meta.CHUNKS_PER_BLOCK) 
+				nand_page = int((address % meta.CHUNKS_PER_BLOCK) / meta.CHUNKS_PER_PAGE)
 						
-			nand = self.nand_model.nand_ctx[way]
-	
-			nand_block = int(address / meta.CHUNKS_PER_BLOCK) 
-			nand_page = int((address % meta.CHUNKS_PER_BLOCK) / meta.CHUNKS_PER_PAGE)
+				nand.print_block_data(nand_block, nand_page, nand_page + 2)			
+			else :
+				print('lba 0 is unmap')
 					
-			nand.print_block_data(nand_block, nand_page, nand_page + 2)			
-				
 	def build_html(self, include_graph = False) :
 		html_open('ssd_sim_report.html')
 		html_put_header(None)
