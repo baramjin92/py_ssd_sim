@@ -279,6 +279,7 @@ class report_manager :
 
 	def show_result(self) :
 		if self.host_model != None :
+			self.host_model.host_stat.show_performance(event_mgr.timetick)
 			self.host_model.host_stat.print(event_mgr.timetick)			
 		
 		if self.nfc_model != None :
