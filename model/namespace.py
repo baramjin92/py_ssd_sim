@@ -55,7 +55,10 @@ class namespace_desc :
 
 		self.gc_blk = None				
 		self.gc_src_blk = None
-										
+
+		# flush
+		self.flush_req = False
+																				
 	def set_blk_name(self, name) :
 		self.blk_name = name
 	
@@ -70,7 +73,6 @@ class namespace_desc :
 		if self.num_chunks_to_write >= program_unit and len(self.write_buffer) >= program_unit :
 			if self.write_cmd_queue.length() == 0 :
 				print('error : is_ready_to_write')
-				self.debug
 
 			return True
 		else :
@@ -82,7 +84,23 @@ class namespace_desc :
 																																																																																														
 	def update_write_info(self, num_chunks) :
 		self.num_chunks_to_write = self.num_chunks_to_write - num_chunks			
-	
+
+	def flush_request(self) :		
+		if self.flush_req == False and self.num_chunks_to_write > 0 :			
+			print('ns %d flush request remained chunks : %d'%(self.nsid, self.num_chunks_to_write))			
+			self.flush_req = True	
+
+	def is_flush(self) :
+		if self.flush_req == True and self.num_chunks_to_write > 0 :			
+			return True
+		else :
+			return False	
+			
+	def check_flush_done(self) :	
+		if self.flush_req == True and self.num_chunks_to_write == 0 :				
+			self.flush_req = False				
+			print('ns %d flush done'%self.nsid)
+								
 	def get_label(self) :
 		return ['id', 'slba', 'elba', 'meta range', 'blk name', 'num chunks to write', 'write buffer']
 		

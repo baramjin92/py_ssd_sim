@@ -157,7 +157,7 @@ class ftl_iod_manager :
 				next_map_entry = meta.map_table[lba_index+1]			
 				# check twice for adjacent read(same nand page address), it reduces the power and read latency from nand
 				
-				log_print('chunk : %d, map_entry : %x, next_map_entry : %x'%(lba_index, map_entry, next_map_entry))
+				log_print('lba : %d, map_entry : %x, next_map_entry : %x'%(lba_index*SECTORS_PER_CHUNK, map_entry, next_map_entry))
 				
 				if next_map_entry == map_entry + 1 :
 					if check_same_physical_page(next_map_entry, map_entry) == True :
@@ -168,17 +168,20 @@ class ftl_iod_manager :
 			# try to read with map_entry from nand, because next_map_entry is not adjacent
 			self.seq_num = self.seq_num + 1
 			
-			way, block, page, end_chunk_offset = parse_map_entry(map_entry)
-			# in order to calculate nand address, way and 
-			nand_addr = build_map_entry(0, block, page, 0)
-			start_chunk_offset = end_chunk_offset - (num_chunks_to_read - 1)
-
-			# update lba_index for last chunk
-			lba_index = lba_index + 1
-
-			if nand_addr == 0 :
-				print('do read - chunk : %d [offset : %d - num : %d], remain_num : %d, way : %d, nand_addr : %x, block : %d, page : %d'%(lba_index, start_chunk_offset, num_chunks_to_read, num_remain_chunks, way, nand_addr, block, page))
-						
+			if map_entry != UNMAP_ENTRY :
+				way, block, page, end_chunk_offset = parse_map_entry(map_entry)
+				# in order to calculate nand address, way and 
+				nand_addr = build_map_entry(0, block, page, 0)
+				start_chunk_offset = end_chunk_offset - (num_chunks_to_read - 1)
+	
+				# update lba_index for last chunk
+				lba_index = lba_index + 1
+	
+				if nand_addr == 0 :
+					print('do read - lba : %d [offset : %d - num : %d], remain_num : %d, way : %d, nand_addr : %x, block : %d, page : %d'%(lba_index*SECTORS_PER_CHUNK, start_chunk_offset, num_chunks_to_read, num_remain_chunks, way, nand_addr, block, page))
+			else :
+				print('unmap read - lba : %d, entry : %x'%(lba_index*SECTORS_PER_CHUNK, map_entry))
+							
 			# issue command to fil								
 			# if we use buffer cache, we will check buffer id from cache instead of sending command to fil
 			cache_hit = False
@@ -287,7 +290,7 @@ class ftl_iod_manager :
 									
 			# invalidate "valid chunk bitmap", "valid chunk count" with old physical address
 			# if mapping address is 0, it is unmapped address 
-			if old_physical_addr != 0 :
+			if old_physical_addr != UNMAP_ENTRY :
 				# calculate way, block, page of old physical address
 				old_way, old_nand_block, old_nand_page, old_chunk_offset = parse_map_entry(old_physical_addr)
 				chunk_index = build_chunk_index(old_nand_page, old_chunk_offset)
@@ -347,7 +350,10 @@ class ftl_iod_manager :
 		
 		ftl2fil_queue.push(cmd_index)		
 		#end nand cmd for fil
-																								
+
+		if num_dummy > 0 :				
+			print('program dummy')						
+																																																
 		# update super page index and check status of closing block (end of super block)
 		is_close, block_addr, way_list = sb.update_page()
 		
@@ -359,7 +365,9 @@ class ftl_iod_manager :
 
 		# update num_chunks_to_write
 		ns.update_write_info(num_chunks)			
-																																																				
+
+		ns.check_flush_done()
+																																																																																																								
 	def do_trim(self, lba, sector_count) :
 		log_print('do trim - lba : %d, sector_count : %d'%(lba, sector_count))
 		
@@ -575,7 +583,7 @@ class ftl_iod_manager :
 		return ret_val
 						
 	def do_gc_write(self, ns) :
-		# do_write try to program data to nand
+		# do_gc_write try to program data to nand
 		buffer_ids = []
 		
 		sb = ns.gc_blk
@@ -702,6 +710,11 @@ class ftl_iod_manager :
 	def do_gc_write_completion(self, sb) :
 		log_print('do gc write completion')					
 
+	def flush_request(self) :		
+		for index in range(namespace_mgr.get_num()) :
+			ns = namespace_mgr.get(index)
+			ns.flush_request()	
+
 	@measure_time			
 	def handler(self, log_time = None) :				
 		# do host workload operation		
@@ -733,6 +746,10 @@ class ftl_iod_manager :
 			# do read
 			if ns.num_chunks_to_read > 0 :
 				self.do_read(ns)
+			
+			# do flush		
+			if ns.is_flush() == True :
+				self.do_write(ns)
 				
 			# gc operation					
 			blk_manager = blk_grp.get_block_manager_by_name(ns.blk_name)

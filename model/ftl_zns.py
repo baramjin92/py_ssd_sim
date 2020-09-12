@@ -58,7 +58,13 @@ class zone_desc :
 		self.num_chunks_to_write = 0
 		
 		self.write_buffer = []
-	
+		
+		# flush
+		self.flush_req = False
+		
+		# close
+		self.close_req = False
+			
 	def is_idle(self) :
 		if self.num_chunks_to_write == 0 :
 			return True
@@ -78,7 +84,7 @@ class zone_desc :
 						
 	def get_num_chunks_to_write(self) :					
 		num_chunks, num_dummy = self.logical_blk.get_num_chunks_to_write(self.num_chunks_to_write)																				
-		return num_chunks																								
+		return num_chunks, num_dummy																								
 																																																																						
 	def update_write_info(self, num_chunks) :
 		self.num_chunks_to_write = self.num_chunks_to_write - num_chunks			
@@ -91,6 +97,27 @@ class zone_desc :
 			# close zone block
 					
 		return self.state
+
+	def flush_request(self, close_req) :		
+		if self.flush_req == False and self.num_chunks_to_write > 0 :			
+			print('\nzone %d flush request remained chunks : %d'%(self.no, self.num_chunks_to_write))			
+			self.flush_req = True
+			
+		self.close_req = close_req	
+
+	def is_flush(self) :
+		if self.flush_req == True and self.num_chunks_to_write > 0 :			
+			return True
+		else :
+			return False	
+
+	def check_flush_done(self) :			
+		if self.flush_req == True  and self.num_chunks_to_write == 0 :
+			self.flush_req = False
+			print('flush done')		
+			
+		if self.close_req == True :
+			print('zone %d close after flush done'%self.no)							
 		
 	def debug(self) :
 		print('zone : %d'%self.no)
@@ -321,12 +348,21 @@ class ftl_zns_manager :
 					
 					if ftl_cmd.sector_count == HOST_ZSA_CLOSE :
 						zone = zone_mgr.get_open_zone(ftl_cmd.lba)
-						if zone.state == ZONE_STATE_FULL :
-							print('close zone in FTL')
-							zone.debug()						
-							zone_mgr.close(ftl_cmd.lba)
+						if zone != None :
+							zone.flush_request(True)
+							if zone.is_flush() == True :
+								self.do_write(zone)	
+								
+							if zone.state == ZONE_STATE_FULL :							
+								print('close zone in FTL')
+								zone.debug()						
+								zone_mgr.close(ftl_cmd.lba)
+							else :
+								print('error : can not close zone in FTL')
+								input()
 						else :
-							print('error : can not close zone in FTL')
+							print('error : zone is not opend')
+								
 					elif ftl_cmd.sector_count == HOST_ZSA_OPEN :
 						zone = zone_mgr.open(ftl_cmd.lba)
 						if zone == None :
@@ -375,17 +411,20 @@ class ftl_zns_manager :
 			# try to read with map_entry from nand, because next_map_entry is not adjacent
 			self.seq_num = self.seq_num + 1
 			
-			way, block, page, end_chunk_offset = parse_map_entry(map_entry)
-			# in order to calculate nand address, way and 
-			nand_addr = build_map_entry(0, block, page, 0)
-			start_chunk_offset = end_chunk_offset - (num_chunks_to_read - 1)
-
-			# update lba_index for last chunk
-			lba_index = lba_index + 1
-
-			if nand_addr == 0 :
-				print('do read - chunk : %d [offset : %d - num : %d], remain_num : %d, way : %d, nand_addr : %x, block : %d, page : %d'%(lba_index, start_chunk_offset, num_chunks_to_read, num_remain_chunks, way, nand_addr, block, page))
-						
+			if map_entry != UNMAP_ENTRY :
+				way, block, page, end_chunk_offset = parse_map_entry(map_entry)
+				# in order to calculate nand address, way and 
+				nand_addr = build_map_entry(0, block, page, 0)
+				start_chunk_offset = end_chunk_offset - (num_chunks_to_read - 1)
+	
+				# update lba_index for last chunk
+				lba_index = lba_index + 1
+	
+				if nand_addr == 0 :
+					print('do read - lba : %d [offset : %d - num : %d], remain_num : %d, way : %d, nand_addr : %x, block : %d, page : %d'%(lba_index*SECTORS_PER_CHUNK, start_chunk_offset, num_chunks_to_read, num_remain_chunks, way, nand_addr, block, page))
+			else :
+				print('unmap read - lba : %d, entry : %x'%(lba_index*SECTORS_PER_CHUNK, map_entry))
+							
 			# issue command to fil								
 			# if we use buffer cache, we will check buffer id from cache instead of sending command to fil
 			cache_hit = False
@@ -455,7 +494,7 @@ class ftl_zns_manager :
 		# do_write try to program data to nand
 				
 		sb = zone.logical_blk							
-		num_chunks = zone.get_num_chunks_to_write()
+		num_chunks, num_dummy = zone.get_num_chunks_to_write()
 		 		 		 					
 		# check free slots of nandcmd_table
 		# in order to send cell mode command, we need one more nandcmd slot
@@ -491,7 +530,7 @@ class ftl_zns_manager :
 									
 			# invalidate "valid chunk bitmap", "valid chunk count" with old physical address
 			# if mapping address is 0, it is unmapped address 
-			if old_physical_addr != 0 :
+			if old_physical_addr != UNMAP_ENTRY :
 				# calculate way, block, page of old physical address
 				old_way, old_nand_block, old_nand_page, old_chunk_offset = parse_map_entry(old_physical_addr)		
 				chunk_index = build_chunk_index(old_nand_page, old_chunk_offset)
@@ -551,7 +590,10 @@ class ftl_zns_manager :
 		
 		ftl2fil_queue.push(cmd_index)		
 		#end nand cmd for fil
-																								
+		
+		if num_dummy > 0 :				
+			print('program dummy')						
+																										
 		# update super page index and check status of closing block (end of super block)
 		is_close, block_addr, way_list = sb.update_page()
 		
@@ -562,7 +604,9 @@ class ftl_zns_manager :
 			blk_manager.set_close_block(block_addr)
 
 		# update num_chunks_to_write
-		zone.update_write_info(num_chunks)			
+		zone.update_write_info(num_chunks)
+		
+		zone.check_flush_done()						
 																																																				
 	def do_trim(self, lba, sector_count) :
 		log_print('do trim - lba : %d, sector_count : %d'%(lba, sector_count))
@@ -603,6 +647,9 @@ class ftl_zns_manager :
 					if zone.state == ZONE_STATE_FULL :
 						print('zone %d is full'%(zone.no))
 					break
+					
+				if zone.is_flush() == True :
+					self.do_write(zone)	
 			
 		# do read
 		if self.num_chunks_to_read > 0 :
