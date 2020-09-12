@@ -6,9 +6,6 @@ import random
 
 import tabulate
 
-import numpy as np
-import pandas as pd
-
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
@@ -608,35 +605,8 @@ class nfc :
 				'''
 									
 	def print_cmd_descriptor(self, report = None) :
-		print('command descriptor')
-
 		cmd_desc = nfc_desc()
-		
-		'''
-		desc_name = {'name' : ['queue_id', 'cmd_tag', 'way', 'op_code', 'seq_num', 'nand_addr', 'code', 'option', 'chunk_offset', 'chunk_num', 'buffer_ids']}										
-		cmd_desc_pd = pd.DataFrame(desc_name)				
-						
-		desc_columns = []
-		desc_columns.append(cmd_desc.queue_id)
-		desc_columns.append(cmd_desc.cmd_tag)
-		desc_columns.append(cmd_desc.way)
-		desc_columns.append(cmd_desc.op_code)
-		desc_columns.append(cmd_desc.seq_num)
-		desc_columns.append(cmd_desc.nand_addr)
-		desc_columns.append(cmd_desc.code)
-		desc_columns.append(cmd_desc.option)
-		desc_columns.append(cmd_desc.chunk_offset)
-		desc_columns.append(cmd_desc.chunk_num)
-		desc_columns.append(cmd_desc.buffer_ids)				
-						
-		cmd_desc_pd['value'] = pd.Series(desc_columns, index=cmd_desc_pd.index)
-
-		if report == None :
-			print(cmd_desc_pd)
-		else :
-			report(cmd_desc_pd)						
-		'''
-		
+				
 		desc_columns = []
 		desc_columns.append(['queue_id', cmd_desc.queue_id])
 		desc_columns.append(['cmd_tag', cmd_desc.cmd_tag])
@@ -650,14 +620,13 @@ class nfc :
 		desc_columns.append(['chunk_num', cmd_desc.chunk_num])
 		desc_columns.append(['buffer_ids', cmd_desc.buffer_ids])						
 
-		if report == None :																																												
+		if report == None :
+			print('\ncommand descriptor')																																														
 			print(tabulate.tabulate(desc_columns))
 		else :
 			report(desc_columns)
 															
 	def print_ch_statistics(self, report = None) :
-		print('channel statistics')
-
 		ch_statistics_name = {'name' : ['idle_time', 'release_time']}
 
 		ch_name = [' ']
@@ -669,14 +638,13 @@ class nfc :
 			release_time.append(int(ch_stat.release_time))
 
 		table = [ch_name, idle_time, release_time]
-		if report == None :																																												
+		if report == None :
+			print('\nchannel statistics')																																														
 			print(tabulate.tabulate(table))
 		else :
 			report(table)
 												
-	def print_way_statistics(self, report = None) : 
-		print('way statistics')
-				
+	def print_way_statistics(self, report = None) : 				
 		way_name = [' ']
 		idle_time = ['idle_time']
 		wait_time = ['wait_time']
@@ -696,7 +664,8 @@ class nfc :
 			erase_count.append(int(w_stat.erase_count))
 
 		table = [way_name, idle_time, wait_time, io_time, cell_time, read_count, write_count, erase_count]
-		if report == None :																																												
+		if report == None :
+			print('\nway statistics')																																														
 			print(tabulate.tabulate(table))
 		else :
 			report(table)

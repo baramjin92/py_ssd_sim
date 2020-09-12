@@ -545,6 +545,8 @@ class ftl_manager :
 		
 		num_chunks = self.num_chunks_to_gc_write
 		
+		#print('gc_gather_write_data : %d'%num_chunks)
+		
 		queue_id, cmd_tag = self.gc_cmd_id.get_slot() 											 											
 		gc_cmd_comp = gc_cmd_desc(queue_id, cmd_tag)
 												
@@ -591,8 +593,11 @@ class ftl_manager :
 		# push write commmand for remain sector count
 		if gc_cmd.count > 0 :
 			self.gc_cmd_queue.push_first(gc_cmd)
-			
-		self.gc_cmd_queue.push_first(gc_cmd_comp)	
+		
+		if gc_cmd_comp.count > 0 :	
+			self.gc_cmd_queue.push_first(gc_cmd_comp)	
+		
+		log_print('gc_cmd_comp count : %d, num_chunks : %d'%(gc_cmd_comp.count, self.num_chunks_to_gc_write))
 		
 		return ret_val
 

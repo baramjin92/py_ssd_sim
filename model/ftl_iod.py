@@ -578,7 +578,8 @@ class ftl_iod_manager :
 		if gc_cmd.count > 0 :
 			ns.gc_cmd_queue.push_first(gc_cmd)
 			
-		ns.gc_cmd_queue.push_first(gc_cmd_comp)	
+		if gc_cmd_comp.count > 0 :	
+			ns.gc_cmd_queue.push_first(gc_cmd_comp)	
 		
 		return ret_val
 						

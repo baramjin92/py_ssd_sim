@@ -203,46 +203,42 @@ class block_manager :
 			print('block no : %d, valid sum : %d'%(block, sum))
 			
 	def print_sb_valid_info(self, meta_info = None, name = 'default') :																								
-		print('SB status : valid info')
+		print('\nblk manager [%s] SB valid info'%name)
 		
 		unit = 10
 		str_status = ['E', 'O', 'C', 'D']
 		
-		if self.start_block % unit != 0 :
-			str = 'SB %04d :'%(self.start_block % unit)
-		else :
-			str = ''
-		 
+		start_block = int(self.start_block / unit) * unit
+		label = []
+		for index in range(start_block, self.end_block+1, unit) :
+			label.append('SB %04d'%index)
+			
+		table = self.get_table(label)
+								 				 				 
 		# check first way only for super block
 		way = self.way_list[0]
-		for block in range(self.start_block, self.end_block+1) :
-			index = self.way_list.index(way)
-			blk_status = self.blk_status[index]
-			status = blk_status.get(block)
-			if status == BLK_STATUS_ERASED :
-				valid_sum = 0
+		for block in range(start_block, self.end_block+1) :
+			row = int((block-start_block)/unit)
+			if block < self.start_block :
+				table[row].append('N[XXXXX]')
 			else :
-				if meta_info == None :
+				index = self.way_list.index(way)
+				blk_status = self.blk_status[index]
+				status = blk_status.get(block)
+				if status == BLK_STATUS_ERASED or meta_info == None :
 					valid_sum = 0
 				else :
 					valid_sum = meta_info.get_valid_sum(block)
 				
-			if block % unit == 0 :
-				value = 'SB %04d : %s[%05d]'%(block, str_status[status], valid_sum)
-			else :
-				value = ' %s[%05d]'%(str_status[status], valid_sum)
-				
-			str = str + value
-			if block % unit == (unit-1) :
-				print(str)
-				str = ''			
-		print(str + '\n')
-
-	def get_label(self) :
-		return ['name', 'start block no', 'end block no', 'num of free block', 'num of close block', 'threshold1', 'threshold2']
+				value = ' %s[%05d]'%(str_status[status], valid_sum)		
+				table[row].append(value)	
 		
-	def get_table(self) :
-		label = self.get_label()
+		print(tabulate.tabulate(table))						
+					
+	def get_label(self) :
+		return ['name', 'start block no', 'end block no', 'num of free block', 'num of close block', 'threshold1', 'threshold2', 'ways', 'cell']
+		
+	def get_table(self, label) :
 		table = []
 		for index, item in enumerate(label) :
 			table.append([item])
@@ -250,20 +246,19 @@ class block_manager :
 		return table																														
 
 	def get_value(self, name) :
-		return [name, self.start_block, self.end_block, self.num_free_block, self.num_close_block, self.threshold_high, self.threshold_low]
+		return [name, self.start_block, self.end_block, self.num_free_block, self.num_close_block, self.threshold_high, self.threshold_low, self.way_list, cell_mode_name[self.cell_mode]]
 
-	def debug(self, meta_info = None, name = 'default') :
+	def get_info(self, name = 'default', table = None) :
 		# report form
-		table = self.get_table()
+		if table == None :
+			table = self.get_table(self.get_label())
 		value = self.get_value(name)						
 						
 		for index, item in enumerate(table) :
 			item.append(value[index])
-		
-		print(tabulate.tabulate(table))
-		
-		self.print_sb_valid_info(meta_info, name)
-						
+			
+		return table
+								
 class block_group :								
 	def __init__(self) :
 		self.name = []
@@ -312,37 +307,20 @@ class block_group :
 					return self.blk[index]
 				
 		return None		
-
-	def get_label(self) :
-		return ['name', 'start block', 'end_block', 'ways', 'cell']
-		
-	def get_table(self) :
-		label = self.get_label()
-		table = []
-		for index, name in enumerate(label) :
-			table.append([name])
-					
-		return table																														
 																																																
 	def print_info(self) :		
-		table = self.get_table()				
+		table = self.blk[0].get_table(self.blk[0].get_label())				
 												
 		for index, blk in enumerate(self.blk) :				
 			blk_name = self.name[index]
-			blk_range = self.range[index]							
-																					
-			table[0].append(blk_name)
-			table[1].append(blk_range[0])
-			table[2].append(blk_range[1])
-			table[3].append(blk.way_list)
-			table[4].append(cell_mode_name[blk.cell_mode])
-				
+			table = blk.get_info(blk_name, table)
+								
 		print('block group info')		
 		print(tabulate.tabulate(table))
 
 	def debug(self, meta_info = None) :
 		for index, blk_manager in enumerate(self.blk) :
-			blk_manager.debug(meta_info, self.name[index])				
+			blk_manager.print_sb_valid_info(meta_info, self.name[index])				
 
 SB_OP_WRITE = 0
 SB_OP_READ = 1		
@@ -500,12 +478,10 @@ def unit_test_conv_ssd() :
 	blk_grp.print_info()
 	blk_grp.debug()
 	
-	print('\n\nget blk manager with block number (5)')
-	blk_manager = blk_grp.get_block_manager(5)
-	blk_manager.debug()
-	
-	block, way_list, ret_val = blk_manager.get_victim_block()
-	print(block)
+	#print('\n\nget blk manager with block number (5)')
+	#blk_manager = blk_grp.get_block_manager(5)	
+	#block, way_list, ret_val = blk_manager.get_victim_block()
+	#print(block)
 
 def unit_test_zns_ssd() :
 	ftl_nand = ftl_nand_info(3, 8192*4, 256, 1024)
@@ -523,7 +499,7 @@ def unit_test_zns_ssd() :
 	for index in range(10) :
 		blk_mgr = blk_grp.select_block_manager_for_free_block(FREE_BLK_LEVELING)
 		blk, way_list = blk_mgr.get_free_block()
-		print('block no : %d, ways : %s'%(blk, str(way_list)))
+		print('get free block no : %d, ways : %s'%(blk, str(way_list)))
 	
 	print('\n')
 	blk_grp.debug()
@@ -535,8 +511,9 @@ def unit_test_sb() :
 	sb = super_block(4, 'host')
 	if sb.is_open() == False :
 		sb.open(10, [1, 5, 3, 10],  None, NAND_MODE_MLC, ftl_nand)
-		
-	print('chunk num to write of SB : %d'%sb.get_num_chunks_to_write(10))
+	
+	num_chunks, num_dummy  = sb.get_num_chunks_to_write(10)	
+	print('chunk num to write of SB : %d'%num_chunks)
 
 	for index in range(24) :
 		way, block, page = sb.get_physical_addr()

@@ -4,6 +4,8 @@ import os
 import sys
 import random
 
+import tabulate
+
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
@@ -160,40 +162,40 @@ class ftl_meta :
 		print('%s : BYTES_PER_PAGE : %d, PAGES_PER_BLOCK : %d, BLOCKS_PER_WAY : %d'%(self.__class__.__name__, self.nand_info.bytes_per_page, self.nand_info.pages_per_block, self.nand_info.blocks_per_way))		
 		print('%s : CHUNKS_PER_PAGE : %d, CHUNKS_PER_BLOCK : %d, CHUNKS_PER_WAY : %d\n'%(self.__class__.__name__, self.CHUNKS_PER_PAGE, self.CHUNKS_PER_BLOCK, self.CHUNKS_PER_WAY))		
 																																																																								
-	def print_map_table(self, lba, num_sectors) :
-		print('\nmap table - start lba : %d, end lba : %d'%(lba, lba+num_sectors-SECTORS_PER_CHUNK))
-		chunk_index = int(lba / SECTORS_PER_CHUNK)
-		length = int(num_sectors / SECTORS_PER_CHUNK)
+	def print_map_table(self, lba, num_sectors) :		
+		chunk_num = int(num_sectors / SECTORS_PER_CHUNK)
+		chunk_start = int(lba / SECTORS_PER_CHUNK)
+		chunk_end = chunk_start + chunk_num - 1
+
 		unit = 4
-		str = '' 
-		for index in range(length) :
-			if index % unit == 0 :
-				value = 'lba %08d : 0x%08x'%(chunk_index *SECTORS_PER_CHUNK, self.map_table[chunk_index])
-			else :
-				value = ' 0x%08x'%(self.map_table[chunk_index])
-				
-			str = str + value
-			if index % unit == (unit-1) :
-				print(str)
-				str = ''	
-				
-			chunk_index = chunk_index + 1		
-		
-		print(str)				
+		table = []
+		for chunk_index in range(chunk_start, chunk_end+1, unit) :
+			label = 'lba %08d'%(chunk_index * SECTORS_PER_CHUNK)
+			table.append([label])	
+
+		for chunk_index in range(chunk_start, chunk_end+1) :
+			row = int((chunk_index-chunk_start) / unit)
+			value = ' 0x%08x'%(self.map_table[chunk_index])
+			table[row].append(value)
+
+		print('\nmap table - start lba : %d, end lba : %d'%(lba, chunk_end * SECTORS_PER_CHUNK))				
 												
-	def print_valid_data(self, way, block) :
-		print('\nvalid info - way %d, block %d'%(way, block))
-		print('valid count : %04d'%(self.valid_count[way][block]))
-		str = ''
-		for index in range(self.size_of_bitmap) :
-			value = '0x%08x'%(self.valid_bitmap[way][block][index])
-			str = str + ' ' + value
+	def print_valid_data(self, way, block) :		
+		unit = 8
+		table = []
+		chunk_index = 0
+		for index in range(0, self.size_of_bitmap, unit) :
+			value = 'chunk %04d'%(index * 32)
+			table.append([value]) 
 			
-			if index % 8 == 7 :
-				print(str)
-				str = ''
-				
-		print(str)
+		for index in range(0, self.size_of_bitmap) :
+			row = int(index / unit)
+			value = '0x%08x'%(self.valid_bitmap[way][block][index])
+			table[row].append(value)
+							
+		print('\nvalid info - way %d, block %d'%(way, block))
+		print('valid count : %d'%(self.valid_count[way][block]))							
+		print(tabulate.tabulate(table))				
 
 meta = ftl_meta() 				
 
@@ -204,7 +206,8 @@ build_chunk_index = meta.build_chunk_index
 check_same_physical_page = meta.check_same_physical_page
 parse_map_entry = meta.parse_map_entry
 get_num_chunks_for_page = meta.get_num_chunks_for_page
-get_num_chunks_for_write = meta.get_num_chunks_for_write		 																																				 																																				
+get_num_chunks_for_write = meta.get_num_chunks_for_write
+		 																																				 																																				
 if __name__ == '__main__' :
 	print ('module ftl (flash translation layer) common')
 	

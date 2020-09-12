@@ -544,9 +544,7 @@ class host_statistics :
 					
 		return table																														
 
-	def show_performance(self, time, report = None) :
-		print('\nperformance')
-		
+	def show_performance(self, time, report = None) :		
 		# time is ns
 		time_seconds = time / 1000000000
 				
@@ -570,14 +568,13 @@ class host_statistics :
 			table[3].append(write_throughput)			
 			table[4].append(write_iops)
 																																												
-		if report == None :																																												
+		if report == None :
+			print('\nperformance')																																														
 			print(tabulate.tabulate(table))
 		else :
 			report(table)
 																																																																																								
-	def print(self, time, report = None) :
-		print('\nhost statstics')
-		
+	def print(self, time, report = None) :		
 		# time is ns
 		time_seconds = time / 1000000000
 		
@@ -627,11 +624,13 @@ class host_statistics :
 	
 			throughputs.append([read_throughput, read_iops, write_throughput, write_iops])										
 																					
-		if report == None :																																												
+		if report == None :								
+			print('\nhost statstics')																																					
 			print(tabulate.tabulate(table))
 		else :
 			report(table)
-			
+		
+		'''		
 		print('\nperformance')
 
 		perf_table = self.get_table(self.get_perf_label())
@@ -644,7 +643,8 @@ class host_statistics :
 			perf_table[4].append(rw_perf[3])
 
 		print(tabulate.tabulate(perf_table))
-																														
+		'''
+																																
 if __name__ == '__main__' :
 	print ('module host main')			
 	
@@ -658,6 +658,7 @@ if __name__ == '__main__' :
 	host_model.generate_write_data(queue_id, 2048, 512)
 	host_model.print_host_data(2048,512)
 	
+	host_model.host_stat.show_performance(0)
 	host_model.host_stat.print(0)
 	
 	host_model.debug()																				
