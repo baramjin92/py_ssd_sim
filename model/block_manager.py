@@ -21,8 +21,22 @@ from sim_event import *
 # block manager and super block need nand info
 # this information is shared from block manager to super block when new super block is opend.
 
+debug_log_msg = ''
+
 def log_print(message) :
 	event_log_print('[ftl]', message)
+
+def print_log(func) :
+	def print_log(*args, **kwargs) :
+		result = func(*args, **kwargs)
+		
+		global debug_log_msg
+		#print(debug_log_msg)
+		debug_log_msg = ''
+		
+		return result
+	
+	return print_log
 
 cell_mode_name = { NAND_MODE_SLC : 'SLC', NAND_MODE_MLC : 'MLC', NAND_MODE_TLC : 'TLC', NAND_MODE_QLC : 'QLC' }
 
@@ -346,6 +360,7 @@ class super_block :
 
 		self.name = name
 
+	@print_log
 	def open(self, block_addr, way_list, meta_info, cell_mode = NAND_MODE_MLC, nand_info = None) :	
 		self.block_addr = block_addr	
 		# in order to start from 0, cur_way_index is initialized by last value
@@ -385,9 +400,10 @@ class super_block :
 		else :
 		 	self.page_unit = 1
 		 	self.program_unit = self.nand_info.chunks_per_page
-												
-		print('\n%s [%s] open : %d, alloc num : %d, mode : %s, size : %d MB, end_page : %d'%(self.__class__.__name__, self.name, block_addr, self.allocated_num, cell_mode_name[self.cell_mode], self.size, self.end_page))
-		#print('way list : ' + str(self.ways))
+			
+		global debug_log_msg
+		debug_log_msg = '\n%s [%s] open : %d, alloc num : %d, mode : %s, size : %d MB, end_page : %d'%(self.__class__.__name__, self.name, block_addr, self.allocated_num, cell_mode_name[self.cell_mode], self.size, self.end_page)
+		#debug_log_msg = debug_log + '\nway list : %s'%(self.ways)
 		
 	def is_open(self) :
 		if self.allocated_num == 0 :
@@ -418,7 +434,8 @@ class super_block :
 			if self.block[index] != 0xFFFFFFFF :
 				return self.ways[index], self.block[index], self.page[index]
 		
-	# it is called after sending the program command																	
+	# it is called after sending the program command		
+	@print_log														
 	def update_page(self) :
 		index = self.cur_way_index		
 	
@@ -438,7 +455,8 @@ class super_block :
 			# to do for updating valid count														 			
 
 		if self.allocated_num == 0 :
-			print('\n%s sb close : %d, end page : %d'%(self.name, self.block_addr, self.end_page))
+			global debug_log_msg
+			debug_log_msg = '\n%s sb close : %d, end page : %d'%(self.name, self.block_addr, self.end_page)
 							
 			return True, self.block_addr, self.ways
 		
@@ -465,7 +483,7 @@ class super_block :
 		return columns																				
 		 
 	def debug(self, meta_info = None) :
-		print('\n')
+		print('\n SB [%s] info'%self.name)
 		print(tabulate.tabulate(self.get_value()))
 
 def unit_test_conv_ssd() :

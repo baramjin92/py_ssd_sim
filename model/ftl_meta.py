@@ -178,7 +178,8 @@ class ftl_meta :
 			value = ' 0x%08x'%(self.map_table[chunk_index])
 			table[row].append(value)
 
-		print('\nmap table - start lba : %d, end lba : %d'%(lba, chunk_end * SECTORS_PER_CHUNK))				
+		print('\nmap table - start lba : %d, end lba : %d'%(lba, chunk_end * SECTORS_PER_CHUNK))
+		print(tabulate.tabulate(table))				
 												
 	def print_valid_data(self, way, block) :		
 		unit = 8
