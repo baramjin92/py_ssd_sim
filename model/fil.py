@@ -8,16 +8,11 @@ import random
 
 import tabulate
 
-import numpy as np
-import pandas as pd
-
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
 from config.sim_config import unit
 from config.ssd_param import *
-#from config.sim_config import nand_param
-#from config.sim_config import nand_info
 
 from model.buffer import *
 from model.queue import *
@@ -188,30 +183,7 @@ class fil_statistics :
 
 	def print(self) :
 		print('fil statstics')
-			
-		'''
-		fil_stat_name = {'name' : ['num_user_read_pages', 'num_user_read_chunks', 'num_user_written_pages', 'num_user_written_chunks', 'num_gc_read_pages', 'num_gc_read_chunks', 'num_gc_written_pages', 'num_gc_written_chunks', 'num_erased_blocks']}				
-						
-		fil_stat_pd = pd.DataFrame(fil_stat_name)				
-						
-		fil_stat_columns = []
-		fil_stat_columns.append(self.num_user_read_pages)
-		fil_stat_columns.append(self.num_user_read_chunks)
-		fil_stat_columns.append(self.num_user_written_pages)
-		fil_stat_columns.append(self.num_user_written_chunks)
-
-		fil_stat_columns.append(self.num_gc_read_pages)
-		fil_stat_columns.append(self.num_gc_read_chunks)
-		fil_stat_columns.append(self.num_gc_written_pages)
-		fil_stat_columns.append(self.num_gc_written_chunks)
-
-		fil_stat_columns.append(self.num_erased_blocks)
-																		
-		fil_stat_pd['value'] = pd.Series(fil_stat_columns, index=fil_stat_pd.index)
-		
-		print(fil_stat_pd)								
-		'''														
-																																				
+																																							
 		fil_stat = []
 		fil_stat.append(['num_user_read_pages', self.num_user_read_pages])
 		fil_stat.append(['num_user_read_chunks', self.num_user_read_chunks])
