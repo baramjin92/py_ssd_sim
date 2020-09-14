@@ -27,20 +27,11 @@ from model.queue import *
 from model.nandcmd import *
 
 from sim_event import *
+from sim_eval import *
 from sim_log import *
 from sim_report import *
 
 from progress.bar import Bar
-
-log_time_data = {}
-
-def init_log_time() :
-	log_time_data['hil'] = 0
-	log_time_data['ftl'] = 0
-	log_time_data['fil'] = 0
-	log_time_data['model'] = 0
-
-	log_time_data['start_time'] = time.time()
 
 bar = None
 progress_save = 0
@@ -175,17 +166,16 @@ if __name__ == '__main__' :
 	#node.dest = event_dst.MODEL_HOST | event_dst.MODEL_KERNEL
 	#node.code = event_id.EVENT_TICK
 															
-	init_log_time()
+	init_eval_time()
 	
-	idle_count = 0
 	accel_num = 0
 											
 	while exit is False :
 		event_mgr.increase_time()
 
-		hil_module.handler(log_time = log_time_data)
-		ftl_module.handler(log_time = log_time_data)
-		fil_module.handler(log_time = log_time_data)
+		hil_module.handler()
+		ftl_module.handler()
+		fil_module.handler()
 																																																								
 		if event_mgr.head is not None :			
 			node = event_mgr.head
@@ -194,7 +184,7 @@ if __name__ == '__main__' :
 
 			if event_mgr.timetick >= node.time :
 				# start first node
-				test_time = time.time()
+				start_eval_module('model')
 									
 				something_happen = True
 				
@@ -215,14 +205,14 @@ if __name__ == '__main__' :
 				event_mgr.delete_node(0)
 				event_mgr.prev_time = event_mgr.timetick
 				
-				log_time_data['model'] = log_time_data['model'] + (time.time() - test_time)				
+				end_eval_module('model')				
 				# end first node operation
 			else : 
 				if something_happen != True :					
 					if (event_mgr.timetick - event_mgr.prev_time) >= 3 :
-						hil_module.handler(log_time = log_time_data)
-						ftl_module.handler(log_time = log_time_data)
-						fil_module.handler(log_time = log_time_data)
+						hil_module.handler()
+						ftl_module.handler()
+						fil_module.handler()
 												 	 	
 						# accelerate event timer for fast simulation 
 						event_mgr.add_accel_time(node.time - event_mgr.timetick)
@@ -241,18 +231,8 @@ if __name__ == '__main__' :
 				host_model.debug()
 				ftl_module.debug()
 				
-			if True:					
-				total_time = time.time() - log_time_data['start_time']
-				print('\nsimulation time : %f'%total_time)		
-				
-				if log_time_data['hil'] > 0 and log_time_data['ftl'] > 0 and log_time_data['fil'] > 0 :
-					sw_time0 = log_time_data['hil']
-					sw_time1 = log_time_data['ftl']
-					sw_time2 = log_time_data['fil']
-					handler_time = log_time_data['model']
-					sw_time = sw_time0+sw_time1+sw_time2
-					print('\nsw time : %f(%f, %f, %f), handler time : %f'%(sw_time, sw_time0, sw_time1, sw_time2, handler_time))
-					print('sw time : %f %%(%f, %f, %f), handler time : %f %%'%(sw_time/total_time*100, sw_time0/sw_time*100, sw_time1/sw_time*100, sw_time2/sw_time*100, handler_time/total_time*100))
+			if True:
+				print_eval_time ()
 				
 				print('\nrun time : %u ns [%f s]'%(event_mgr.timetick, event_mgr.timetick / 1000000000))
 				print('acceleration num : %d'%accel_num)
@@ -263,34 +243,43 @@ if __name__ == '__main__' :
 				report.build_html(True)
 				report.show_debug_info()
 										
-				bar.finish()			
-				print('press the button to run next workload')									
-				name = input()
-				if wlm.goto_next_workload(async_group = False) == True :
-					index = init_progress()
-					
-					event_mgr.timetick = 0
-					host_model.host_stat.clear()
-					nfc_model.clear_statistics()
-					
-					if wlm.get_force_gc() == True :
-						meta.print_valid_data(0, 20)
-						blk_manager = blk_grp.get_block_manager_by_name('user')
-						blk_manager.set_exhausted_status(True)
-						
-					node = event_mgr.alloc_new_event(0)
-					node.dest = event_dst.MODEL_HOST
-					node.code = event_id.EVENT_SSD_READY
-					
-					ftl_module.enable_background()
-					
-					init_log_time()
-										
-					accel_num = 0
-					
-					report.open(index)
-				else :
-					exit = True
+				bar.finish()
+				
+				key_wait = True 
+				while key_wait == True :			
+					key_value = input('press the button [q:quit, r:run next workload, s:save meta]')
+					if key_value == 'q' :
+						key_wait = False
+						exit = True					
+					elif key_value == 'r' :
+						key_wait = False
+						if wlm.goto_next_workload(async_group = False) == True :
+							index = init_progress()
+							
+							event_mgr.timetick = 0
+							host_model.host_stat.clear()
+							nfc_model.clear_statistics()
+							
+							if wlm.get_force_gc() == True :
+								meta.print_valid_data(0, 20)
+								blk_manager = blk_grp.get_block_manager_by_name('user')
+								blk_manager.set_exhausted_status(True)
+								
+							node = event_mgr.alloc_new_event(0)
+							node.dest = event_dst.MODEL_HOST
+							node.code = event_id.EVENT_SSD_READY
+							
+							ftl_module.enable_background()
+							
+							init_eval_time()
+												
+							accel_num = 0
+							
+							report.open(index)
+						else :
+							exit = True	
+					elif key_value == 's':
+							print('save meta info')					
 									
 	bar.finish()
 	ssd_vcd_close()

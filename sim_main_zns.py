@@ -25,20 +25,11 @@ from model.queue import *
 from model.nandcmd import *
 
 from sim_event import *
+from sim_eval import *
 from sim_log import *
 from sim_report import *
 
 from progress.bar import Bar
-
-log_time_data = {}
-
-def init_log_time() :
-	log_time_data['hil'] = 0
-	log_time_data['ftl'] = 0
-	log_time_data['fil'] = 0
-	log_time_data['model'] = 0
-
-	log_time_data['start_time'] = time.time()
 
 bar = None
 progress_save = 0
@@ -151,16 +142,14 @@ if __name__ == '__main__' :
 	#node.dest = event_dst.MODEL_HOST | event_dst.MODEL_KERNEL
 	#node.code = event_id.EVENT_TICK
 
-	init_log_time()
-
-	idle_count = 0
+	init_eval_time()
 										
 	while exit is False :
 		event_mgr.increase_time()
 
-		hil_module.handler(log_time = log_time_data)
-		ftl_module.handler(log_time = log_time_data)
-		fil_module.handler(log_time = log_time_data)
+		hil_module.handler()
+		ftl_module.handler()
+		fil_module.handler()
 																
 		if event_mgr.head is not None :
 			node = event_mgr.head
@@ -168,7 +157,9 @@ if __name__ == '__main__' :
 			something_happen = False
 
 			if event_mgr.timetick >= node.time :
-				# start first node									
+				# start first node					
+				start_eval_module('model')
+								
 				something_happen = True
 				
 				if node.dest & event_dst.MODEL_HOST :
@@ -187,28 +178,24 @@ if __name__ == '__main__' :
 										
 				event_mgr.delete_node(0)
 				event_mgr.prev_time = event_mgr.timetick
-
-				# show the progress status of current workload			
-				if check_progress() == 100 and host_model.get_pending_cmd_num() == 0:
-					ftl_module.disable_background()
-					report.disable()
-					
+				
+				end_eval_module('model')		
 				# end first node operation
 			else : 
 				if something_happen != True :
-					hil_module.handler(log_time = log_time_data)
-					ftl_module.handler(log_time = log_time_data)
-					fil_module.handler(log_time = log_time_data)
-															
-					idle_count = idle_count + 1
-					if idle_count > 10 : 	
+					if (event_mgr.timetick - event_mgr.prev_time) >= 3 :
+						hil_module.handler()
+						ftl_module.handler()
+						fil_module.handler()
+												 	 	
 						# accelerate event timer for fast simulation 
-						time_gap = node.time - event_mgr.timetick
-						event_mgr.add_accel_time(time_gap)
-						idle_count = 0
-				else :
-					idle_count = 0
+						event_mgr.add_accel_time(node.time - event_mgr.timetick)
 						
+						# show the progress status of current workload
+						if check_progress() == 100 and host_model.get_pending_cmd_num() == 0 :
+							#ftl_module.flush_request()
+							ftl_module.disable_background()
+							report.disable()												
 		else :
 			pending_cmds = host_model.get_pending_cmd_num()
 			
@@ -218,7 +205,8 @@ if __name__ == '__main__' :
 				ftl_module.debug()
 				
 			if True:
-				print('\nsimulation time : %f'%(time.time() - log_time_data['start_time']))											
+				print_eval_time()
+				
 				print('run time : %u ns [%f s]'%(event_mgr.timetick, event_mgr.timetick / 1000000000))
 		
 				report.close()
@@ -242,7 +230,7 @@ if __name__ == '__main__' :
 					
 					ftl_module.enable_background()
 
-					init_log_time()
+					init_eval_time()
 										
 					report.open(index)
 				else :
