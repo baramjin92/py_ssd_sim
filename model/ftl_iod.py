@@ -21,20 +21,12 @@ from model.namespace import *
 from model.ftl_meta import *
 
 from sim_event import *
+from sim_eval import *
 
 # ftl translates logical block address to physical address of nand
 
 def log_print(message) :
 	event_log_print('[ftl iod]', message)
-
-def measure_time(func) :
-	def measure_time(*args, **kwargs) :
-		start_time = time.time()
-		result = func(*args, **kwargs)
-		kwargs['log_time']['ftl'] = kwargs['log_time']['ftl'] + (time.time() - start_time)
-		return result
-	
-	return measure_time
 																																
 class ftl_iod_manager :
 	def __init__(self, hic) :
@@ -716,8 +708,8 @@ class ftl_iod_manager :
 			ns = namespace_mgr.get(index)
 			ns.flush_request()	
 
-	@measure_time			
-	def handler(self, log_time = None) :				
+	@measure_ftl_time			
+	def handler(self) :				
 		# do host workload operation		
 		# fetch command
 		self.try_to_fetch_cmd()

@@ -19,20 +19,12 @@ from model.hic import *
 from model.ftl_common import *
 
 from sim_event import *
+from sim_eval import *
 
 # hil fetches host command from hic and send it to ftl
 
 def log_print(message) :
 	event_log_print('[hil]', message)
-
-def measure_time(func) :
-	def measure_time(*args, **kwargs) :
-		start_time = time.time()
-		result = func(*args, **kwargs)
-		kwargs['log_time']['hil'] = kwargs['log_time']['hil'] + (time.time() - start_time)
-		return result
-	
-	return measure_time
 
 class write_cmd :
 	def __init__(self) :
@@ -131,8 +123,8 @@ class hil_manager :
 
 		return
 
-	@measure_time
-	def handler(self, log_time = None) :
+	@measure_hil_time
+	def handler(self) :
 		# hil doesn't have event handler.
 		# it check cmd_exec_queue of hic, and fetch command and execute  
 				

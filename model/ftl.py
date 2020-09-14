@@ -20,20 +20,12 @@ from model.block_manager import *
 from model.ftl_meta import *
 
 from sim_event import *
+from sim_eval import *
 
 # ftl translates logical block address to physical address of nand
 
 def log_print(message) :
 	event_log_print('[ftl]', message)
-
-def measure_time(func) :
-	def measure_time(*args, **kwargs) :
-		start_time = time.time()
-		result = func(*args, **kwargs)
-		kwargs['log_time']['ftl'] = kwargs['log_time']['ftl'] + (time.time() - start_time)
-		return result
-	
-	return measure_time
 		 																														 															
 class ftl_manager :
 	def __init__(self, num_way, hic) :
@@ -386,8 +378,8 @@ class ftl_manager :
 		self.num_chunks_to_write = self.num_chunks_to_write - num_chunks
 		
 		if self.flush_req == True  and self.num_chunks_to_write == 0 :
-				self.flush_req = False
-				print('flush done')																																																															
+			self.flush_req = False
+			print('flush done')																																																															
 																																																												
 	def do_trim(self, lba, sector_count) :
 		log_print('do trim - lba : %d, sector_count : %d'%(lba, sector_count))
@@ -731,8 +723,8 @@ class ftl_manager :
 			print('flush request remained chunks : %d'%self.num_chunks_to_write)
 			self.flush_req = True
 							
-	@measure_time			
-	def handler(self, log_time = None) :
+	@measure_ftl_time			
+	def handler(self) :
 		# super block allocation
 		if self.host_sb.is_open() == False :
 			blk_manager = blk_grp.get_block_manager_by_name('slc_cache')

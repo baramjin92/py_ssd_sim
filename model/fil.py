@@ -20,18 +20,10 @@ from model.nandcmd import *
 from model.ftl_common import *
 
 from sim_event import *
+from sim_eval import *
 
 def log_print(message) :
 	event_log_print('[fil]', message)
-
-def measure_time(func) :
-	def measure_time(*args, **kwargs) :
-		start_time = time.time()
-		result = func(*args, **kwargs)
-		kwargs['log_time']['fil'] = kwargs['log_time']['fil'] + (time.time() - start_time)
-		return result
-	
-	return measure_time
 																								
 class fil_manager :
 	def __init__(self, nfc, hic) :
@@ -160,8 +152,8 @@ class fil_manager :
 			nandcmd_table.release_slot(report.table_index)		 																																																
 		return True		
 		
-	@measure_time	
-	def handler(self, log_time = None) :
+	@measure_fil_time	
+	def handler(self) :
 		self.send_command_to_nfc()
 		self.handle_completed_nand_ops()																																			
 																										
