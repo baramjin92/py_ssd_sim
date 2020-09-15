@@ -4,8 +4,6 @@ import os
 import sys
 import random
 
-import tabulate
-
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
@@ -215,9 +213,9 @@ class block_manager :
 			else :
 				sum = meta_info.get_valid_sum(block)
 			print('block no : %d, valid sum : %d'%(block, sum))
-			
-	def print_sb_valid_info(self, meta_info = None, name = 'default') :																								
-		print('\nblk manager [%s] SB valid info'%name)
+	
+	@report_print				
+	def print_sb_valid_info(self, meta_info = None, name = 'default', report_title = 'blk manager SB valid info') :																								
 		
 		unit = 10
 		str_status = ['E', 'O', 'C', 'D']
@@ -246,8 +244,11 @@ class block_manager :
 				
 				value = ' %s[%05d]'%(str_status[status], valid_sum)		
 				table[row].append(value)	
+
+		if report_title != None :
+			report_title = 'blk manager [%s] SB valid info'%name				
 		
-		print(tabulate.tabulate(table))						
+		return report_title, table	
 					
 	def get_label(self) :
 		return ['name', 'start block no', 'end block no', 'num of free block', 'num of close block', 'threshold1', 'threshold2', 'ways', 'cell']
@@ -321,17 +322,17 @@ class block_group :
 					return self.blk[index]
 				
 		return None		
-																																																
-	def print_info(self) :		
+	
+	@report_print																																																																																														
+	def print_info(self, report_title = 'block group info') :		
 		table = self.blk[0].get_table(self.blk[0].get_label())				
 												
 		for index, blk in enumerate(self.blk) :				
 			blk_name = self.name[index]
 			table = blk.get_info(blk_name, table)
 								
-		print('block group info')		
-		print(tabulate.tabulate(table))
-
+		return report_title, table
+		
 	def debug(self, meta_info = None) :
 		for index, blk_manager in enumerate(self.blk) :
 			blk_manager.print_sb_valid_info(meta_info, self.name[index])				
@@ -482,9 +483,12 @@ class super_block :
 		
 		return columns																				
 		 
-	def debug(self, meta_info = None) :
-		print('\n SB [%s] info'%self.name)
-		print(tabulate.tabulate(self.get_value()))
+	@report_print	 
+	def debug(self, meta_info = None, report_title = 'SB info') :
+		if report_title != None :
+			report_title = 'SB [%s] info'%self.name
+		table = self.get_value(meta_info)
+		return report_title, table
 
 def unit_test_conv_ssd() :
 	ftl_nand = ftl_nand_info(3, 8192*4, 256, 1024)

@@ -35,6 +35,15 @@ ZONE_STATE_FULL = 4
 ZONE_STATE_READONLY = 5
 ZONE_STATE_OFFLINE = 6
 
+zone_state_name = { 
+		ZONE_STATE_EMPTY : 'empty', 
+		ZONE_STATE_EOPEN : 'explicit open', 
+		ZONE_STATE_IOPEN : 'implicit open', 
+		ZONE_STATE_CLOSE : 'close',
+		ZONE_STATE_FULL : 'full',
+		ZONE_STATE_READONLY : 'read only', 
+		ZONE_STATE_OFFLINE : 'offline' }
+
 class zone_desc :
 	def __init__(self, zone_no, slba = 0) :
 		self.state = ZONE_STATE_EMPTY
@@ -110,13 +119,19 @@ class zone_desc :
 			
 		if self.close_req == True :
 			print('zone %d close after flush done'%self.no)							
-		
+	
+	@report_print	
 	def debug(self) :
-		print('zone : %d'%self.no)
-		print('state : %d'%self.state)
-		print('write_pointer : %d'%self.write_pointer)
-		print('num_chunks_to_write : %d'%self.num_chunks_to_write)
-		print('length write buffer : %d'%len(self.write_buffer))
+		labels = ['zone', 'state', 'write pointer', 'num chunks to write', 'length of write buffer']
+		table = [[] for x in range(len(labels))]
+		for index, label in enumerate(labels) :
+			table[index].append(label)
+			
+		values = [self.no, zone_state_name[self.state], self.write_pointer, self.num_chunks_to_write, len(self.write_buffer)]
+		for index, value in enumerate(values) :
+			table[index].append(value)
+			
+		return 'zone information', table
 			
 class zone_manager :
 	def __init__(self, num_zone, num_way, max_open_zone) :
@@ -233,20 +248,42 @@ class zone_manager :
 		else :
 			log_print('error : zone %d is not closed'%zone_no)
 
-	def debug(self) :																																																		
-		print('\nnum of open zone : %d'%(self.num_open_zone))
-		print('list of open zone')
-		for zone_no in self.open_list :
+	@report_print
+	def open_zone_info(self) :
+		report_title = 'number of open zone : %d'%(self.num_open_zone)
+		
+		table = []		
+		if self.num_open_zone == 0 :
+			table.append(['none', 'none', 'none'])
+		else :
+			table.append(['zone', 'state', 'percent'])
+								
+		for index, zone_no in enumerate(self.open_list) :
 			zone = self.table[zone_no]
 			percent = int(zone.write_pointer / zone.max_num_chunks * 100)
-			print('zone %d, state : %d, count : %d'%(zone_no, zone.state, percent))
-		print('end')
+			table.append([zone_no, zone_state_name[zone.state], percent])
+					
+		return report_title, table
+
+	@report_print
+	def close_zone_info(self) :
+		report_title = 'number of close zone : %d'%(len(self.close_list))
 		
-		print('list of close zone')
-		for zone_no in self.close_list :
+		table = []		
+		if len(self.close_list) == 0 :
+			table.append(['none', 'none'])
+		else :
+			table.append(['zone', 'state'])
+			
+		for index, zone_no in enumerate(self.close_list) :
 			zone = self.table[zone_no]
-			print('zone %d, state : %d'%(zone_no, zone.state))
-		print('end')		
+			table.append([zone_no, zone_state_name[zone.state]])
+						
+		return report_title, table
+
+	def debug(self) :
+		self.open_zone_info()
+		self.close_zone_info()											
 																
 class ftl_zns_manager :
 	def __init__(self, num_way, hic) :
@@ -660,7 +697,7 @@ class ftl_zns_manager :
 		print('    num of write free slots : %d'%(bm.get_num_free_slots(BM_WRITE)))
 	
 	def zone_debug(self) :
-		zone_mgr.debug()																												
+		return zone_mgr.debug()																												
 		
 class ftl_zns_statistics :
 	def __init__(self) :
@@ -695,6 +732,8 @@ if __name__ == '__main__' :
 	for index in range(int(zone.max_num_chunks / 4)) :
 		zone.update_write_info(2)
 
+	zone.debug()
+
 	zone = zone_mgr.open(64)
 	zone = zone_mgr.open(262144)	
 	zone_mgr.debug()
@@ -717,5 +756,4 @@ if __name__ == '__main__' :
 	zone_mgr.empty(4)
 																													
 	ftl.start()
-	ftl.debug()
 																						

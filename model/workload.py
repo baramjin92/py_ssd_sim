@@ -5,19 +5,14 @@ import sys
 import random
 import time
 
-import tabulate
-
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
 from config.sim_config import unit
-#from config.sim_config import nand_param
-#from config.sim_config import nand_info
 from config.ssd_param import *
 
-from sim_event import event_mgr
-from sim_event import event_dst
-from sim_event import event_id
+from sim_event import *
+from sim_log import *
 
 from model.zone import *
 
@@ -407,31 +402,46 @@ class workload_manager() :
 			table.append([name])
 					
 		return table																														
-		 		 
-	def print_current(self, wl_index, report = None) :		
+
+	@report_print	 		 		 		 
+	def print_current(self, wl_index, report_title = 'workload current') :		
 		# only check first group
 		type = self.group[0].wl[wl_index].workload_type
 		if type == WL_ZNS_WRITE or type == WL_ZNS_READ:
 			table = self.get_table(self.get_label(True)) 				
 		else :
 			table = self.get_table(self.get_label(False))
-			
+
+		row = []
+		row.append('group id')				
 		for group_id, wl_group in enumerate(self.group) :		
 			grp_workloads = wl_group.wl
 			
 			if wl_index >= len(grp_workloads) :
 				continue							
 
+			row.append('group %d'%group_id)
 			workload = grp_workloads[wl_index]
 			self.get_value(workload, table)
-																				
-		if report == None :																																												
-			print(tabulate.tabulate(table))
+
+		table.insert(0, row)																																						
+		return report_title, table
+
+	@report_print	 		 		 		 		
+	def print_group(self, group_id, wl_group, report_title = 'workload group') :
+		type = wl_group.wl[0].workload_type
+		if type == WL_ZNS_WRITE or type == WL_ZNS_READ:
+			table = self.get_table(self.get_label(True))				
 		else :
-			report(table)
-						
-		print('\n\n')					
-																			
+			table = self.get_table(self.get_label(False))
+								
+		workloads = wl_group.wl								
+		for index, workload in enumerate(workloads) :
+			self.get_value(workload, table)
+
+		report_title= 'workload group %d'%group_id
+		return report_title, table
+
 	def print_all(self, report = None) :		
 		if report == None :
 			report_print = print
@@ -440,22 +450,8 @@ class workload_manager() :
 																		
 		for group_id, wl_group in enumerate(self.group) :		
 			# only check first workload in group
-			type = wl_group.wl[0].workload_type
-			if type == WL_ZNS_WRITE or type == WL_ZNS_READ:
-				table = self.get_table(self.get_label(True))				
-			else :
-				table = self.get_table(self.get_label(False))
-								
-			grp_workloads = wl_group.wl								
-			print('\n\nworkload : group %d'%(group_id))
-		
-			for index, workload in enumerate(grp_workloads) :
-				self.get_value(workload, table)
-				
-			report_print(tabulate.tabulate(table))
-			
-		print('\n\n')					
-			
+			self.print_group(group_id, wl_group)				
+						
 wlm = workload_manager()
 
 def unit_test() :																																						

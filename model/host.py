@@ -4,8 +4,6 @@ import os
 import sys
 import random
 
-import tabulate
-
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
@@ -14,6 +12,7 @@ from config.ssd_param import *
 
 from sim_event import *
 from sim_array import *
+from sim_log import *
 
 from model.vcd_ssd import *
 
@@ -544,7 +543,8 @@ class host_statistics :
 					
 		return table																														
 
-	def show_performance(self, time, report = None) :		
+	@report_print
+	def show_performance(self, time, report_title = 'performance') :		
 		# time is ns
 		time_seconds = time / 1000000000
 				
@@ -568,13 +568,10 @@ class host_statistics :
 			table[3].append(write_throughput)			
 			table[4].append(write_iops)
 																																												
-		if report == None :
-			print('\nperformance')																																														
-			print(tabulate.tabulate(table))
-		else :
-			report(table)
-																																																																																								
-	def print(self, time, report = None) :		
+		return report_title, table
+
+	@report_print																																																																																								
+	def print(self, time, report_title = 'host statstics') :		
 		# time is ns
 		time_seconds = time / 1000000000
 		
@@ -624,27 +621,8 @@ class host_statistics :
 	
 			throughputs.append([read_throughput, read_iops, write_throughput, write_iops])										
 																					
-		if report == None :								
-			print('\nhost statstics')																																					
-			print(tabulate.tabulate(table))
-		else :
-			report(table)
-		
-		'''		
-		print('\nperformance')
-
-		perf_table = self.get_table(self.get_perf_label())
-						
-		for index, rw_perf in enumerate(throughputs) :
-			perf_table[0].append('queue %d'%(index))
-			perf_table[1].append(rw_perf[0])
-			perf_table[2].append(rw_perf[1])
-			perf_table[3].append(rw_perf[2])
-			perf_table[4].append(rw_perf[3])
-
-		print(tabulate.tabulate(perf_table))
-		'''
-																																
+		return report_title, table
+																																		
 if __name__ == '__main__' :
 	print ('module host main')			
 	
