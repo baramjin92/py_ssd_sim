@@ -3,13 +3,11 @@
 import os
 import sys
 
-import tabulate
-
 import pandas as pd
 
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
-from config.ssd_param import *
+from sim_log import *
 
 # define unit
 class unit_context :
@@ -352,18 +350,18 @@ class nand_config :
 		t_bers = ['nand_t_bers [ms]', int(self.nand_t_bers/1000000)]
 
 		nand_param = [interface_speed, t_xfer1, t_xfer2, t_cna_w, t_cna_r, t_cna_e, t_chk, t_read_f, t_read_h, t_read_slc, t_prog, t_prog_avg, t_prog_slc, t_bers]
-		return nand_param																																																																															
-																																																												
-	def print_type(self) :
-		print('\nnand type')
-					
-		print(tabulate.tabulate(self.get_type_value()))											
-
-	def print_param(self) :
-		print('\nnand parameter')
-
-		print(tabulate.tabulate(self.get_param_value()))											
-													
+		return nand_param																																																																																																							
+		
+	@report_print																								
+	def print_type(self, report_title = 'nand type') :		
+		table = self.get_type_value()						
+		return report_title, table
+		
+	@report_print																								
+	def print_param(self, report_title = 'nand parameter') :
+		table = self.get_param_value()
+		return report_title, table
+															
 if __name__ == '__main__' :
 	print('nand configuration')				
 
@@ -376,6 +374,6 @@ if __name__ == '__main__' :
 	# read excel file test
 	nand1.load_excel('nand_128gb_mlc.xlsx')
 	print('\n\nnand_128gb_mlc.xlsx configuration')
-	nand1.print_type()
-	nand1.print_param()
+	nand1.print_type(report_title = 'nand type[mlc]')
+	nand1.print_param(report_title = 'nand parameter[mlc]')
 																	
