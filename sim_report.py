@@ -4,6 +4,7 @@ import os
 import sys
 import csv
 
+import tabulate 
 import matplotlib.pyplot as plt
 
 import datetime
@@ -39,7 +40,6 @@ def check_perf_monitor(func) :
 		return result
 
 	return check_perf_monitor
-
 
 html_fp = None
 
@@ -282,6 +282,10 @@ class report_manager :
 			self.host_model.host_stat.show_performance(event_mgr.timetick)
 			self.host_model.host_stat.print(event_mgr.timetick)			
 		
+		if self.nand_model != None :
+			self.nand_model.nand_info.print_type()
+			self.nand_model.nand_info.print_param()
+				
 		if self.nfc_model != None :
 			#self.nfc_model.print_cmd_descriptor()
 			self.nfc_model.print_ch_statistics()
@@ -298,7 +302,7 @@ class report_manager :
 				self.ftl_module.gc_sb.debug()
 			elif self.ftl_module.name == 'zns' :
 				self.ftl_module.zone_debug()
-	
+			
 	def show_debug_info(self) :
 		if self.ftl_module != None and self.ftl_module.name == 'conventional' :
 			# print mapping table
@@ -330,17 +334,29 @@ class report_manager :
 	def build_html(self, include_graph = False) :
 		html_open('ssd_sim_report.html')
 		html_put_header(None)
-					
+
+		if self.nand_model != None :
+			html_put_str('<h2> nand information')
+			html_put_str('<hr>')
+			html_put_str('<h3> type')
+			title, table = self.nand_model.nand_info.print_type(None)
+			html_put_table(table)
+			html_put_str('<h3> parameter')
+			title, table = self.nand_model.nand_info.print_param(None)
+			html_put_table(table)
+																				
 		if self.workload != None :
 			html_put_str('<h2> workload')
 			html_put_str('<hr>')
 			index, num = self.workload.get_info()
-			self.workload.print_current(index, html_put_table)			
+			title, table = self.workload.print_current(index, None)			
+			html_put_table(table)
 											
 		if self.host_model != None :
 			html_put_str('<h2> performance')
 			html_put_str('<hr>')
-			self.host_model.host_stat.show_performance(event_mgr.timetick, html_put_table)			
+			title, table = self.host_model.host_stat.show_performance(event_mgr.timetick, None)			
+			html_put_table(table)
 			
 			if include_graph == True :
 				html_put_str('<br>')
@@ -349,17 +365,20 @@ class report_manager :
 				
 			html_put_str('<h2> host statistics')
 			html_put_str('<hr>')
-			self.host_model.host_stat.print(event_mgr.timetick, html_put_table)			
+			title, table = self.host_model.host_stat.print(event_mgr.timetick, None)			
+			html_put_table(table)
 				
 		if self.nfc_model != None :
 			#self.nfc_model.print_cmd_descriptor()
 			html_put_str('<h2> nand channel statistics')
 			html_put_str('<hr>')
-			self.nfc_model.print_ch_statistics(html_put_table)
+			title, table = self.nfc_model.print_ch_statistics(None)
+			html_put_table(table)
 				
 			html_put_str('<h2> nand way statistics')
 			html_put_str('<hr>')
-			self.nfc_model.print_way_statistics(html_put_table)
+			title, table = self.nfc_model.print_way_statistics(None)
+			html_put_table(table)
 
 		html_put_end()
 		html_close()

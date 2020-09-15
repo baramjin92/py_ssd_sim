@@ -4,7 +4,19 @@ import os
 import sys
 import csv
 
+import tabulate
+
 from config.ssd_param import *
+
+def report_print(func) :
+	def report_print(*args, **kwargs) :
+		title, result = func(*args, **kwargs)
+		if title != None :
+			print('\n'+title)																																														
+			print(tabulate.tabulate(result))
+		return title, result
+	
+	return report_print
 
 # ENABLE_CONSOLE_LOG is defined in ssd_param.py
 
