@@ -27,6 +27,7 @@ from model.workload import *
 from config.ssd_param import *
 
 from sim_event import *
+from sim_system import *
 
 ENABLE_PERF_MONITOR = False
 
@@ -186,17 +187,6 @@ class report_manager :
 		
 		self.html_fp = None
 
-		self.workload = None
-
-		self.host_model = None
-		self.hic_model = None
-		self.nfc_model = None
-		self.nand_model = None
-
-		self.hil_module = None 
-		self.ftl_module = None
-		self.fil_module = None
-	
 	@check_perf_monitor											
 	def open(self, seq_no) :								
 		# prepare the csv file for recoding workload
@@ -265,46 +255,40 @@ class report_manager :
 	def disable(self) :
 		self.log_enable  = False
 	
-	def set_model(self, workload, host, hic, nfc, nand) :
-		self.workload = workload
-		self.host_model = host
-		self.hic_model = hic
-		self.nfc_model = nfc
-		self.nand_model = nand
-
-	def set_module(self, hil, ftl, fil) :
-		self.hil_module = hil 
-		self.ftl_module = ftl
-		self.fil_module = fil		
-
 	def show_result(self) :
-		if self.host_model != None :
-			self.host_model.host_stat.show_performance(event_mgr.timetick)
-			self.host_model.host_stat.print(event_mgr.timetick)			
+		host_model = get_ctrl('host')
+		if host_model != None :
+			host_model.host_stat.show_performance(event_mgr.timetick)
+			host_model.host_stat.print(event_mgr.timetick)			
 		
-		if self.nand_model != None :
-			self.nand_model.nand_info.print_type()
-			self.nand_model.nand_info.print_param()
-				
-		if self.nfc_model != None :
-			#self.nfc_model.print_cmd_descriptor()
-			self.nfc_model.print_ch_statistics()
-			self.nfc_model.print_way_statistics()
+		nand_model = get_ctrl('nand')
+		if nand_model != None :
+			nand_model.nand_info.print_type()
+			nand_model.nand_info.print_param()
+
+		nfc_model = get_ctrl('nfc')
+		if nfc_model != None :
+			#nfc_model.print_cmd_descriptor()
+			nfc_model.print_ch_statistics()
+			nfc_model.print_way_statistics()
 		
-		#host_model.print_host_data(2048,512)	#(0, 128)		
-		if self.ftl_module != None :
-			if self.ftl_module.name == 'conventional' :
+		#host_model.print_host_data(2048,512)	#(0, 128)
+		ftl_module = get_fw('ftl')		
+		if ftl_module != None :
+			if ftl_module.name == 'conventional' :
 				blk_grp.debug(meta)
 				blk_manager = blk_grp.get_block_manager_by_name('user')
 				blk_manager.debug_valid_block_info(meta)
 													
-				self.ftl_module.host_sb.debug()
-				self.ftl_module.gc_sb.debug()
-			elif self.ftl_module.name == 'zns' :
-				self.ftl_module.zone_debug()
+				ftl_module.host_sb.debug()
+				ftl_module.gc_sb.debug()
+			elif ftl_module.name == 'zns' :
+				ftl_module.zone_debug()
 			
 	def show_debug_info(self) :
-		if self.ftl_module != None and self.ftl_module.name == 'conventional' :
+		ftl_module = get_fw('ftl')		
+
+		if ftl_module != None and ftl_module.name == 'conventional' :
 			# print mapping table
 			lba_start = 0
 			sector_num = 128									
@@ -312,17 +296,18 @@ class report_manager :
 			
 			# print valid data info of host super block
 			way = 0
-			block = self.ftl_module.host_sb.get_block_addr()
+			block = ftl_module.host_sb.get_block_addr()
 			meta.print_valid_data(way, block)
 	
-		if self.nand_model != None :
+		nand_model = get_ctrl('nand')	
+		if nand_model != None :
 			lba_index = 0			
 			map_entry = meta.map_table[lba_index]
 			if map_entry != UNMAP_ENTRY :
 				way = int(map_entry / meta.CHUNKS_PER_WAY)
 				address = int((map_entry % meta.CHUNKS_PER_WAY) / meta.CHUNKS_PER_PAGE) * meta.CHUNKS_PER_PAGE	
 							
-				nand = self.nand_model.nand_ctx[way]
+				nand = nand_model.nand_ctx[way]
 		
 				nand_block = int(address / meta.CHUNKS_PER_BLOCK) 
 				nand_page = int((address % meta.CHUNKS_PER_BLOCK) / meta.CHUNKS_PER_PAGE)
@@ -332,30 +317,36 @@ class report_manager :
 				print('lba 0 is unmap')
 					
 	def build_html(self, include_graph = False) :
+		workload = get_ctrl('workload')
+		host_model = get_ctrl('host')
+		hic_model = get_ctrl('hic')
+		nfc_model = get_ctrl('nfc')
+		nand_model = get_ctrl('nand')
+		
 		html_open('ssd_sim_report.html')
 		html_put_header(None)
 
-		if self.nand_model != None :
+		if nand_model != None :
 			html_put_str('<h2> nand information')
 			html_put_str('<hr>')
 			html_put_str('<h3> type')
-			title, table = self.nand_model.nand_info.print_type(None)
+			title, table = nand_model.nand_info.print_type(None)
 			html_put_table(table)
 			html_put_str('<h3> parameter')
-			title, table = self.nand_model.nand_info.print_param(None)
+			title, table = nand_model.nand_info.print_param(None)
 			html_put_table(table)
 																				
-		if self.workload != None :
+		if workload != None :
 			html_put_str('<h2> workload')
 			html_put_str('<hr>')
-			index, num = self.workload.get_info()
-			title, table = self.workload.print_current(index, None)			
+			index, num = workload.get_info()
+			title, table = workload.print_current(index, None)			
 			html_put_table(table)
 											
-		if self.host_model != None :
+		if host_model != None :
 			html_put_str('<h2> performance')
 			html_put_str('<hr>')
-			title, table = self.host_model.host_stat.show_performance(event_mgr.timetick, None)			
+			title, table = host_model.host_stat.show_performance(event_mgr.timetick, None)			
 			html_put_table(table)
 			
 			if include_graph == True :
@@ -365,19 +356,19 @@ class report_manager :
 				
 			html_put_str('<h2> host statistics')
 			html_put_str('<hr>')
-			title, table = self.host_model.host_stat.print(event_mgr.timetick, None)			
+			title, table = host_model.host_stat.print(event_mgr.timetick, None)			
 			html_put_table(table)
 				
-		if self.nfc_model != None :
+		if nfc_model != None :
 			#self.nfc_model.print_cmd_descriptor()
 			html_put_str('<h2> nand channel statistics')
 			html_put_str('<hr>')
-			title, table = self.nfc_model.print_ch_statistics(None)
+			title, table = nfc_model.print_ch_statistics(None)
 			html_put_table(table)
 				
 			html_put_str('<h2> nand way statistics')
 			html_put_str('<hr>')
-			title, table = self.nfc_model.print_way_statistics(None)
+			title, table = nfc_model.print_way_statistics(None)
 			html_put_table(table)
 
 		html_put_end()
@@ -395,6 +386,12 @@ if __name__ == '__main__' :
 	nand_model = nand_manager(NUM_WAYS, nand_info)
 	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS, nand_info)
 
+	set_ctrl('workload', wlm)
+	set_ctrl('host', host_model)
+	set_ctrl('hic', hic_model)
+	set_ctrl('nfc', nfc_model)
+	set_ctrl('nand', nand_model)
+
 	bits_per_cell, bytes_per_page, pages_per_block, blocks_per_way = nand_model.get_nand_dimension()
 	ftl_nand = ftl_nand_info(bits_per_cell, bytes_per_page, pages_per_block, blocks_per_way)
 
@@ -403,14 +400,17 @@ if __name__ == '__main__' :
 	hil_module = hil_manager(hic_model)
 	ftl_module = ftl_manager(NUM_WAYS, hic_model)
 	fil_module = fil_manager(nfc_model, hic_model)
-		
+
+	set_fw('hil', hil_module)
+	set_fw('ftl', ftl_module)
+	set_fw('fil', fil_module)
+								
 	blk_grp.add('meta', block_manager(NUM_WAYS, 1, 9, 1, 2, NAND_MODE_SLC, ftl_nand))
 	blk_grp.add('slc_cache', block_manager(NUM_WAYS, 10, 19, 1, 2, NAND_MODE_SLC, ftl_nand))
 	blk_grp.add('user', block_manager(NUM_WAYS, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, NAND_MODE_TLC, ftl_nand))
 				
 	host_stat = host_statistics(2)
 
-	report.set_model(None, host_model, hic_model, nfc_model, nand_model)		
 	report.open(0)
 								
 	node = event_mgr.alloc_new_event(10)

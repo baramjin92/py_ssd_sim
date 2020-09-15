@@ -25,6 +25,7 @@ from model.queue import *
 from model.nandcmd import *
 
 from sim_event import *
+from sim_system import *
 from sim_eval import *
 from sim_log import *
 from sim_report import *
@@ -95,6 +96,12 @@ if __name__ == '__main__' :
 	nand_model = nand_manager(NUM_WAYS, nand_info)
 	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS, nand_info)
 
+	set_ctrl('workload', wlm)
+	set_ctrl('host', host_model)
+	set_ctrl('hic', hic_model)
+	set_ctrl('nfc', nfc_model)
+	set_ctrl('nand', nand_model)
+
 	bits_per_cell, bytes_per_page, pages_per_block, blocks_per_way = nand_model.get_nand_dimension()
 	ftl_nand = ftl_nand_info(bits_per_cell, bytes_per_page, pages_per_block, blocks_per_way)
 	nand_mode = nand_cell_mode[bits_per_cell]		
@@ -108,7 +115,11 @@ if __name__ == '__main__' :
 	hil_module = hil_manager(hic_model)
 	ftl_module = ftl_zns_manager(num_zone_way, hic_model)
 	fil_module = fil_manager(nfc_model, hic_model)
-	
+
+	set_fw('hil', hil_module)
+	set_fw('ftl', ftl_module)
+	set_fw('fil', fil_module)
+				
 	if num_zone_way == NUM_WAYS :
 		# large zone configuration : zone uses all dies 
 		blk_grp.add('slc_cache', block_manager(num_zone_way, None, 10, 19, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, NAND_MODE_SLC, ftl_nand))
@@ -135,8 +146,6 @@ if __name__ == '__main__' :
 	wlm.print_all()
 	index = init_progress()
 	
-	report.set_model(wlm, host_model, hic_model, nfc_model, nand_model)
-	report.set_module(hil_module, ftl_module, fil_module)
 	report.open(index)
 	#node = event_mgr.alloc_new_event(1000000000)
 	#node.dest = event_dst.MODEL_HOST | event_dst.MODEL_KERNEL
