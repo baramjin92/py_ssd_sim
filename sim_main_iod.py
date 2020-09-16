@@ -114,7 +114,12 @@ if __name__ == '__main__' :
 	report = report_manager()
 	
 	print('initialize model')
-	host_model = host_manager(NUM_HOST_CMD_TABLE, NUM_HOST_QUEUE, [int(NUM_LBA*0.1), int(NUM_LBA*0.4), int(NUM_LBA*0.5)])
+	ns_percent = [10, 40, 50]
+	ns_maxlba = []
+	for percent in ns_percent :
+		ns_maxlba.append(int(NUM_LBA * percent / 100))
+			
+	host_model = host_manager(NUM_HOST_CMD_TABLE, NUM_HOST_QUEUE, ns_maxlba)
 	hic_model = hic_manager(NUM_CMD_EXEC_TABLE * NUM_HOST_QUEUE, NUM_HOST_QUEUE)
 	
 	nand_info = nand_config(nand_256gb_g3)		
@@ -132,12 +137,13 @@ if __name__ == '__main__' :
 	ftl_nand = ftl_nand_info(bits_per_cell, bytes_per_page, pages_per_block, blocks_per_way)
 	nand_mode = nand_cell_mode[bits_per_cell]
 
-	meta.config(NUM_WAYS, ftl_nand)
+	meta.config(NUM_LBA, NUM_WAYS, ftl_nand)
+	namespace_mgr = namespace_manager(NUM_LBA, ns_percent)	
 																
-	print('initialize fw module')	
-	hil_module = hil_manager(hic_model)
-	ftl_module = ftl_iod_manager(hic_model)
-	fil_module = fil_manager(nfc_model, hic_model)
+	print('initialize fw module')
+	hil_module = hil_manager()
+	ftl_module = ftl_iod_manager(namespace_mgr)
+	fil_module = fil_manager()
 
 	set_fw('hil', hil_module)
 	set_fw('ftl', ftl_module)

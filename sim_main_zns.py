@@ -88,7 +88,7 @@ if __name__ == '__main__' :
 	report = report_manager()
 	
 	print('initialize model')
-	host_model = host_manager(NUM_HOST_CMD_TABLE, NUM_HOST_QUEUE)
+	host_model = host_manager(NUM_HOST_CMD_TABLE, NUM_HOST_QUEUE, [NUM_LBA])
 	hic_model = hic_manager(NUM_CMD_EXEC_TABLE * NUM_HOST_QUEUE)
 	
 	#nand_info = nand_config(nand_256gb_mlc)
@@ -106,15 +106,15 @@ if __name__ == '__main__' :
 	ftl_nand = ftl_nand_info(bits_per_cell, bytes_per_page, pages_per_block, blocks_per_way)
 	nand_mode = nand_cell_mode[bits_per_cell]		
 
-	meta.config(NUM_WAYS, ftl_nand)
+	meta.config(NUM_LBA, NUM_WAYS, ftl_nand)
 												
 	print('initialize fw module')
 	#num_zone_way = NUM_WAYS
 	num_zone_way = ZONE_NUM_WAYS
 				
-	hil_module = hil_manager(hic_model)
-	ftl_module = ftl_zns_manager(num_zone_way, hic_model)
-	fil_module = fil_manager(nfc_model, hic_model)
+	hil_module = hil_manager()
+	ftl_module = ftl_zns_manager(num_zone_way)
+	fil_module = fil_manager()
 
 	set_fw('hil', hil_module)
 	set_fw('ftl', ftl_module)

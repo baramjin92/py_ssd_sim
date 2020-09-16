@@ -4,9 +4,9 @@ import os
 import sys
 import time
 
-from model.ftl import *
+from model.ftl_meta import *
 
-from sim_event import *
+from config.ssd_param import *
 
 hw_controller = {
 	'workload' : None,
@@ -33,6 +33,9 @@ def set_fw(key, module) :
 
 def get_fw(key) :
 	return fw_module[key]	
+
+def print_ctrl() :
+	print(hw_controller)
 
 def save_meta() :
 	print('number of meta entries : %d'%NUM_LBA)

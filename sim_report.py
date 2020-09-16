@@ -379,7 +379,7 @@ report = report_manager()
 if __name__ == '__main__' :
 	print ('sim result init')
 	
-	host_model = host_manager(NUM_HOST_CMD_TABLE)
+	host_model = host_manager(NUM_HOST_CMD_TABLE, NUM_HOST_QUEUE, [NUM_LBA])
 	hic_model = hic_manager(NUM_CMD_EXEC_TABLE * NUM_HOST_QUEUE)
 	
 	nand_info = nand_config(nand_256gb_g3)		
@@ -397,9 +397,9 @@ if __name__ == '__main__' :
 
 	meta.config(NUM_WAYS, ftl_nand)
 	
-	hil_module = hil_manager(hic_model)
-	ftl_module = ftl_manager(NUM_WAYS, hic_model)
-	fil_module = fil_manager(nfc_model, hic_model)
+	hil_module = hil_manager()
+	ftl_module = ftl_manager(NUM_WAYS)
+	fil_module = fil_manager()
 
 	set_fw('hil', hil_module)
 	set_fw('ftl', ftl_module)
