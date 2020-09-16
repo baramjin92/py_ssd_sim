@@ -20,24 +20,19 @@ from model.nandcmd import *
 from model.ftl_common import *
 
 from sim_event import *
+from sim_system import *
 from sim_eval import *
 
 def log_print(message) :
 	event_log_print('[fil]', message)
 																								
 class fil_manager :
-	def __init__(self, nfc, hic) :
-		
-		# register nfc now in order to use fil2nfc queue
-		# it will be changed by separting queue data from module 
-		self.nfc_model = nfc
-		
-		# register hic now in order to use interface queue																																							
-		self.hic_model = hic
-
+	def __init__(self) :
 		self.fil_stat = fil_statistics()											
 																																	
 	def send_command_to_nfc(self) :
+		nfc = get_ctrl('nfc')
+		
 		# check ftl2fil queue 
 		while ftl2fil_queue.length() > 0 :
 			#log_print('send command')
@@ -70,16 +65,17 @@ class fil_manager :
 						
 			# send table_index via fil2nfc queue 
 			way = cmd_desc.way
-			self.nfc_model.fil2nfc_queue[way].push(table_index)
+			nfc.fil2nfc_queue[way].push(table_index)
 			
 			# send new event to nfc if lengh of fil2nfc queue is 1
-			if self.nfc_model.fil2nfc_queue[way].length() >= 1 :
+			if nfc.fil2nfc_queue[way].length() >= 1 :
 				# this code make undefined event to NFC, it should be change later
 				next_event = event_mgr.alloc_new_event(1)
 				next_event.dest = event_dst.MODEL_NFC
 				next_event.nand_id = way
 				
 	def handle_completed_nand_ops(self) :
+		hic = get_ctrl('hic')
 		# get information from report queue by nfc		
 		while report_queue.length() > 0 :
 			#log_print('handle completed nand ops')
@@ -102,7 +98,7 @@ class fil_manager :
 										
 					# add buffer to bm list to send to user
 					for buffer_id in cmd_desc.buffer_ids :
-						self.hic_model.add_tx_buffer(cmd_desc.queue_id, buffer_id)
+						hic.add_tx_buffer(cmd_desc.queue_id, buffer_id)
 				
 				# update statistics
 				self.fil_stat.num_user_read_pages = self.fil_stat.num_user_read_pages + 1
@@ -194,7 +190,7 @@ class fil_statistics :
 if __name__ == '__main__' :
 	print ('module fil')
 	
-	fil = fil_manager(None, None)
+	fil = fil_manager()
 	
 	fil.fil_stat.print()
 	

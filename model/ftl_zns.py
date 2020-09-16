@@ -20,6 +20,7 @@ from model.block_manager import *
 from model.ftl_meta import *
 
 from sim_event import *
+from sim_system import *
 from sim_eval import *
 
 # ftl translates logical block address to physical address of nand
@@ -286,15 +287,12 @@ class zone_manager :
 		self.close_zone_info()											
 																
 class ftl_zns_manager :
-	def __init__(self, num_way, hic) :
+	def __init__(self, num_way) :
 		self.name = 'zns'
 		
 		self.num_way = num_way
 		zone_mgr.set_num_way(num_way)
-		
-		# register hic now in order to use interface queue									
-		self.hic_model = hic
-		
+				
 		self.run_mode = True
 		
 		self.seq_num = 0
@@ -320,6 +318,8 @@ class ftl_zns_manager :
 		self.run_mode = False	
 	
 	def try_to_fetch_cmd(self) : 
+		hic = get_ctrl('hic')
+		
 		# check high priority queue
 		if hil2ftl_high_queue.length() > 0 :
 			# check write content of previous cmd and run do_write()
@@ -343,7 +343,7 @@ class ftl_zns_manager :
 			log_print('host cmd read - qid : %d, cid : %d'%(ftl_cmd.qid, ftl_cmd.cmd_tag))
 										
 			# set fetch flag of hic (it will be move from hil to ftl, because hil code is temporary one)
-			self.hic_model.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)				 	 	 	 	 	
+			hic.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)				 	 	 	 	 	
 				 	 	 	 	 			 	 	 	 	 			 	 	 	 	 	
 		# check low priority queue
 		if hil2ftl_low_queue.length() > 0 :
@@ -360,14 +360,14 @@ class ftl_zns_manager :
 					zone.write_cmd_queue.push(ftl_cmd)
 					zone.num_chunks_to_write = zone.num_chunks_to_write + int(ftl_cmd.sector_count / SECTORS_PER_CHUNK)
 
-					self.hic_model.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)
+					hic.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)
 					
 				log_print('host cmd write')
 			else :
 				if ftl_cmd.code == HOST_CMD_TRIM :
 					log_print('host cmd trim')	
 					
-					# self.hic_model.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)
+					# hic.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)
 				elif ftl_cmd.code == HOST_CMD_CALM :			
 					log_print('host cmd calm')
 	
@@ -399,7 +399,7 @@ class ftl_zns_manager :
 					elif ftl_cmd.sector_count == HOST_ZSA_RESET :
 						log_print('reset')
 							
-					self.hic_model.set_manual_completion(ftl_cmd.qid, ftl_cmd.cmd_tag)
+					hic.set_manual_completion(ftl_cmd.qid, ftl_cmd.cmd_tag)
 																																				
 		# save vcd file if option is activate
 
@@ -474,7 +474,7 @@ class ftl_zns_manager :
 				else :
 					# cache hit, return buffer id to hic
 					for cache_info in cache_results :						
-						self.hic_model.add_tx_buffer(self.read_queue_id, cache_info[1])
+						get_ctrl('hic').add_tx_buffer(self.read_queue_id, cache_info[1])
 					
 					next_event = event_mgr.alloc_new_event(0)
 					next_event.code = event_id.EVENT_USER_DATA_READY
@@ -507,8 +507,9 @@ class ftl_zns_manager :
 		# check for arrival of data and move buffer pointer to buffer list of zone
 		zone = None
 		
-		for index in range(len(self.hic_model.rx_buffer_done))  :
-			buffer_id = self.hic_model.rx_buffer_done.pop(0)
+		hic = get_ctrl('hic')
+		for index in range(len(hic.rx_buffer_done))  :
+			buffer_id = hic.rx_buffer_done.pop(0)
 			lca = bm.get_meta_data(buffer_id)
 			lba = lca * SECTORS_PER_CHUNK
 						
@@ -542,7 +543,6 @@ class ftl_zns_manager :
 		# meta data update (meta datum are valid chunk bitmap, valid chunk count, map table
 		# valid chunk bitamp and valid chunk count use in gc and trim 
 		for index in range(num_chunks) :
-			log_print('update meta data')
 			# get old physical address info
 			lba_index = int(ftl_cmd.lba / SECTORS_PER_CHUNK)
 			old_physical_addr = meta.map_table[lba_index]
@@ -712,8 +712,8 @@ if __name__ == '__main__' :
 	print ('module ftl (flash translation layer of zns)')
 	
 	ftl_nand = ftl_nand_info(3, 8192*4, 256, 1024)
-	meta.config(NUM_WAYS, ftl_nand)	
-	ftl = ftl_zns_manager(NUM_WAYS, None)
+	meta.config(NUM_LBA, NUM_WAYS, ftl_nand)	
+	ftl = ftl_zns_manager(NUM_WAYS)
 			
 	print('ssd capacity : %d GB'%SSD_CAPACITY)
 #	print('ssd actual capacity : %d'%SSD_CAPACITY_ACTUAL)

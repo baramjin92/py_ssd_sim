@@ -69,7 +69,7 @@ class host_cmd_context :
 		return len(self.host_cmd_free_slot)																							
 																																				
 class host_manager :
-	def __init__(self, host_cmd_num, queue_num = NUM_HOST_QUEUE, namespace = []) :
+	def __init__(self, host_cmd_num, queue_num, namespace) :
 		# set host context
 		self.host_cmd_queue = []
 		self.queue_ids = []
@@ -94,12 +94,12 @@ class host_manager :
 		
 		self.use_namespace = False
 		self.data_table = []
-		if len(namespace) == 0 :
-			self.data_table.append(make_1d_array(NUM_LBA))
-		else :
+		
+		for max_lba in namespace :
+			self.data_table.append(make_1d_array(max_lba))
+				
+		if len(namespace) > 1 :
 			self.use_namespace = True
-			for max_lba in namespace :
-				self.data_table.append(make_1d_array(max_lba))
 				
 		self.host_stat = host_statistics(queue_num)
 	
@@ -630,7 +630,7 @@ if __name__ == '__main__' :
 	# host main module use it temporay
 	host_info()								
 	
-	host_model = host_manager(NUM_HOST_CMD_TABLE)
+	host_model = host_manager(NUM_HOST_CMD_TABLE, NUM_HOST_QUEUE, [NUM_LBA])
 	
 	queue_id = 0
 	host_model.generate_write_data(queue_id, 2048, 512)

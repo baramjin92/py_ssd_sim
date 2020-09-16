@@ -20,6 +20,7 @@ from model.block_manager import *
 from model.ftl_meta import *
 
 from sim_event import *
+from sim_system import *
 from sim_eval import *
 
 # ftl translates logical block address to physical address of nand
@@ -28,14 +29,11 @@ def log_print(message) :
 	event_log_print('[ftl]', message)
 		 																														 															
 class ftl_manager :
-	def __init__(self, num_way, hic) :
+	def __init__(self, num_way) :
 		self.name = 'conventional'
 		
 		self.num_way = num_way
-		
-		# register hic now in order to use interface queue									
-		self.hic_model = hic
-		
+				
 		self.run_mode = True
 		
 		self.seq_num = 0
@@ -64,7 +62,9 @@ class ftl_manager :
 		
 		self.ftl_stat = ftl_statistics()
 		
-		self.debug_mode = 0											
+		self.debug_mode = 0			
+		
+		print('ftl conventional init')
 
 	def start(self) :
 		self.host_sb = super_block(self.num_way, 'host', SB_OP_WRITE)
@@ -77,7 +77,9 @@ class ftl_manager :
 	def disable_background(self) :
 		self.run_mode = False
 	
-	def try_to_fetch_cmd(self) : 
+	def try_to_fetch_cmd(self) :
+		hic = get_ctrl('hic')
+				
 		# check high priority queue
 		if hil2ftl_high_queue.length() > 0 :
 			# check write content of previous cmd and run do_write()
@@ -101,7 +103,7 @@ class ftl_manager :
 			log_print('host cmd read - qid : %d, cid : %d'%(ftl_cmd.qid, ftl_cmd.cmd_tag))
 										
 			# set fetch flag of hic (it will be move from hil to ftl, because hil code is temporary one)
-			self.hic_model.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)				 	 	 	 	 	
+			hic.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)				 	 	 	 	 	
 				 	 	 	 	 			 	 	 	 	 			 	 	 	 	 	
 		# check low priority queue
 		if hil2ftl_low_queue.length() > 0 :
@@ -115,7 +117,7 @@ class ftl_manager :
 
 				log_print('host cmd write : %d'%ftl_cmd.sector_count)
 
-				self.hic_model.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)
+				hic.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)
 			else :
 				# check num_chunks_to_write for checking the remained write operation.
 				if self.num_chunks_to_write > 0 :
@@ -124,7 +126,7 @@ class ftl_manager :
 				if ftl_cmd.code == HOST_CMD_TRIM :
 					log_print('host cmd trim')	
 					
-					# self.hic_model.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)
+					# hic.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)
 				elif ftl_cmd.code == HOST_CMD_CALM :			
 					log_print('host cmd calm')
 					
@@ -140,6 +142,8 @@ class ftl_manager :
 		
 		if ENABLE_RAMDISK_MODE == True and bm.get_num_free_slots(BM_READ) < self.min_chunks_for_page : 			
 			return		
+
+		hic = get_ctrl('hic')
 
 		# look up map entry and get physical address
 		lba_index = self.read_cur_chunk
@@ -207,7 +211,7 @@ class ftl_manager :
 					else :
 						# cache hit, return buffer id to hic
 						for cache_info in cache_results :						
-							self.hic_model.add_tx_buffer(self.read_queue_id, cache_info[1])
+							hic.add_tx_buffer(self.read_queue_id, cache_info[1])
 					
 						next_event = event_mgr.alloc_new_event(0)
 						next_event.code = event_id.EVENT_USER_DATA_READY
@@ -234,7 +238,7 @@ class ftl_manager :
 		
 				if ret_val == True :
 					for buffer_id in buffer_ids :
-						self.hic_model.add_tx_buffer(self.read_queue_id, buffer_id)
+						hic.add_tx_buffer(self.read_queue_id, buffer_id)
 				
 					next_event = event_mgr.alloc_new_event(0)
 					next_event.code = event_id.EVENT_USER_DATA_READY
@@ -262,9 +266,10 @@ class ftl_manager :
 			return
 		
 		num_chunks, num_dummy = sb.get_num_chunks_to_write(self.num_chunks_to_write)		 
-		   
+		   		   
 		# check for arrival of data (check inequality between number of write and sum of write sector counts)
-		if len(self.hic_model.rx_buffer_done) < num_chunks :
+		hic = get_ctrl('hic')
+		if len(hic.rx_buffer_done) < num_chunks :
 			#log_print('data transfer is not finished')
 			return 
 						
@@ -272,7 +277,7 @@ class ftl_manager :
 		# in order to send cell mode command, we need one more nandcmd slot
 		if nandcmd_table.get_free_slot_num() < (num_chunks + 1) :
 			return
-			
+						
 		# get write cmd
 		ftl_cmd = self.write_cmd_queue.pop()
 			
@@ -283,7 +288,6 @@ class ftl_manager :
 		# meta data update (meta datum are valid chunk bitmap, valid chunk count, map table
 		# valid chunk bitamp and valid chunk count use in gc and trim 
 		for index in range(num_chunks) :
-			#log_print('update meta data')
 			# get old physical address info
 			lba_index = int(ftl_cmd.lba / SECTORS_PER_CHUNK)
 			old_physical_addr = meta.map_table[lba_index]
@@ -352,7 +356,7 @@ class ftl_manager :
 			cmd_desc.buffer_ids = []
 			for index in range(num_chunks) :
 				# buffer_id is allocated by hil, and data is saved by hic
-				buffer_id = self.hic_model.rx_buffer_done.pop(0)	
+				buffer_id = hic.rx_buffer_done.pop(0)	
 				cmd_desc.buffer_ids.append(buffer_id)				
 			cmd_desc.seq_num = self.seq_num
 		
@@ -363,7 +367,7 @@ class ftl_manager :
 		else :
 			for index in range(num_chunks) :
 				# buffer_id is allocated by hil, and data is saved by hic
-				buffer_id = self.hic_model.rx_buffer_done.pop(0)	
+				buffer_id = hic.rx_buffer_done.pop(0)	
 				bm.release_buffer(buffer_id)
 							
 		# update super page index and check status of closing block (end of super block)
@@ -806,9 +810,9 @@ if __name__ == '__main__' :
 	print ('module ftl (flash translation layer)')
 
 	ftl_nand = ftl_nand_info(3, 8192*4, 256, 1024)
-	meta.config(NUM_WAYS, ftl_nand)
-	ftl = ftl_manager(NUM_WAYS, None)
-	
+	meta.config(NUM_LBA, NUM_WAYS, ftl_nand)
+	ftl = ftl_manager(NUM_WAYS)
+		
 	print('ssd capacity : %d GB'%SSD_CAPACITY)
 #	print('ssd actual capacity : %d'%SSD_CAPACITY_ACTUAL)
 	print('num of lba (512 byte sector) : %d'%NUM_LBA)
@@ -823,5 +827,4 @@ if __name__ == '__main__' :
 		
 	print('......select victim block')
 	way_list = []
-	ftl.select_victim_block(10, way_list, NAND_MODE_MLC, ftl_nand)	
-																			
+	ftl.select_victim_block(10, way_list, NAND_MODE_MLC, ftl_nand)

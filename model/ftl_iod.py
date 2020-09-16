@@ -21,6 +21,7 @@ from model.namespace import *
 from model.ftl_meta import *
 
 from sim_event import *
+from sim_system import *
 from sim_eval import *
 
 # ftl translates logical block address to physical address of nand
@@ -29,14 +30,13 @@ def log_print(message) :
 	event_log_print('[ftl iod]', message)
 																																
 class ftl_iod_manager :
-	def __init__(self, hic) :
+	def __init__(self, namespace_mgr) :
 		# there is no NUM_WAY parameter in IO determinism.
 		# blk_manager has this value, if we know name of blk_manager, we can use it in each namespace.
 		
 		self.name = 'iod'
+		self.namespace_mgr = namespace_mgr
 				
-		# register hic now in order to use interface queue									
-		self.hic_model = hic
 		self.min_chunks_for_page = get_num_chunks_for_page()
 		
 		self.run_mode = True
@@ -48,8 +48,8 @@ class ftl_iod_manager :
 	def start(self) :
 		print('start iod ftl')
 		
-		for index in range(namespace_mgr.get_num()) :
-			ns = namespace_mgr.get(index)
+		for index in range(self.namespace_mgr.get_num()) :
+			ns = self.namespace_mgr.get(index)
 
 			blk_manager = blk_grp.get_block_manager_by_name(ns.blk_name)
 			ns.logical_blk = super_block(blk_manager.num_way, ns.blk_name+' host', SB_OP_WRITE)
@@ -63,6 +63,8 @@ class ftl_iod_manager :
 		self.run_mode = False	
 	
 	def try_to_fetch_cmd(self) : 
+		hic = get_ctrl('hic')
+		
 		# check high priority queue
 		if hil2ftl_high_queue.length() > 0 :
 			# check write content of previous cmd and run do_write()
@@ -70,10 +72,10 @@ class ftl_iod_manager :
 			# fetch ftl command and parse lba and sector count for chunk 
 			ftl_cmd = hil2ftl_high_queue.pop()
 			
-			ns = namespace_mgr.get(ftl_cmd.qid)
+			ns = self.namespace_mgr.get(ftl_cmd.qid)
 		
 			# ftl_cmd.code should be HOST_CMD_READ				
-			lba_start = namespace_mgr.lba2meta_addr(ftl_cmd.qid, ftl_cmd.lba)
+			lba_start = self.namespace_mgr.lba2meta_addr(ftl_cmd.qid, ftl_cmd.lba)
 			lba_end = lba_start + ftl_cmd.sector_count - 1
 
 			# in order to read from nand, read command information is updated			
@@ -88,7 +90,7 @@ class ftl_iod_manager :
 			log_print('host cmd read - qid : %d, cid : %d'%(ftl_cmd.qid, ftl_cmd.cmd_tag))
 										
 			# set fetch flag of hic (it will be move from hil to ftl, because hil code is temporary one)
-			self.hic_model.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)				 	 	 	 	 	
+			hic.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)				 	 	 	 	 	
 				 	 	 	 	 			 	 	 	 	 			 	 	 	 	 	
 		# check low priority queue
 		if hil2ftl_low_queue.length() > 0 :
@@ -98,7 +100,7 @@ class ftl_iod_manager :
 			if ftl_cmd.code == HOST_CMD_WRITE :				
 				# write cmd should be saved for gathering write chunks in order to meet physical size of nand
 				# actually qid and nsid is not same however we assume it is same in simulator
-				ns = namespace_mgr.get(ftl_cmd.qid)
+				ns = self.namespace_mgr.get(ftl_cmd.qid)
 				if ns == None :
 					#hil2ftl_low_queue.push_first(ftl_cmd)
 					print('error : can not get namespace')
@@ -106,20 +108,20 @@ class ftl_iod_manager :
 					ns.write_cmd_queue.push(ftl_cmd)
 					ns.num_chunks_to_write = ns.num_chunks_to_write + int(ftl_cmd.sector_count / SECTORS_PER_CHUNK)
 
-					self.hic_model.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)
+					hic.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)
 					
 				log_print('host cmd write')
 			else :
 				if ftl_cmd.code == HOST_CMD_TRIM :
 					log_print('host cmd trim')	
 					
-					# self.hic_model.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)
+					# hic.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)
 				elif ftl_cmd.code == HOST_CMD_CALM :			
 					log_print('host cmd calm')
 	
 					# flush remain data in order to prepare calm state
 												
-				self.hic_model.set_manual_completion(ftl_cmd.qid, ftl_cmd.cmd_tag)
+				hic.set_manual_completion(ftl_cmd.qid, ftl_cmd.cmd_tag)
 																																				
 		# save vcd file if option is activate
 
@@ -133,7 +135,9 @@ class ftl_iod_manager :
 		# check free slots of nandcmd_table (use num_remian_chunks, there is assumption all chunks are not adjecent)
 		if nandcmd_table.get_free_slot_num() < num_remain_chunks :
 			return		
-												
+		
+		hic = get_ctrl('hic')
+																						
 		while num_remain_chunks > 0 :
 			if next_map_entry == 0xFFFFFFFF :
 				# 1st address
@@ -194,7 +198,7 @@ class ftl_iod_manager :
 				else :
 					# cache hit, return buffer id to hic
 					for cache_info in cache_results :						
-						self.hic_model.add_tx_buffer(ns.read_queue_id, cache_info[1])
+						hic.add_tx_buffer(ns.read_queue_id, cache_info[1])
 					
 					next_event = event_mgr.alloc_new_event(0)
 					next_event.code = event_id.EVENT_USER_DATA_READY
@@ -227,14 +231,15 @@ class ftl_iod_manager :
 		# check for arrival of data and move buffer pointer to buffer list of namespace
 		ns = None
 		
-		for index in range(len(self.hic_model.rx_buffer_done))  :
-			buffer_id = self.hic_model.rx_buffer_done.pop(0)
+		hic = get_ctrl('hic')
+		for index in range(len(hic.rx_buffer_done))  :
+			buffer_id = hic.rx_buffer_done.pop(0)
 			lca = bm.get_meta_data(buffer_id)
 			lba = lca * SECTORS_PER_CHUNK
 						
 			# actually qid and nsid is not same however we assume it is same in simulator			
 			qid, cmd_tag = bm.get_cmd_id(buffer_id)
-			ns = namespace_mgr.get(qid)
+			ns = self.namespace_mgr.get(qid)
 			if ns == None :
 				print ('error check write buffer done - lba : %d'%lba)
 			ns.write_buffer.append(buffer_id)
@@ -267,7 +272,7 @@ class ftl_iod_manager :
 			log_print('update meta data')
 			# get old physical address info
 			# lba_index is calculated by api of namespace
-			lba_index = int(namespace_mgr.lba2meta_addr(ns.nsid, ftl_cmd.lba) / SECTORS_PER_CHUNK)
+			lba_index = int(self.namespace_mgr.lba2meta_addr(ns.nsid, ftl_cmd.lba) / SECTORS_PER_CHUNK)
 			old_physical_addr = meta.map_table[lba_index]
 			
 			# if we use buffer cache, we should check and evict buffer id from cache, in order to avoid mismatch of data
@@ -487,7 +492,7 @@ class ftl_iod_manager :
 			queue_id, cmd_tag, buffer_ids, gc_meta = fil2ftl_queue.pop()
 
 			# get ns by queue_id
-			ns = namespace_mgr.get_by_qid(queue_id)
+			ns = self.namespace_mgr.get_by_qid(queue_id)
 
 			gc_cmd = gc_cmd_desc(queue_id, cmd_tag)
 						
@@ -534,7 +539,7 @@ class ftl_iod_manager :
 			ns_lba_index = gc_cmd.lba_index.pop(0)
 			
 			# get old physical address info
-			lba_index = int(namespace_mgr.lba2meta_addr(ns.nsid, ns_lba_index * SECTORS_PER_CHUNK) / SECTORS_PER_CHUNK)			
+			lba_index = int(self.namespace_mgr.lba2meta_addr(ns.nsid, ns_lba_index * SECTORS_PER_CHUNK) / SECTORS_PER_CHUNK)			
 			old_physical_addr = meta.map_table[lba_index]
 
 			# compare physical address
@@ -603,14 +608,12 @@ class ftl_iod_manager :
 		# meta data update (meta datum are valid chunk bitmap, valid chunk count, map table
 		# valid chunk bitamp and valid chunk count use in gc and trim 
 		for index in range(num_chunks) :
-			log_print('update meta data')
-
 			buf_id = gc_cmd.buffer_ids.pop(0)
 			gc_meta = gc_cmd.gc_meta.pop(0) 
 			
 			# get old physical address info
 			ns_lba_index = gc_cmd.lba_index.pop(0)
-			lba_index = int(namespace_mgr.lba2meta_addr(ns.nsid, ns_lba_index * SECTORS_PER_CHUNK) / SECTORS_PER_CHUNK)			
+			lba_index = int(self.namespace_mgr.lba2meta_addr(ns.nsid, ns_lba_index * SECTORS_PER_CHUNK) / SECTORS_PER_CHUNK)			
 			
 			old_physical_addr = meta.map_table[lba_index]
 
@@ -704,8 +707,8 @@ class ftl_iod_manager :
 		log_print('do gc write completion')					
 
 	def flush_request(self) :		
-		for index in range(namespace_mgr.get_num()) :
-			ns = namespace_mgr.get(index)
+		for index in range(self.namespace_mgr.get_num()) :
+			ns = self.namespace_mgr.get(index)
 			ns.flush_request()	
 
 	@measure_ftl_time			
@@ -714,7 +717,7 @@ class ftl_iod_manager :
 		# fetch command
 		self.try_to_fetch_cmd()
 				
-		for index in range(namespace_mgr.get_num()) :															
+		for index in range(self.namespace_mgr.get_num()) :															
 			# do write
 			ns = self.check_write_buffer_done()
 			
@@ -734,8 +737,8 @@ class ftl_iod_manager :
 					self.do_write(ns)
 					break
 							
-		for index in range(namespace_mgr.get_num()) :
-			ns = namespace_mgr.get(index)	
+		for index in range(self.namespace_mgr.get_num()) :
+			ns = self.namespace_mgr.get(index)	
 			# do read
 			if ns.num_chunks_to_read > 0 :
 				self.do_read(ns)
@@ -794,8 +797,10 @@ if __name__ == '__main__' :
 	print ('module ftl (flash translation layer for iod)')
 	
 	ftl_nand = ftl_nand_info(3, 8192*4, 256, 1024)
-	meta.config(NUM_WAYS, ftl_nand)
-	
-	ftl = ftl_iod_manager(None)
+	meta.config(NUM_LBA, NUM_WAYS, ftl_nand)
+
+	namespace_mgr = namespace_manager(NUM_LBA, [10, 40, 50])
+			
+	ftl = ftl_iod_manager(namespace_mgr)
 			
 																						

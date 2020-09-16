@@ -19,6 +19,7 @@ from model.hic import *
 from model.ftl_common import *
 
 from sim_event import *
+from sim_system import *
 from sim_eval import *
 
 # hil fetches host command from hic and send it to ftl
@@ -34,25 +35,24 @@ class write_cmd :
 		self.offset = 0
 														
 class hil_manager :
-	def __init__(self, hic) :
+	def __init__(self) :
 		# write_cmd_queue manage write buffer allocation
 		self.write_cmd_queue = queue(NUM_HOST_CMD_TABLE)
-
-		# register hic now in order to use interface queue				
-		self.hic_model = hic
 																																	
 		self.hil_stat = hil_statistics()											
 
 	def handle_new_host_cmd(self) :
+		hic = get_ctrl('hic')
+		
 		# get queue_id, cmd_tag from cmd_exec_queue of hic
-		queue_id, cmd_tag = self.hic_model.cmd_exec_queue.pop()
+		queue_id, cmd_tag = hic.cmd_exec_queue.pop()
 		
 		# make ftl command from host command
 		# ftl has two prioirity queue (high/low)
 		# read command uses high priority que
 		# write/trim/flush command use low priority queue
 		# if we have multiple ftl core, these queue policies should be changed
-		cmd_desc = self.hic_model.get_cmd_desc(queue_id, cmd_tag)
+		cmd_desc = hic.get_cmd_desc(queue_id, cmd_tag)
 		
 		if cmd_desc.code == HOST_CMD_READ :
 			ftl_cmd = ftl_cmd_desc()
@@ -94,6 +94,8 @@ class hil_manager :
 		return
 
 	def alloc_write_buffer(self, num_free_slots) :
+		hic  = get_ctrl('hic')
+		
 		# get write cmd info from write write_cmd_queue
 		write_cmd_desc = self.write_cmd_queue.get_entry_1st()
 		queue_id = write_cmd_desc.queue_id
@@ -107,7 +109,7 @@ class hil_manager :
 		#print(buffer_ids)
 		
 		# push buffer_ids to rx_buffer_prep of hic
-		self.hic_model.add_rx_buffer(0, buffer_ids)
+		hic.add_rx_buffer(0, buffer_ids)
 
 		# send event to hic
 		next_event = event_mgr.alloc_new_event(0)
@@ -125,11 +127,12 @@ class hil_manager :
 
 	@measure_hil_time
 	def handler(self) :
+		hic = get_ctrl('hic')
 		# hil doesn't have event handler.
 		# it check cmd_exec_queue of hic, and fetch command and execute  
 				
 		# check command execution queue and ftl command queue 
-		if self.hic_model.cmd_exec_queue.length() > 0 :
+		if hic.cmd_exec_queue.length() > 0 :
 			self.handle_new_host_cmd()
 			
 		# check write buffer allocation queue		
@@ -150,6 +153,6 @@ class hil_statistics :
 if __name__ == '__main__' :
 	print ('module hil (host interface layer)')
 	
-	hil = hil_manager(None)
+	hil = hil_manager()
 	
 																			

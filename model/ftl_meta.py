@@ -36,12 +36,18 @@ UNMAP_ENTRY = 0xFFFFFFFF
 #  2. valid_chunk_bitmap[way][block]
 #  3. valid_chunk_count[way][block] : (size of entry : 32bit)
 class ftl_meta :
-	def __init__(self) :
+	def __init__(self, num_lba) :
+		self.map_table = None
+		self.nand_info = None
+		self.valid_bitmap = None
+		self.valid_count = None
+		self.valid_sum = None
+		
+	def config(self, num_lba, num_way, nand_info) :
 		# meta data of ftl																				
 		# so far, we use simple np, in order to support real capacity of ssd, we should change it by "memmap" of numpy		
-		self.map_table = make_1d_array(NUM_LBA, UNMAP_ENTRY)
-		
-	def config(self, num_way, nand_info) :
+		self.map_table = make_1d_array(num_lba, UNMAP_ENTRY)
+
 		self.nand_info = nand_info
 		blocks_per_way = nand_info.blocks_per_way
 
@@ -198,7 +204,7 @@ class ftl_meta :
 	
 		return report_title, table
 	
-meta = ftl_meta() 				
+meta = ftl_meta(NUM_LBA) 				
 
 build_map_entry = meta.build_map_entry
 build_map_entry2 = meta.build_map_entry2
@@ -213,7 +219,7 @@ if __name__ == '__main__' :
 	print ('module ftl (flash translation layer) common')
 	
 	ftl_nand = ftl_nand_info(3, 8192*4, 256, 1024)
-	meta.config(NUM_WAYS, ftl_nand)
+	meta.config(NUM_LBA, NUM_WAYS, ftl_nand)
 
 	print('.....test mapping table')
 	start_lba = 40

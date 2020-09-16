@@ -4,8 +4,6 @@ import os
 import sys
 import random
 
-import tabulate
-
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
@@ -116,14 +114,14 @@ class namespace_desc :
 		return table																														
 																										
 class namespace_manager :
-	def __init__(self, ns_percent) :
+	def __init__(self, max_lba, ns_percent) :
 		self.meta_range = []
 		self.table = []
 		self.num_namespace = 0
 		
-		self.config(ns_percent)
+		self.config(max_lba, ns_percent)
 			
-	def config(self, ns_percent) :
+	def config(self, max_lba, ns_percent) :
 		self.meta_range.clear()
 		self.table.clear()
 		
@@ -131,8 +129,8 @@ class namespace_manager :
 						
 		sum = 0							
 		for index, p in enumerate(ns_percent) :
-			lba_base = int(NUM_LBA * sum / 100)
-			elba = int(NUM_LBA * p / 100) - 1
+			lba_base = int(max_lba * sum / 100)
+			elba = int(max_lba * p / 100) - 1
 
 			self.meta_range.append([lba_base, lba_base + elba])
 			self.table.append(namespace_desc(index, 0, elba))
@@ -168,10 +166,9 @@ class namespace_manager :
 		for range in self.meta_range :
 			if meta_addr >= range[0] and meta_addr <= range[1] :
 				return int(meta_addr - range[0])		
-						
-	def debug(self) :																																																		
-		print('\nnum of namespace : %d\n'%(self.num_namespace))
-		
+	
+	@report_print																																																																																																			
+	def debug(self) :																																																				
 		ns = self.get(0)
 		sb_info = ns.get_table()
 		
@@ -181,10 +178,9 @@ class namespace_manager :
 			for i, info in enumerate(sb_info) :
 				info.append(value[i])
 
-		print(tabulate.tabulate(sb_info))
-																											
-namespace_mgr = namespace_manager([10, 40, 50])
-												
+		report_title = '\nnum of namespace : %d\n'%(self.num_namespace)
+		return report_title, sb_info
+																																							
 if __name__ == '__main__' :
 	print ('module namespace')
 	
@@ -197,7 +193,7 @@ if __name__ == '__main__' :
 	NUM_WAYS = (NUM_CHANNELS * WAYS_PER_CHANNELS) 
 
 	ftl_nand = ftl_nand_info(3, 8192*4, 256, 1024)
-	meta.config(NUM_WAYS, ftl_nand)
+	meta.config(NUM_LBA, NUM_WAYS, ftl_nand)
 		
 #	ftl = ftl_iod_manager(None)
 			
@@ -212,6 +208,7 @@ if __name__ == '__main__' :
 	blk_grp.add(blk_name[1], block_manager(int(NUM_WAYS/4), [4, 5], 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, NAND_MODE_MLC, ftl_nand))
 	blk_grp.add(blk_name[2], block_manager(int(NUM_WAYS/4), [6, 7], 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, NAND_MODE_MLC, ftl_nand))
 
+	namespace_mgr = namespace_manager(NUM_LBA, [10, 40, 50])
 	for nsid in range(namespace_mgr.get_num()) :	
 		ns = namespace_mgr.get(nsid)
 		ns.set_blk_name(blk_name[nsid])
