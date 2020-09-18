@@ -125,8 +125,9 @@ if __name__ == '__main__' :
 	host_model = host_manager(NUM_HOST_CMD_TABLE, NUM_HOST_QUEUE, [NUM_LBA])
 	hic_model = hic_manager(NUM_CMD_EXEC_TABLE * NUM_HOST_QUEUE, NUM_HOST_QUEUE)
 	
-	nand_info = nand_config(nand_256gb_mlc)		
-	#nand_info = nand_config(nand_256gb_g3)	
+	#nand_info = nand_config(nand_256gb_mlc)		
+	nand_info = nand_config(nand_256gb_g3)
+	#nand_info = nand_config(nand_512gb_g5)	
 	nand_model = nand_manager(NUM_WAYS, nand_info)
 	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS, nand_info)
 
@@ -153,8 +154,8 @@ if __name__ == '__main__' :
 	set_fw('fil', fil_module)
 
 	blk_grp.add('meta', block_manager(NUM_WAYS, None, 1, 9, 1, 3, NAND_MODE_SLC, ftl_nand))
-	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, 1, 3, NAND_MODE_SLC, ftl_nand))
-	blk_grp.add('user', block_manager(NUM_WAYS, None, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, nand_mode, ftl_nand))
+	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 39, 1, 3, NAND_MODE_TLC, ftl_nand))
+	blk_grp.add('user', block_manager(NUM_WAYS, None, 40, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, nand_mode, ftl_nand))
 
 	ftl_module.start()
 
@@ -243,10 +244,7 @@ if __name__ == '__main__' :
 				
 			if True:
 				print_eval_time()
-				
-				print('\nrun time : %u ns [%f s]'%(event_mgr.timetick, event_mgr.timetick / 1000000000))
-				print('acceleration num : %d'%accel_num)
-				print('max event node : %d'%event_mgr.max_count)
+				#print('acceleration num : %d'%accel_num)
 		
 				report.close()
 				report.show_result()

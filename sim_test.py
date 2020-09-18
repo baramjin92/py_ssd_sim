@@ -17,8 +17,6 @@ from model.nand import *
 from model.workload import *
 
 from config.sim_config import unit
-from config.sim_config import nand_info
-
 from config.ssd_param import *
 
 from model.buffer import *
@@ -26,19 +24,11 @@ from model.queue import *
 from model.nandcmd import *
 
 from sim_event import *
+from sim_system import *
+from sim_eval import *
 from sim_log import *
 
 from progress.bar import Bar
-
-log_time_data = {}
-
-def init_log_time() :
-	log_time_data['hil'] = 0
-	log_time_data['ftl'] = 0
-	log_time_data['fil'] = 0
-	log_time_data['model'] = 0
-
-	log_time_data['start_time'] = time.time()
 
 def test_ftl_write() :
 	qid = 0
@@ -57,7 +47,8 @@ def test_ftl_write() :
 	num_buffer = int(sector_count / SECTORS_PER_CHUNK)
 	buffer_ids, ret_val = bm.get_buffer(BM_WRITE, qid, cmd_tag, num_buffer)
 	
-	ftl_module.hic_model.rx_buffer_done = ftl_module.hic_model.rx_buffer_done + buffer_ids
+	hic = get_ctrl('hic')
+	hic.rx_buffer_done = hic.rx_buffer_done + buffer_ids
 	
 	# send command to ftl								
 	hil2ftl_low_queue.push(ftl_cmd)	
@@ -76,8 +67,9 @@ def test_ftl_write() :
 	# allocated buffer for write commmnad
 	num_buffer = int(sector_count / SECTORS_PER_CHUNK)
 	buffer_ids, ret_val = bm.get_buffer(BM_WRITE, qid, cmd_tag, num_buffer)
-	
-	ftl_module.hic_model.rx_buffer_done = ftl_module.hic_model.rx_buffer_done + buffer_ids
+
+	hic = get_ctrl('hic')		
+	hic.rx_buffer_done = hic.rx_buffer_done + buffer_ids
 	
 	# send command to ftl								
 	hil2ftl_low_queue.push(ftl_cmd)	
@@ -232,21 +224,37 @@ if __name__ == '__main__' :
 	log.open(None, True)
 	
 	print('initialize model')
-	host_model = host_manager(NUM_HOST_CMD_TABLE)
-	hic_model = hic_manager(NUM_CMD_EXEC_TABLE)
+	host_model = host_manager(NUM_HOST_CMD_TABLE, NUM_HOST_QUEUE, [NUM_LBA])
+	hic_model = hic_manager(NUM_CMD_EXEC_TABLE * NUM_HOST_QUEUE, NUM_HOST_QUEUE)
 	
+	nand_info = nand_config(nand_256gb_mlc)		
+	#nand_info = nand_config(nand_256gb_g3)
+	#nand_info = nand_config(nand_512gb_g5)	
 	nand_model = nand_manager(NUM_WAYS, nand_info)
-	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS)
-		
+	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS, nand_info)
+
+	set_ctrl('host', host_model)
+	set_ctrl('hic', hic_model)
+	set_ctrl('nfc', nfc_model)
+	set_ctrl('nand', nand_model)
+
+	print('initialize meta')
+	bits_per_cell, bytes_per_page, pages_per_block, blocks_per_way = nand_model.get_nand_dimension()
+	ftl_nand = ftl_nand_info(bits_per_cell, bytes_per_page, pages_per_block, blocks_per_way)
+	nand_mode = nand_cell_mode[bits_per_cell]
+
+	meta.config(NUM_LBA, NUM_WAYS, ftl_nand)
+																		
 	print('initialize fw module')	
-	hil_module = hil_manager(hic_model)
-	ftl_module = ftl_manager(NUM_WAYS, hic_model)
-	fil_module = fil_manager(nfc_model, hic_model)
+				
+	print('initialize fw module')	
+	hil_module = hil_manager()
+	ftl_module = ftl_manager(NUM_WAYS)
+	fil_module = fil_manager()
 	
-	meta.config(NUM_WAYS)
-	blk_grp.add('meta', block_manager(NUM_WAYS, None, 1, 9))
-	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, 1, 2))
-	blk_grp.add('user', block_manager(NUM_WAYS, None, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH))
+	blk_grp.add('meta', block_manager(NUM_WAYS, None, 1, 9, 1, 3, NAND_MODE_SLC, ftl_nand))
+	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 39, 1, 3, NAND_MODE_SLC, ftl_nand))
+	blk_grp.add('user', block_manager(NUM_WAYS, None, 40, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, nand_mode, ftl_nand))
 		
 	ftl_module.start()
 	
@@ -265,15 +273,13 @@ if __name__ == '__main__' :
 	node = event_mgr.alloc_new_event(0)
 	node.dest = event_dst.MODEL_KERNEL
 	node.code = event_id.EVENT_TICK
-
-	init_log_time()
 										
 	while exit is False :
 		event_mgr.increase_time()
 		
-		#hil_module.handler(log_time = log_time_data)
-		ftl_module.handler(log_time = log_time_data)
-		fil_module.handler(log_time = log_time_data)
+		#hil_module.handler()
+		ftl_module.handler()
+		fil_module.handler()
 																														
 		if event_mgr.head is not None :
 			node = event_mgr.head
@@ -304,9 +310,9 @@ if __name__ == '__main__' :
 				# end first node operation
 			else : 
 				if something_happen != True :
-					hil_module.handler(log_time = log_time_data)
-					ftl_module.handler(log_time = log_time_data)
-					fil_module.handler(log_time = log_time_data)
+					hil_module.handler()
+					ftl_module.handler()
+					fil_module.handler()
 						
 					# accelerate event timer for fast simulation 
 					time_gap = node.time - event_mgr.timetick

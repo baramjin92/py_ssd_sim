@@ -245,9 +245,7 @@ if __name__ == '__main__' :
 				
 			if True:
 				print_eval_time()
-				
-				print('run time : %u ns [%f s]'%(event_mgr.timetick, event_mgr.timetick / 1000000000))
-		
+						
 				report.close()
 				report.show_result()
 				report.build_html(True)

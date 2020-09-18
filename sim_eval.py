@@ -51,20 +51,28 @@ def measure_fil_time(func) :
 	
 	return measure_fil_time
 
+@report_print
 def print_eval_time() :
 	total_time = time.time() - log_time_start['all']
-	print('\nsimulation time : %f'%total_time)		
-				
+	simulation_time = event_mgr.timetick / 1000000000
+	report_title = 'run time : %f, simulation time : %f [%d]'%(total_time, simulation_time, total_time/simulation_time)		
+	#report_title = report_title + ', max event node : %d'%event_mgr.max_count																												
+		
+	table = []
+	table.append([' ', 'hil', 'ftl', 'fil', 'handler', 'idle'])
+						
 	if log_time_data['hil'] > 0 and log_time_data['ftl'] > 0 and log_time_data['fil'] > 0 :
-		sw_time0 = log_time_data['hil']
-		sw_time1 = log_time_data['ftl']
-		sw_time2 = log_time_data['fil']
-		handler_time = log_time_data['model']
-		sw_time = sw_time0+sw_time1+sw_time2
-		print('sw time : %f(%f, %f, %f), handler time : %f'%(sw_time, sw_time0, sw_time1, sw_time2, handler_time))
-		print('sw time : %f %%(%f, %f, %f), handler time : %f %%'%(sw_time/total_time*100, sw_time0/sw_time*100, sw_time1/sw_time*100, sw_time2/sw_time*100, handler_time/total_time*100))
-		print('\n')
-																														
+		hil = log_time_data['hil']
+		ftl = log_time_data['ftl']
+		fil = log_time_data['fil']
+		handler = log_time_data['model']
+		sw = hil + ftl + fil
+		idle = total_time - handler - sw
+		
+		table.append(['time [sec]', str(hil), str(ftl), str(fil), str(handler), str(idle)])
+		table.append(['percent', str(hil/total_time*100), str(ftl/total_time*100), str(fil/total_time*100), str(handler/total_time*100), str(idle/total_time*100)])	
+		
+	return report_title, table																																																																																																																																																																																
 if __name__ == '__main__' :
 	print ('sim evaluation')
 		
