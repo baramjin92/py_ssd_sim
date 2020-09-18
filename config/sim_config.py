@@ -3,7 +3,8 @@
 import os
 import sys
 
-import pandas as pd
+# pd is required for open excel file. it is temporary disable for pypy
+#import pandas as pd
 
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
@@ -371,9 +372,10 @@ if __name__ == '__main__' :
 	nand1.print_type()
 	nand1.print_param()
 	
+	'''
 	# read excel file test
 	nand1.load_excel('nand_128gb_mlc.xlsx')
 	print('\n\nnand_128gb_mlc.xlsx configuration')
 	nand1.print_type(report_title = 'nand type[mlc]')
 	nand1.print_param(report_title = 'nand parameter[mlc]')
-																	
+	'''																

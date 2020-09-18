@@ -31,7 +31,7 @@ HOST_ZSA_OPEN = 3
 HOST_ZSA_RESET = 4
 
 # define number of queue
-NUM_HOST_QUEUE = 3
+NUM_HOST_QUEUE = 1
 
 # define queue depth of host command
 NUM_HOST_CMD_TABLE = 128			#32
@@ -54,7 +54,7 @@ NAND_MODE_QLC = 0x03
 # SSD controller parameter
 # HIC (host interface controller)
 # define queue depth of host command (it is same with NUM_HOST_CMD_TABLE, however it is changed by HIC architecture)
-NUM_CMD_EXEC_TABLE = 128			#64
+NUM_CMD_EXEC_TABLE = 512	#128			#64
 
 # Global queue depth definition
 # ftl cmd queue communication between ftl and fil
