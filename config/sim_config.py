@@ -330,10 +330,10 @@ class nand_config :
 		
 	def get_param_value(self) :
 		interface_speed = ['interface speed [MHz]', self.nand_if]
-		t_xfer1 = ['nand_t_xfer(us/4KB)', int(self.nand_t_xfer/1000)]
+		t_xfer1 = ['nand_t_xfer[us/4KB]', int(self.nand_t_xfer/1000)]
 		
 		num_chunks = self.page_size / BYTES_PER_CHUNK * self.plane_num		
-		t_xfer2 = ['nand_t_xfer(us/multi-plane)', int(self.nand_t_xfer * num_chunks/1000)]
+		t_xfer2 = ['nand_t_xfer[us/multi-plane]', int(self.nand_t_xfer * num_chunks/1000)]
 				
 		t_cna_w = ['nand_t_cna_w [us]', self.nand_t_cna_w]
 		t_cna_r = ['nand_t_cna_r [us]', self.nand_t_cna_r]
@@ -351,8 +351,8 @@ class nand_config :
 		t_bers = ['nand_t_bers [ms]', int(self.nand_t_bers/1000000)]
 
 		nand_param = [interface_speed, t_xfer1, t_xfer2, t_cna_w, t_cna_r, t_cna_e, t_chk, t_read_f, t_read_h, t_read_slc, t_prog, t_prog_avg, t_prog_slc, t_bers]
-		return nand_param																																																																																																							
-		
+		return nand_param
+																										
 	@report_print																								
 	def print_type(self, report_title = 'nand type') :		
 		table = self.get_type_value()						

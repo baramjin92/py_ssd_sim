@@ -3,6 +3,8 @@
 import os
 import sys
 
+import tabulate
+
 ENABLE_RAMDISK_MODE = False
 ENABLE_NAND_EXERCISE_MODE = False
 ENABLE_BUFFER_CACHE = False
@@ -34,7 +36,7 @@ HOST_ZSA_RESET = 4
 NUM_HOST_QUEUE = 1
 
 # define queue depth of host command
-NUM_HOST_CMD_TABLE = 128			#32
+NUM_HOST_CMD_TABLE = 512	#128			#32
 
 # Nand
 # define command type
@@ -59,7 +61,7 @@ NUM_CMD_EXEC_TABLE = 512	#128			#64
 # Global queue depth definition
 # ftl cmd queue communication between ftl and fil
 # there are two priority queue
-FTL_CMD_QUEUE_DEPTH = 256
+FTL_CMD_QUEUE_DEPTH = 512
 
 # NFC (nand flash controller)
 # The nfc has channels, each channel can handle several dies of nand (using ce, lun adderss)
@@ -73,7 +75,7 @@ NUM_WAYS = (NUM_CHANNELS * WAYS_PER_CHANNELS)
 # BM (buffer managerment)
 #Write Buffer : 1M Byte, Read Buffer : 3M Byte
 SSD_WRITE_BUFFER_SIZE = 4 * 1024 * 1024
-SSD_READ_BUFFER_SIZE = 16 * 1024 * 1024
+SSD_READ_BUFFER_SIZE = 32 * 1024 * 1024
 SSD_BUFFER_SIZE = (SSD_WRITE_BUFFER_SIZE + SSD_READ_BUFFER_SIZE) 
 
 SSD_WRITE_BUFFER_NUM = int(SSD_WRITE_BUFFER_SIZE / BYTES_PER_CHUNK)
@@ -98,13 +100,24 @@ ZONE_NUM_WAYS = int(NUM_WAYS / 4)
 NUM_OPEN_ZONES = 3
 NUM_ZONES = int((NUM_LBA * BYTES_PER_SECTOR) / ZONE_SIZE)
 
-def ssd_info(report = None) :
-	print('ssd capacity : %d GB'%SSD_CAPACITY)
-#	print('ssd actual capacity : %d'%SSD_CAPACITY_ACTUAL)
-	print('num of lba (512 byte sector) : %d'%NUM_LBA)
-	print('num of logical chunk (4K unit) : %d'%(NUM_LBA/SECTORS_PER_CHUNK))	
+def default_setting_info() :
+	report_title = 'default parameter value'
+	
+	table = []
+	table.append(['Number of Host Queue', NUM_HOST_QUEUE])
+	table.append(['Number of Host Cmd Table', NUM_HOST_CMD_TABLE])
+	table.append(['Number of Cmd Execution Table', NUM_CMD_EXEC_TABLE])
+	table.append(['FTL Cmd Queue Depth', FTL_CMD_QUEUE_DEPTH])
+	table.append(['Number of Write Buffer', SSD_WRITE_BUFFER_NUM])
+	table.append(['Number of Read Buffer', SSD_READ_BUFFER_NUM])
+	table.append(['SSD Capacity', '%d GB'%SSD_CAPACITY])
+#	table.append(['SSD Actual Capacity', '%d GB'%SSD_CAPACITY_ACTUAL])
+	table.append(['Number of lba (512 byte sector)', NUM_LBA])
+	table.append(['Number of Chunk (4K unit)', int(NUM_LBA/SECTORS_PER_CHUNK)])	
+
+	print(report_title)
+	print(tabulate.tabulate(table))	
 
 if __name__ == '__main__' :
-	print('ssd param')
 	
-	ssd_info()												
+	default_setting_info()												
