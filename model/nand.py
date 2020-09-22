@@ -15,6 +15,8 @@ from sim_array import *
 
 from progress.bar import Bar
 
+USE_SMALL_MEMORY = True
+
 # define state
 NAND_STATE_IDLE = 0
 NAND_STATE_SENSE = 1
@@ -255,6 +257,8 @@ class nand_manager :
 		
 		#block_num = nand_info.main_block_num + nand_info.spare_block_num
 		block_num = nand_info.main_block_num
+		if USE_SMALL_MEMORY == True :
+			block_num = int(block_num / 2)
 		self.nand_ctx = []
 		for index in range(nand_num) :
 			self.nand_ctx.append(nand_context(index, block_num, nand_info))

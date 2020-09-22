@@ -13,7 +13,7 @@ from config.ssd_param import *
 from model.buffer import *
 from model.buffer_cache import *
 from model.queue import *
-from model.pcie_if import *
+from model.host_if import *
 
 from sim_event import *
 
@@ -368,6 +368,8 @@ class hic_statistics :
 				
 if __name__ == '__main__' :
 	print ('module hic(host interface controller)')
+
+	host_if.info()
 
 	hic = hic_manager(NUM_CMD_EXEC_TABLE)		
 		

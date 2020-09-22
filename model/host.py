@@ -18,7 +18,7 @@ from model.vcd_ssd import *
 
 from model.zone import *
 from model.workload import *
-from model.pcie_if import *
+from model.host_if import *
 
 # LBA is Logical Block Address 
 # LCA is Logical Chunk Address (LSA is Logical Slice Address, it is same meaning)
@@ -250,7 +250,7 @@ class host_manager :
 		cur_lba = host_cmd.lba + host_cmd.num_sectors_completed
 		self.generate_write_data(queue_id, cur_lba, self.tx_count)
 
-		num_sectors = min(WDATA_PACKET_SIZE, self.tx_count)
+		num_sectors = min_packet_size(self.tx_count)
 
 		# calcultae transfer time by number of sectors (transfer size)
 		num_packets, transfer_time = calculate_xfer_time(num_sectors)										
@@ -286,7 +286,7 @@ class host_manager :
 				
 		self.tx_count = self.tx_count - num_sectors_sent
 		if self.tx_count > 0 :
-			num_sectors = min(WDATA_PACKET_SIZE, self.tx_count)
+			num_sectors = min_packet_size(self.tx_count)
 
 			# calcultae transfer time by number of sectors (transfer size)
 			num_packets, transfer_time = calculate_xfer_time(num_sectors)										
@@ -626,9 +626,7 @@ class host_statistics :
 if __name__ == '__main__' :
 	print ('module host main')			
 	
-	# host info is defined in pcie_if.py
-	# host main module use it temporay
-	host_info()								
+	host_if.info()								
 	
 	host_model = host_manager(NUM_HOST_CMD_TABLE, NUM_HOST_QUEUE, [NUM_LBA])
 	
