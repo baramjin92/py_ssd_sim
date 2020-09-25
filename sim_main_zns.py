@@ -58,10 +58,10 @@ def check_progress() :
 	return progress+1
 
 def build_workload_zns() :
-	wlm.set_capacity(range_16GB)
+	wlm.set_capacity('16GiB')
 		
-	wlm.set_workload(workload(WL_ZNS_WRITE, 0, range_16GB, 128, 128, 256, WL_SIZE_MB, 0, True, False))
-	wlm.set_workload(workload(WL_ZNS_READ, 0, range_16GB, 128, 128, 128, WL_SIZE_MB, 0, True, False))
+	wlm.set_workload(workload(WL_ZNS_WRITE, 0, '16GiB', 128, 128, '256MiB', WL_TYPE_SIZE, 0, True, False))
+	wlm.set_workload(workload(WL_ZNS_READ, 0, '16GiB', 128, 128, '128MiB', WL_TYPE_SIZE, 0, True, False))
 		
 def host_run() :
 	node = event_mgr.alloc_new_event(0)

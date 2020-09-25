@@ -58,41 +58,43 @@ def check_progress() :
 	return progress+1
 
 def build_workload_gc() :
-	wlm.set_capacity(range_16GB)
+	wlm.set_capacity('16GiB')
 	
 	if NUM_HOST_QUEUE >= 2 :
 		wlm.add_group(NUM_HOST_QUEUE - 1)
 	
-	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16MB, 128, 128, 16, WL_SIZE_MB, 0, True))
-	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16MB, 128, 128, 16, WL_SIZE_MB, 100, True))
-	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16MB, 32, 32, 8, WL_SIZE_MB, 100, True))
-
-	wlm.set_workload(workload(WL_RAND_WRITE, 0, range_16MB, 128, 128, 16, WL_SIZE_MB, 0, True), 1)
-	wlm.set_workload(workload(WL_RAND_WRITE, 0, range_16MB, 128, 128, 32, WL_SIZE_MB, 0, True, True), 1)
-	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16GB, 32, 32, 8, WL_SIZE_MB, 0, True, True), 1)
-	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16GB, 32, 32, 8, WL_SIZE_MB, 100, True), 1)
+	wlm.set_workload(workload(WL_SEQ_WRITE, 0, '16MiB', 128, 128, '16MiB', WL_TYPE_SIZE, 0, True, False))
+	wlm.set_workload(workload(WL_SEQ_READ, 0, '16MiB', 128, 128, '16MiB', WL_TYPE_SIZE, 100, True, False))
+	wlm.set_workload(workload(WL_SEQ_READ, 0, '16MiB', 32, 32, '8MiB', WL_TYPE_SIZE, 100, True, False))	
 		
-	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16MB, 8, 8, 16, WL_SIZE_MB, 0, True), 2)
-	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16MB, 64, 64, 32, WL_SIZE_MB, 100, True), 2)
+	wlm.set_workload(workload(WL_RAND_WRITE, 0, '16MiB', 128, 128, '16MiB', WL_TYPE_SIZE, 0, True, False), 1)
+	wlm.set_workload(workload(WL_RAND_WRITE, 0, '16MiB', 128, 128, '32MiB', WL_TYPE_SIZE, 0, True, True), 1)
+	wlm.set_workload(workload(WL_SEQ_WRITE, 0, '16GiB', 32, 32, '8MiB', WL_TYPE_SIZE, 0, True, True), 1)
+	wlm.set_workload(workload(WL_SEQ_READ, 0, '16GiB', 32, 32, '8MiB', WL_TYPE_SIZE, 100, True, True), 1)
+	
+	wlm.set_workload(workload(WL_SEQ_WRITE, 0, '16MiB', 8, 8, '16MiB', WL_TYPE_SIZE, 0, True, False), 2)
+	wlm.set_workload(workload(WL_SEQ_READ, 0, '16MiB', 64, 64, '32MiB', WL_TYPE_SIZE, 100, True, False), 2)
+
 
 def build_workload_multiqueue() :
-	wlm.set_capacity(range_16GB)
+	wlm.set_capacity('16GiB')
 	
 	if NUM_HOST_QUEUE >= 2 :
 		wlm.add_group(NUM_HOST_QUEUE - 1)
 	
-	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16MB, 128, 128, 16, WL_SIZE_MB, 0, True))
-	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16MB, 128, 128, 16, WL_SIZE_MB, 100, True))
-	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16MB, 32, 32, 8, WL_SIZE_MB, 100, True))
+	wlm.set_workload(workload(WL_SEQ_WRITE, 0, '16MiB', 128, 128, '16MiB', WL_TYPE_SIZE, 0, True))
+	wlm.set_workload(workload(WL_SEQ_READ, 0, '16MiB', 128, 128, '16MiB', WL_TYPE_SIZE, 100, True))
+	wlm.set_workload(workload(WL_SEQ_READ, 0, '16MiB', 32, 32, '8MiB', WL_TYPE_SIZE, 100, True))
 
-	wlm.set_workload(workload(WL_RAND_WRITE, 0, range_16MB, 128, 128, 16, WL_SIZE_MB, 0, True), 1)
-	wlm.set_workload(workload(WL_RAND_WRITE, 0, range_16MB, 128, 128, 32, WL_SIZE_MB, 0, True), 1)
-	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16GB, 32, 32, 8, WL_SIZE_MB, 0, True, True), 1)
-	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16GB, 32, 32, 8, WL_SIZE_MB, 100, True), 1)
+	wlm.set_workload(workload(WL_RAND_WRITE, 0, '16MiB', 128, 128, '16MiB', WL_TYPE_SIZE, 0, True), 1)
+	wlm.set_workload(workload(WL_RAND_WRITE, 0, '16MiB', 128, 128, '32MiB', WL_TYPE_SIZE, 100, True), 1)
+	wlm.set_workload(workload(WL_SEQ_WRITE, 0, '16GiB', 32, 32, '8MiB', WL_TYPE_SIZE, 0, True), 1)
+	wlm.set_workload(workload(WL_SEQ_READ, 0, '16GiB', 32, 32, '8MiB', WL_TYPE_SIZE, 100, True), 1)
 		
-	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16MB, 8, 8, 16, WL_SIZE_MB, 0, True), 2)
-	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16MB, 64, 64, 32, WL_SIZE_MB, 100, True), 2)
+	wlm.set_workload(workload(WL_SEQ_WRITE, 0, '16MiB', 8, 8, '16MiB', WL_TYPE_SIZE, 0, True), 2)
+	wlm.set_workload(workload(WL_SEQ_READ, 0, '16MiB', 64, 64, '32MiB', WL_TYPE_SIZE, 100, True), 2)
 		
+						
 def host_run() :
 	node = event_mgr.alloc_new_event(0)
 	node.dest = event_dst.MODEL_HOST
