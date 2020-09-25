@@ -3,6 +3,8 @@
 import os
 import sys
 
+import csv
+
 # pd is required for open excel file. it is temporary disable for pypy
 #import pandas as pd
 
@@ -200,53 +202,24 @@ nand_512gb_g5 = {
 
 class nand_config :
 	def __init__(self, nand_param) :
-		# nand basic information
-		self.bits_per_cell = nand_param['bits_per_cell']
-		self.size = nand_param['size'] 								# Gb
-		self.page_size = nand_param['page_size']					# byte
-		self.spare_size = nand_param['spare_size']					# byte
-		self.page_num = nand_param['page_num']
-		self.plane_num = nand_param['plane_num']
-		self.main_block_num = nand_param['main_block_num']
-		self.add_block_num = nand_param['add_block_num']
-		self.ext_block_num = nand_param['ext_block_num']
-		self.spare_block_num = self.add_block_num + self.ext_block_num
-		
-		self.MBB = nand_param['MBB']
-		self.GBB = nand_param['GBB']
-		self.BBR = self.MBB + self.GBB
-		
-		# nand ac paramter (size unit is byte, time unit is ns)			
-		# size
-		self.extra_data_size = nand_param['extra_data_size']
-		self.crc_size = nand_param['crc_size']
-		self.ecc_size = nand_param['ecc_size']
-
-		# NAND IF
-		self.nand_if = nand_param['nand_if']			
-		# change value by calculation when nand if is 400MHz (2.5ns/byte) # (5/2) *(BYTES_PER_CHUNK + EXT_DATA_SIZE + ECC_SIZE + CRC_SIZE)  + 500
-		self.nand_t_xfer = (1/self.nand_if*1000) * (BYTES_PER_CHUNK + self.extra_data_size + self.ecc_size + self.crc_size) + 500
-				
-		# time (ns)
-		self.nand_t_cna_w = nand_param['nand_t_cna_w']	# tADL 300ns tcDQSH 100ns tWB 100ns 
-		self.nand_t_cna_r = nand_param['nand_t_cna_r']
-		self.nand_t_cna_e = nand_param['nand_t_cna_e']
-		self.nand_t_chk = nand_param['nand_t_chk']		# tCS 20ns tWHR 120ns tRPRE 15ns
-						
-		self.nand_t_read_lsb = nand_param['nand_t_read_lsb']
-		self.nand_t_read_msb = nand_param['nand_t_read_msb']
-		self.nand_t_read_full = nand_param['nand_t_read_full']
-		self.nand_t_read_half = nand_param['nand_t_read_half']
-		self.nand_t_read_slc = nand_param['nand_t_read_slc']
-		self.nand_t_prog_lsb = nand_param['nand_t_prog_lsb']
-		self.nand_t_prog_msb = nand_param['nand_t_prog_msb']
-		if self.bits_per_cell == 2 :
-			self.nand_t_prog = (self.nand_t_prog_lsb + self.nand_t_prog_msb)
+		if nand_param == None :
+			print('use default nand information')
+			self.set_data(nand_256gb_mlc)
 		else :
-			self.nand_t_prog = nand_param['nand_t_prog']
-		self.nand_t_prog_avg = int(self.nand_t_prog / self.bits_per_cell)
-		self.nand_t_prog_slc = nand_param['nand_t_prog_slc']
-		self.nand_t_bers = nand_param['nand_t_bers']
+			self.set_data(nand_param)
+												
+	def load_csv(self, filename) :
+		fp = open(filename, 'r')
+		rows = csv.reader(fp)
+		
+		nand_param = {}
+		for row in rows :
+			if row[0] != '' :
+				nand_param[row[0]] = row[1]									
+																																							
+		fp.close()
+		
+		self.set_data(nand_param)																																		
 										
 	def load_excel(self, filename) :
 		data = pd.read_excel(filename)
@@ -258,7 +231,10 @@ class nand_config :
 		#print(data.index)																									
 
 		nand_param = data.loc
+		self.set_data(nand_param)
 		
+	def set_data(self, nand_param) :
+		# nand basic information			
 		self.bits_per_cell = int(nand_param['bits_per_cell'])
 		self.size = int(nand_param['size']) 										# Gb
 		self.page_size = int(nand_param['page_size'])					# byte
@@ -330,10 +306,10 @@ class nand_config :
 		
 	def get_param_value(self) :
 		interface_speed = ['interface speed [MHz]', self.nand_if]
-		t_xfer1 = ['nand_t_xfer[us/4KB]', int(self.nand_t_xfer/1000)]
+		t_xfer1 = ['nand_t_xfer(us/4KB)', int(self.nand_t_xfer/1000)]
 		
 		num_chunks = self.page_size / BYTES_PER_CHUNK * self.plane_num		
-		t_xfer2 = ['nand_t_xfer[us/multi-plane]', int(self.nand_t_xfer * num_chunks/1000)]
+		t_xfer2 = ['nand_t_xfer(us/multi-plane)', int(self.nand_t_xfer * num_chunks/1000)]
 				
 		t_cna_w = ['nand_t_cna_w [us]', self.nand_t_cna_w]
 		t_cna_r = ['nand_t_cna_r [us]', self.nand_t_cna_r]
@@ -351,8 +327,8 @@ class nand_config :
 		t_bers = ['nand_t_bers [ms]', int(self.nand_t_bers/1000000)]
 
 		nand_param = [interface_speed, t_xfer1, t_xfer2, t_cna_w, t_cna_r, t_cna_e, t_chk, t_read_f, t_read_h, t_read_slc, t_prog, t_prog_avg, t_prog_slc, t_bers]
-		return nand_param
-																										
+		return nand_param																																																																																																							
+		
 	@report_print																								
 	def print_type(self, report_title = 'nand type') :		
 		table = self.get_type_value()						
@@ -372,10 +348,16 @@ if __name__ == '__main__' :
 	nand1.print_type()
 	nand1.print_param()
 	
+	# read csv file test
+	nand1.load_csv('nand_128gb_mlc.csv')
+	print('\n\nnand_128gb_mlc.csv configuration')
+	nand1.print_type(report_title = 'csv nand type[mlc]')
+	nand1.print_param(report_title = 'csv nand parameter[mlc]')	
+	
 	'''
 	# read excel file test
 	nand1.load_excel('nand_128gb_mlc.xlsx')
 	print('\n\nnand_128gb_mlc.xlsx configuration')
-	nand1.print_type(report_title = 'nand type[mlc]')
-	nand1.print_param(report_title = 'nand parameter[mlc]')
+	nand1.print_type(report_title = 'excel nand type[mlc]')
+	nand1.print_param(report_title = 'excel nand parameter[mlc]')
 	'''																
