@@ -11,6 +11,7 @@ from config.sim_config import unit
 from config.ssd_param import *
 
 from sim_event import *
+from sim_system import *
 from sim_array import *
 from sim_log import *
 
@@ -120,7 +121,8 @@ class host_manager :
 			# set submit time to calculate latency after ending command
 			submit_time = event_mgr.get_current_time()																																											
 			# set code, lba, number of sector by workload type
-			cmd_code, lba, sectors = wlm.generate_workload(submit_time, queue_id)
+			workload_mgr  = get_ctrl('workload')
+			cmd_code, lba, sectors = workload_mgr.generate_workload(submit_time, queue_id)
 	
 			# get free host cmd slot
 			if cmd_code != HOST_CMD_IDLE :

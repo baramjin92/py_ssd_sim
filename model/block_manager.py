@@ -4,6 +4,9 @@ import os
 import sys
 import random
 
+import csv
+import re
+
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
@@ -37,6 +40,7 @@ def print_log(func) :
 	return print_log
 
 cell_mode_name = { NAND_MODE_SLC : 'SLC', NAND_MODE_MLC : 'MLC', NAND_MODE_TLC : 'TLC', NAND_MODE_QLC : 'QLC' }
+cell_mode_conv = { 'NAND_MODE_SLC' : NAND_MODE_SLC, 'NAND_MODE_MLC' : NAND_MODE_MLC, 'NAND_MODE_TLC' : NAND_MODE_TLC, 'NAND_MODE_QLC' : NAND_MODE_QLC }
 
 FREE_BLOCKS_THRESHOLD_HIGH = 20
 FREE_BLOCKS_THRESHOLD_LOW = 10
@@ -276,9 +280,18 @@ class block_manager :
 								
 class block_group :								
 	def __init__(self) :
+		self.reset()
+
+	def reset(self) :
 		self.name = []
 		self.range = []
 		self.blk = []
+		self.num_way = 0
+		self.nand_info = None
+									
+	def set_physical_info(self, num_way, nand_info) :
+		self.num_way = num_way
+		self.nand_info = nand_info	
 		
 	def add(self,blk_name, blk_manager) :
 		blk_range = (blk_manager.start_block, blk_manager.end_block)
@@ -323,6 +336,47 @@ class block_group :
 				
 		return None		
 	
+	def load_csv(self, filename) :
+		if self.num_way == 0 :
+			print('error : need to set number of ways')
+			return
+		
+		fp = open(filename, 'r')
+		rows = csv.reader(fp)
+				
+		for row in rows :
+			if row[0].find('#') != 0 :
+				name = row[0]
+				
+				row[1] = row[1].strip()
+				if row[1].upper() == 'ALL' :
+					num_way = self.num_way
+				else :
+					num_way = int(row[1])
+
+				row[2] = row[2].strip()
+				if row[2].upper() == 'NONE' :
+					num_list = None
+				else :
+					# make list from input
+					ways= re.findall('\d', row[2])
+					num_list = []
+					for way in ways :
+						num_list.append(int(way))
+	
+				sblk_no = int(row[3])
+				eblk_no = int(row[4])
+				threshold_low = int(row[5])
+				threshold_high = int(row[6])
+				row[7] = row[7].upper()
+				row[7] = row[7].strip()
+				cell_mode = cell_mode_conv[row[7]]
+
+				#print(name, num_way, num_list, cell_mode)
+				self.add(name, block_manager(num_way, num_list, sblk_no, eblk_no, threshold_low, threshold_high, cell_mode, self.nand_info))
+																																																																									
+		fp.close()
+		
 	@report_print																																																																																														
 	def print_info(self, report_title = 'block group info') :		
 		table = self.blk[0].get_table(self.blk[0].get_label())				
@@ -551,5 +605,13 @@ if __name__ == '__main__' :
 	
 	#unit_test_conv_ssd()
 	unit_test_zns_ssd()
-	unit_test_sb()	
+	unit_test_sb()
+	
+	ftl_nand = ftl_nand_info(3, 8192*4, 256, 1024)
+
+	blk_grp.reset()
+	blk_grp.set_physical_info(8, ftl_nand)
+	blk_grp.load_csv('test_blk_config.csv')	
+	blk_grp.print_info()
+	
 																			

@@ -5,6 +5,9 @@ import sys
 import random
 import time
 
+import csv
+import re
+
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
@@ -28,20 +31,21 @@ WL_RAND_RW = 4
 WL_ZNS_WRITE = 7
 WL_ZNS_READ = 8
 
-WL_SIZE_MB = 1
-WL_SIZE_GB = 2
-WL_SIZE_SEC = 3
-WL_SIZE_COND = 4
-WL_SIZE_FOREVET = 5
+WL_TYPE_SIZE = 1
+WL_TYPE_TIME = 2
+WL_TYPE_COND = 3
+WL_TYPE_FOREVER = 4
 
-range_4MB = 4 * unit.scale_MiB / BYTES_PER_SECTOR
-range_16MB = 16 * unit.scale_MiB / BYTES_PER_SECTOR
-range_64MB = 64 * unit.scale_MiB / BYTES_PER_SECTOR
-range_256MB = 256 * unit.scale_MiB / BYTES_PER_SECTOR
-range_1GB = 1 * unit.scale_GiB / BYTES_PER_SECTOR
-range_16GB = 16 * unit.scale_GiB / BYTES_PER_SECTOR
+'''
+range_4MB = 4 * unit.scale_MiB
+range_16MB = 16 * unit.scale_MiB
+range_64MB = 64 * unit.scale_MiB
+range_256MB = 256 * unit.scale_MiB
+range_1GB = 1 * unit.scale_GiB
+range_16GB = 16 * unit.scale_GiB
+'''
 
-wl_type = {
+wl_type_str = {
 	WL_SEQ_READ : 'Sequential Read',
 	WL_SEQ_WRITE : 'Sequential Write',
 	WL_RAND_READ : 'Random Read',
@@ -53,17 +57,72 @@ wl_type = {
 	WL_ZNS_READ : 'ZNS Read'
 }		
 		
-amount_type = {
-	WL_SIZE_MB : 'MB',
-	WL_SIZE_GB : 'GB',
-	WL_SIZE_SEC : 'sec',
-	WL_SIZE_COND : 'continuous',
-	WL_SIZE_FOREVET : 'forever'
+wl_type_conv = {
+	'WL_SEQ_READ' : WL_SEQ_READ,
+	'WL_SEQ_WRITE' : WL_SEQ_WRITE,
+	'WL_RAND_READ' : WL_RAND_READ,
+	'WL_RAND_WRITE' : WL_RAND_WRITE,
+	'WL_RAND_RW' : WL_RAND_RW,
+	#'WL_JEDEC_ENTERPRISE' : WL_JEDEC_ENTERPRISE,
+	#'WL_JEDEC_CLIENT' : WL_JEDEC_CLIENT,
+	'WL_ZNS_WRITE' : WL_ZNS_WRITE,
+	'WL_ZNS_READ' : WL_ZNS_READ
+}		
+		
+amount_type_str = {
+	WL_TYPE_SIZE : 'capacity',
+	WL_TYPE_TIME : 'time',
+	WL_TYPE_COND : 'continuous',
+	WL_TYPE_FOREVER : 'forever'
 }
 
 def log_print(message) :
 	print('[workload] ' + message)	
-			
+
+size_units = {
+	'TB' : 1000*1000*1000*1000,
+	'GB' : 1000*1000*1000,
+	'MB' : 1000*1000,
+	'KB' : 1000,
+	'TIB' : 1024*1024*1024*1024,
+	'GIB' : 1024*1024*1024,
+	'MIB' : 1024*1024,
+	'KIB' : 1024,				
+}		
+
+time_units = {
+	'SEC' : 1,
+	'MIN' : 60,
+	'HOUR' : 60*60,
+}		
+									
+def convert_size(value_str) :
+	value_str = value_str.upper()
+
+	for unit in size_units :	
+		if value_str.find(unit) != -1 :
+			scale = size_units[unit]
+			break 
+		
+	value = int(re.findall('\d+', value_str)[0])
+	value = value * scale
+	
+	return value 		  			
+
+def convert_time(value_str) :
+	value_str = value_str.upper()
+	
+	scale = 0
+	for unit in time_units :	
+		if value_str.find(unit) != -1 :
+			scale = time_units[unit]
+			break 
+	
+	value = int(re.findall('\d+', value_str)[0])
+	value = value * scale
+	
+	return value 		  			
+									
 class workload :
 	def __init__(self, type, lba, range, kb_min, kb_max, amount, amount_type, read_ratio, align, gc = False) :
 		
@@ -71,7 +130,7 @@ class workload :
 		# starting LBA of test range
 		self.lba_base = lba				
 		# size of test range	
-		self.range = range
+		self.range = convert_size(range) / BYTES_PER_SECTOR 
 		# minimum size of command					
 		self.kb_min = kb_min
 		# maximum size of command in conventional ssd or size of zone in zns 			
@@ -87,15 +146,12 @@ class workload :
 		self.amount = amount
 		self.amount_type = amount_type				
 
-		if amount_type == WL_SIZE_MB :
-			self.amount_size = amount * unit.scale_MiB / unit.scale_KiB
+		if amount_type == WL_TYPE_SIZE :
+			self.amount_size = int(convert_size(self.amount) / unit.scale_KiB)
 			self.amount_time = 0
-		elif amount_type == WL_SIZE_GB :
-			self.amount_size = amount * unit.scale_GiB / unit.scale_KiB
-			self.amount_time = 0
-		elif amount_type == WL_SIZE_SEC :
+		elif amount_type == WL_TYPE_TIME :
 			self.amount_size = 0
-			self.amount_time = amount		
+			self.amount_time = convert_time(self.amount)	
 																		
 		self.cur_code = 0
 		self.cur_lba = self.lba_base
@@ -119,19 +175,19 @@ class workload :
 				
 	def check_workload_done(self, submit_time) :
 		# check end of workload by size 
-		if self.amount_type == WL_SIZE_MB or self.amount_type == WL_SIZE_GB :
+		if self.amount_type == WL_TYPE_SIZE :
 			self.progress = int(self.cur_amount_count / self.amount_size * 100) 
 			#print('%d %d %d'%(self.cur_amount_count, self.amount_size, self.progress_size))
 			if self.cur_amount_count >= self.amount_size :
 		 		self.progress = 99
 		 		self.workload_done = True
 		 	
-		 # check end of workload by time
+		# check end of workload by time
 		elapsed_time = submit_time - self.previous_time
-		self.previous_Time = submit_time
+		self.previous_time = submit_time
 		 		 
 		self.run_time = self.run_time + elapsed_time
-		if self.amount_type == WL_SIZE_SEC :
+		if self.amount_type == WL_TYPE_TIME :
 			self.progress = int(self.run_time / self.amount_time * 100)				
 			if self.run_time >= self.amount_time :
 				self.progress_time = 100
@@ -279,12 +335,15 @@ class workload_group() :
 class workload_manager() :
 	def __init__(self, capacity = 0) : 
 		self.ssd_capacity = capacity
+		self.reset()
+			
+	def reset(self) :
 		self.group = []
 		self.group.append(workload_group())
 		self.group_active = 1			# default group 0 is always active
-								
+															
 	def set_capacity(self, capacity) :	
-		self.ssd_capacity = capacity
+		self.ssd_capacity = convert_size(capacity)
 		
 	def add_group(self, group_num = 1) :
 		for index in range(group_num) :
@@ -335,6 +394,36 @@ class workload_manager() :
 		else :
 			return HOST_CMD_IDLE, 0, 0
 
+	def load_csv(self, filename) :
+		fp = open(filename, 'r')
+		rows = csv.reader(fp)
+				
+		wlm.reset()
+		for row in rows :
+			if row[0].find('#') != 0 :
+				group = int(row[0])
+				row[1] = row[1].strip()
+				type = wl_type_conv[row[1]]
+				slba = int(row[2])
+				range = row[3]
+				min_kb = int(convert_size(row[4]) / unit.scale_KiB)
+				max_kb = int(convert_size(row[5]) / unit.scale_KiB)
+				total_size = row[6]
+				read_ratio = int(re.findall('\d+', row[7])[0])
+				row[8] = row[8].strip()
+				if row[8].upper() == 'TRUE' :
+					align = True
+				else :
+					align = False
+				
+				if group >= self.get_group_num() : 
+					wlm.add_group(group - self.get_group_num() + 1)
+				
+				wl = workload(type, slba, range, min_kb, max_kb, total_size, WL_TYPE_SIZE, read_ratio, align, False)
+				wlm.set_workload(wl, group)
+																																																																																		
+		fp.close()
+				
 	def get_info(self) :
 		workload_index = []
 		workload_num = []
@@ -381,7 +470,7 @@ class workload_manager() :
 			return ['type', 'start zone', 'end zone', 'min kb', 'max kb', 'total size', 'unit', 'read ratio', 'align', 'force gc']
 
 	def get_value(self, workload, table) :
-			table[0].append(wl_type[workload.workload_type])
+			table[0].append(wl_type_str[workload.workload_type])
 			if workload.workload_type == WL_ZNS_WRITE or workload.workload_type == WL_ZNS_READ :
 				table[1].append(workload.zone_start)
 				table[2].append(workload.zone_end)
@@ -391,7 +480,7 @@ class workload_manager() :
 			table[3].append(workload.kb_min)
 			table[4].append(workload.kb_max)
 			table[5].append(workload.amount)
-			table[6].append(amount_type[workload.amount_type])
+			table[6].append(amount_type_str[workload.amount_type])
 			table[7].append(workload.read_ratio)
 			table[8].append(workload.align)
 			table[9].append(workload.gc)
@@ -455,14 +544,14 @@ class workload_manager() :
 wlm = workload_manager()
 
 def unit_test() :																																						
-	wlm.set_capacity(range_16GB)
+	wlm.set_capacity('16GiB')
 	wlm.add_group(2)
-	wlm.set_workload(workload(WL_SEQ_WRITE, 0, range_16GB, 128, 128, 16, WL_SIZE_GB, 0, True))
-	wlm.set_workload(workload(WL_SEQ_READ, 0, range_16GB, 128, 128, 16, WL_SIZE_GB, 0, True))
-	wlm.set_workload(workload(WL_RAND_WRITE, 0, range_16GB, 4, 4, 60, WL_SIZE_SEC, 0, True), 1)
-	wlm.set_workload(workload(WL_RAND_READ, 0, range_16GB, 4, 4, 60, WL_SIZE_SEC, 0, True), 1)
-	wlm.set_workload(workload(WL_ZNS_WRITE, 0, range_16GB, 128, 128, 16, WL_SIZE_GB, 0, True), 2)
-	wlm.set_workload(workload(WL_ZNS_READ, 0, range_16GB, 128, 128, 16, WL_SIZE_GB, 0, True), 2)
+	wlm.set_workload(workload(WL_SEQ_WRITE, 0, '16GiB', 128, 128, '16GiB', WL_TYPE_SIZE, 0, True))
+	wlm.set_workload(workload(WL_SEQ_READ, 0, '16GiB', 128, 128, '16GiB', WL_TYPE_SIZE, 100, True))
+	wlm.set_workload(workload(WL_RAND_WRITE, 0, '16GiB', 4, 4, '60sec', WL_TYPE_TIME, 0, True), 1)
+	wlm.set_workload(workload(WL_RAND_READ, 0, '16GiB', 4, 4, '60sec', WL_TYPE_TIME, 100, True), 1)
+	wlm.set_workload(workload(WL_ZNS_WRITE, 0, '16GiB', 128, 128, '16GiB', WL_TYPE_SIZE, 0, True), 2)
+	wlm.set_workload(workload(WL_ZNS_READ, 0, '16GiB', 128, 128, '16GiB', WL_TYPE_SIZE, 100, True), 2)
 
 	wlm.print_all()
 
@@ -499,9 +588,20 @@ def unit_test() :
 if __name__ == '__main__' :
 	print ('module workload main')			
 
+	print(convert_size('4 GiB'))
+	print(convert_size('8 MiB'))
+	print(convert_size('64 kiB'))
+
+	print(convert_time('4sec'))
+	print(convert_time('8 min'))
+	print(convert_time('6 hour'))
+
 	start_time = time.time()
 
 	unit_test()	
 	
 	print('\nrun time : %f'%(time.time()-start_time))
+		
+	wlm.load_csv('test_workload1.csv')
+	wlm.print_all()
 																			
