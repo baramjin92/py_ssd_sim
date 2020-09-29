@@ -5,6 +5,8 @@ import sys
 
 import tabulate
 
+import xml.etree.ElementTree as elemTree
+
 ENABLE_RAMDISK_MODE = False
 ENABLE_NAND_EXERCISE_MODE = False
 ENABLE_BUFFER_CACHE = False
@@ -71,6 +73,7 @@ FTL_CMD_QUEUE_DEPTH = 512
 NUM_CHANNELS = 8
 WAYS_PER_CHANNELS = 4
 NUM_WAYS = (NUM_CHANNELS * WAYS_PER_CHANNELS) 
+NAND_MODEL = None
 
 # BM (buffer managerment)
 #Write Buffer : 1M Byte, Read Buffer : 3M Byte
@@ -100,11 +103,30 @@ ZONE_NUM_WAYS = int(NUM_WAYS / 4)
 NUM_OPEN_ZONES = 3
 NUM_ZONES = int((NUM_LBA * BYTES_PER_SECTOR) / ZONE_SIZE)
 
-def default_setting_info() :
-	report_title = 'default parameter value'
+def load_ssd_config_xml(filename) :
+	global NUM_HOST_QUEUE
+	global NUM_CHANNELS
+	global WAYS_PER_CHANNELS
+	global NUM_WAYS
+	global NAND_MODEL
 	
+	tree = elemTree.parse(filename)
+	ssd = tree.find('./ssd_configuration')
+
+	NUM_HOST_QUEUE = int(ssd.find('number_of_host_queue').text)
+	NUM_CHANNELS = int(ssd.find('channel').text)
+	WAYS_PER_CHANNELS = int(ssd.find('way_per_channel').text)
+	NUM_WAYS = (NUM_CHANNELS * WAYS_PER_CHANNELS) 
+
+	NAND_MODEL = ssd.find('nand').text							
+	
+def default_setting_info(report_title = 'default parameter value') :
 	table = []
 	table.append(['Number of Host Queue', NUM_HOST_QUEUE])
+	table.append(['Number of Nand Channel', NUM_CHANNELS])
+	table.append(['Number of Ways per Channel', WAYS_PER_CHANNELS])
+	table.append(['Number of All Ways', NUM_WAYS])	
+	table.append(['NAND Model', NAND_MODEL])	
 	table.append(['Number of Host Cmd Table', NUM_HOST_CMD_TABLE])
 	table.append(['Number of Cmd Execution Table', NUM_CMD_EXEC_TABLE])
 	table.append(['FTL Cmd Queue Depth', FTL_CMD_QUEUE_DEPTH])
@@ -120,4 +142,6 @@ def default_setting_info() :
 
 if __name__ == '__main__' :
 	
-	default_setting_info()												
+	default_setting_info()
+	load_ssd_config_xml('ssd_config.xml')
+	default_setting_info('xml parameter value')											

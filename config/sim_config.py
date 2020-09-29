@@ -4,9 +4,12 @@ import os
 import sys
 
 import csv
+import re
 
 # pd is required for open excel file. it is temporary disable for pypy
 #import pandas as pd
+
+import xml.etree.ElementTree as elemTree
 
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
@@ -23,6 +26,26 @@ class unit_context :
 		self.scale_GiB = 1024*1024*1024
 
 unit = unit_context()
+
+nand_time_units = {
+	'ms' : 1000*1000,
+	'us' : 1000,
+	'ns' : 1,	
+}		
+
+def convert_nand_time(value_str) :
+	value_str = value_str.lower()
+	
+	scale = 0
+	for unit in nand_time_units :	
+		if value_str.find(unit) != -1 :
+			scale = nand_time_units[unit]
+			break 
+	
+	value = int(re.findall('\d+', value_str)[0])
+	value = value * scale
+	
+	return value 		  			
 
 nand_256gb_mlc = {
 		'bits_per_cell' : 2,
@@ -62,8 +85,8 @@ nand_256gb_mlc = {
 		'nand_t_read_slc' : 30*1000,
 		'nand_t_prog_lsb' : 498*1000,
 		'nand_t_prog_msb' : 1691*1000,		
-		'nand_t_prog' : (498+169)*1000,
-		'nand_t_prog_avg' : (498+169)*1000/2,
+		'nand_t_prog' : (498+1691)*1000,
+		'nand_t_prog_avg' : (498+1691)*1000/2,
 		'nand_t_prog_slc' : 398*1000,
 		'nand_t_bers' : 6500*1000
 }
@@ -233,6 +256,14 @@ class nand_config :
 		nand_param = data.loc
 		self.set_data(nand_param)
 		
+	def load_xml(self, filename, name) :
+		tree = elemTree.parse(filename)
+		#nand = tree.find('./nand')
+		nand = tree.find('./nand[@name=\'%s\']'%name)
+		
+		print(nand.get('name'))		
+		self.set_data_from_xml(nand)
+		
 	def set_data(self, nand_param) :
 		# nand basic information			
 		self.bits_per_cell = int(nand_param['bits_per_cell'])
@@ -281,7 +312,56 @@ class nand_config :
 		self.nand_t_prog_avg = int(self.nand_t_prog / self.bits_per_cell)
 		self.nand_t_prog_slc = int(nand_param['nand_t_prog_slc'])
 		self.nand_t_bers = int(nand_param['nand_t_bers'])
-																														
+						
+	def set_data_from_xml(self, nand) :
+		# nand basic information			
+		self.bits_per_cell = int(nand.find('bits_per_cell').text)
+		self.size = int(nand.find('size').text)										# Gb
+		self.page_size = int(nand.find('page_size').text)					# byte
+		self.spare_size = int(nand.find('spare_size').text)				# byte
+		self.page_num = int(nand.find('page_num').text)
+		self.plane_num = int(nand.find('plane_num').text)
+		self.main_block_num = int(nand.find('main_block_num').text)
+		self.add_block_num = int(nand.find('add_block_num').text)
+		self.ext_block_num = int(nand.find('ext_block_num').text)
+		self.spare_block_num = self.add_block_num + self.ext_block_num
+		
+		self.MBB = float(nand.find('manufacture_badblock').text)
+		self.GBB = float(nand.find('grown_badblock').text)
+		self.BBR = self.MBB + self.GBB
+		
+		# nand ac paramter (size unit is byte, time unit is ns)			
+		# size
+		self.extra_data_size = int(nand.find('extra_data_size').text)
+		self.crc_size = int(nand.find('crc_size').text)
+		self.ecc_size = int(nand.find('ecc_size').text)
+
+		# NAND IF
+		self.nand_if = int(nand.find('nand_if').text)			
+		# change value by calculation when nand if is 400MHz (2.5ns/byte) # (5/2) *(BYTES_PER_CHUNK + EXT_DATA_SIZE + ECC_SIZE + CRC_SIZE)  + 500
+		self.nand_t_xfer = (1/self.nand_if*1000) * (BYTES_PER_CHUNK + self.extra_data_size + self.ecc_size + self.crc_size) + 500
+				
+		# time (ns)
+		self.nand_t_cna_w = convert_nand_time(nand.find('t_cna_w').text)
+		self.nand_t_cna_r = convert_nand_time(nand.find('t_cna_r').text)
+		self.nand_t_cna_e = convert_nand_time(nand.find('t_cna_e').text)
+		self.nand_t_chk = convert_nand_time(nand.find('t_chk').text)
+						
+		self.nand_t_read_lsb = convert_nand_time(nand.find('t_read_lsb').text)
+		self.nand_t_read_msb = convert_nand_time(nand.find('t_read_msb').text)
+		self.nand_t_read_full = convert_nand_time(nand.find('t_read_full').text)
+		self.nand_t_read_half = convert_nand_time(nand.find('t_read_half').text)
+		self.nand_t_read_slc = convert_nand_time(nand.find('t_read_slc').text)
+		self.nand_t_prog_lsb = convert_nand_time(nand.find('t_prog_lsb').text)
+		self.nand_t_prog_msb = convert_nand_time(nand.find('t_prog_msb').text)
+		if self.bits_per_cell == 2 :
+			self.nand_t_prog = (self.nand_t_prog_lsb + self.nand_t_prog_msb)
+		else :
+			self.nand_t_prog = convert_nand_time(nand.find('t_prog').text)
+		self.nand_t_prog_avg = int(self.nand_t_prog / self.bits_per_cell)
+		self.nand_t_prog_slc = convert_nand_time(nand.find('t_prog_slc').text)
+		self.nand_t_bers = convert_nand_time(nand.find('t_bers').text)
+																																																																																																											
 	def get_type_value(self) :
 		# calculate ssd information
 		small_block_size = self.page_size * self.page_num
@@ -360,4 +440,9 @@ if __name__ == '__main__' :
 	print('\n\nnand_128gb_mlc.xlsx configuration')
 	nand1.print_type(report_title = 'excel nand type[mlc]')
 	nand1.print_param(report_title = 'excel nand parameter[mlc]')
-	'''																
+	'''
+	
+	nand1.load_xml('nand_config.xml', '256gb_g3')		
+	nand1.print_type(report_title = 'xml nand type[mlc]')
+	nand1.print_param(report_title = 'xml nand parameter[mlc]')	
+															
