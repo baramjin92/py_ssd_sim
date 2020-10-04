@@ -168,8 +168,8 @@ class workload :
 		self.workload_done = False
 	
 		if type == WL_ZNS_WRITE or type == WL_ZNS_READ :
-			self.zone_start = int((self.lba_base * BYTES_PER_SECTOR) / ZONE_SIZE)
-			self.zone_end = int(((self.lba_base + self.range) * BYTES_PER_SECTOR - 1) / ZONE_SIZE)
+			self.zone_start = int((self.lba_base * BYTES_PER_SECTOR) / ssd_param.ZONE_SIZE)
+			self.zone_end = int(((self.lba_base + self.range) * BYTES_PER_SECTOR - 1) / ssd_param.ZONE_SIZE)
 
 			workload_zone.set_range(self.zone_start, self.zone_end)
 				

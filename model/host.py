@@ -630,7 +630,7 @@ if __name__ == '__main__' :
 	
 	host_if.info()								
 	
-	host_model = host_manager(NUM_HOST_CMD_TABLE, NUM_HOST_QUEUE, [NUM_LBA])
+	host_model = host_manager(NUM_HOST_CMD_TABLE, ssd_param.NUM_HOST_QUEUE, [NUM_LBA])
 	
 	queue_id = 0
 	host_model.generate_write_data(queue_id, 2048, 512)

@@ -797,7 +797,7 @@ if __name__ == '__main__' :
 	print ('module ftl (flash translation layer for iod)')
 	
 	ftl_nand = ftl_nand_info(3, 8192*4, 256, 1024)
-	meta.config(NUM_LBA, NUM_WAYS, ftl_nand)
+	meta.config(NUM_LBA, ssd_param.NUM_WAYS, ftl_nand)
 
 	namespace_mgr = namespace_manager(NUM_LBA, [10, 40, 50])
 			

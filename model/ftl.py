@@ -810,8 +810,8 @@ if __name__ == '__main__' :
 	print ('module ftl (flash translation layer)')
 
 	ftl_nand = ftl_nand_info(3, 8192*4, 256, 1024)
-	meta.config(NUM_LBA, NUM_WAYS, ftl_nand)
-	ftl = ftl_manager(NUM_WAYS)
+	meta.config(NUM_LBA, ssd_param.NUM_WAYS, ftl_nand)
+	ftl = ftl_manager(ssd_param.NUM_WAYS)
 		
 	print('ssd capacity : %d GB'%SSD_CAPACITY)
 #	print('ssd actual capacity : %d'%SSD_CAPACITY_ACTUAL)

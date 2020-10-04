@@ -108,7 +108,7 @@ class zone :
 		return len(self.open_zones)
 		
 	def get_zone_for_write(self) :
-		if len(self.open_zones) < NUM_OPEN_ZONES :
+		if len(self.open_zones) < ssd_param.NUM_OPEN_ZONES :
 			# open new zone and return it 
 			if self.zone_range != None :
 				range = self.zone_range
@@ -159,12 +159,12 @@ class zone :
 			zone = self.zones[index]
 			print('zone %d, slba : %d, elba : %d, write point : %d'%(index, zone.slba, zone.elba, zone.write_pointer))																															
 
-workload_zone = zone(ZONE_SIZE, NUM_ZONES)
+workload_zone = zone(ssd_param.ZONE_SIZE, ssd_param.NUM_ZONES)
 																																											
 if __name__ == '__main__' :
 	print ('module zone main')			
 	
-	zn = zone(ZONE_SIZE, NUM_ZONES)
+	zn = zone(ssd_param.ZONE_SIZE, ssd_param.NUM_ZONES)
 	
 	for index in range(100) :
 		zone, zone_state = zn.get_zone_for_write()
@@ -180,7 +180,7 @@ if __name__ == '__main__' :
 	for index in range(2) :
 		zone, zone_state = zn.get_zone_for_write()
 		
-		sectors = ZONE_SIZE / BYTES_PER_SECTOR - zone.write_pointer
+		sectors = ssd_param.ZONE_SIZE / BYTES_PER_SECTOR - zone.write_pointer
 		zone.update(sectors)
 		
 		if zone.state == ZONE_STATE_FULL :

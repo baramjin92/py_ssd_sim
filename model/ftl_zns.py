@@ -46,14 +46,14 @@ zone_state_name = {
 		ZONE_STATE_OFFLINE : 'offline' }
 
 class zone_desc :
-	def __init__(self, zone_no, slba = 0) :
+	def __init__(self, zone_no, zone_size, slba = 0) :
 		self.state = ZONE_STATE_EMPTY
 		self.no = zone_no
 		self.slba = slba
 		self.logical_blk = None
 		
 		self.write_pointer = 0
-		self.max_num_chunks = ZONE_SIZE / BYTES_PER_CHUNK
+		self.max_num_chunks = zone_size / BYTES_PER_CHUNK
 							
 		# write_cmd_queue try to gather write commands before programing data to nand
 		self.write_cmd_queue = queue(32)
@@ -135,11 +135,12 @@ class zone_desc :
 		return 'zone information', table
 			
 class zone_manager :
-	def __init__(self, num_zone, num_way, max_open_zone) :
+	def __init__(self, num_zone, num_way, max_open_zone, zone_size) :
 		self.num_zone = num_zone
 		self.num_way = num_way
 		self.num_open_zone = 0
 		self.max_open_zone = max_open_zone
+		self.zone_size = zone_size
 		self.table = []
 		
 		self.empty_list = []
@@ -149,7 +150,7 @@ class zone_manager :
 		self.open_index = -1
 		
 		for index in range(num_zone) :
-			self.table.append(zone_desc(index, 0))
+			self.table.append(zone_desc(index, self.zone_size, 0))
 			self.empty_list.append(index)
 
 	def set_num_way(self, num_way) :
@@ -159,7 +160,7 @@ class zone_manager :
 		return self.num_open_zone
 
 	def get_open_zone(self, lba) :
-		zone_no = int((lba * BYTES_PER_SECTOR) / ZONE_SIZE)
+		zone_no = int((lba * BYTES_PER_SECTOR) / self.zone_size)
 		
 		if zone_no in self.open_list :
 			zone =  self.table[zone_no]
@@ -169,7 +170,7 @@ class zone_manager :
 		return zone
 																														
 	def get(self, lba) :
-		zone_no = int((lba * BYTES_PER_SECTOR) / ZONE_SIZE)
+		zone_no = int((lba * BYTES_PER_SECTOR) / self.zone_size)
 		
 		if zone_no in self.open_list :
 			zone =  self.table[zone_no]
@@ -182,7 +183,7 @@ class zone_manager :
 		return zone
 	
 	def open(self, lba, state = ZONE_STATE_EOPEN) :
-		zone_no = int((lba * BYTES_PER_SECTOR) / ZONE_SIZE)
+		zone_no = int((lba * BYTES_PER_SECTOR) / self.zone_size)
 
 		print('open zone : %d, lba : %d, state :%d'%(zone_no, lba, state))
 
@@ -220,7 +221,7 @@ class zone_manager :
 		return None
 		
 	def close(self, lba) :			
-		zone_no = int((lba * BYTES_PER_SECTOR) / ZONE_SIZE)
+		zone_no = int((lba * BYTES_PER_SECTOR) / self.zone_size)
 	
 		if zone_no in self.open_list :
 			zone = self.table[zone_no]
@@ -706,22 +707,22 @@ class ftl_zns_statistics :
 	def print(self) :
 		print('zns statstics')
 
-zone_mgr = zone_manager(NUM_ZONES, NUM_WAYS, NUM_OPEN_ZONES)
+zone_mgr = zone_manager(ssd_param.NUM_ZONES, ssd_param.NUM_WAYS, ssd_param.NUM_OPEN_ZONES, ssd_param.ZONE_SIZE)
 												
 if __name__ == '__main__' :
 	print ('module ftl (flash translation layer of zns)')
 	
 	ftl_nand = ftl_nand_info(3, 8192*4, 256, 1024)
-	meta.config(NUM_LBA, NUM_WAYS, ftl_nand)	
-	ftl = ftl_zns_manager(NUM_WAYS)
+	meta.config(NUM_LBA, ssd_param.NUM_WAYS, ftl_nand)	
+	ftl = ftl_zns_manager(ssd_param.NUM_WAYS)
 			
 	print('ssd capacity : %d GB'%SSD_CAPACITY)
 #	print('ssd actual capacity : %d'%SSD_CAPACITY_ACTUAL)
 	print('num of lba (512 byte sector) : %d'%NUM_LBA)
 	print('num of logical chunk (4K unit) : %d'%(NUM_LBA/SECTORS_PER_CHUNK))	
 	
-	print('size of zone : %d MB'%(ZONE_SIZE / 1024 / 1024))
-	print('num of zone : %d'%NUM_ZONES)
+	print('size of zone : %d MB'%(ssd_param.ZONE_SIZE / 1024 / 1024))
+	print('num of zone : %d'%ssd_param.NUM_ZONES)
 
 	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, 1, 2, NAND_MODE_SLC, ftl_nand))
 	blk_grp.add('user', block_manager(NUM_WAYS, None, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, NAND_MODE_MLC, ftl_nand))

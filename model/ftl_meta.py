@@ -58,7 +58,7 @@ class ftl_meta :
 		self.PAGE_MASK = (0x01 << self.CHUNKS_PER_PAGE) - 1
 												
 		# valid chunk bitmap
-		self.size_of_bitmap = int(self.CHUNKS_PER_BLOCK / 32)
+		self.size_of_bitmap = int((self.CHUNKS_PER_BLOCK + 31)/32)
 
 		# valid chunk bitmap
 		self.valid_bitmap = make_3d_array(num_way, blocks_per_way, self.size_of_bitmap)
@@ -92,11 +92,15 @@ class ftl_meta :
 		bmp = self.valid_bitmap[way][block]
 		index = int(chunk / 32)
 		mask = 0x01 << int(chunk % 32)
-		bmp[index] = (bmp[index] | mask) & 0xFFFFFFFF		
-		self.valid_bitmap[way][block] = bmp
-
-		self.valid_count[way][block] = self.valid_count[way][block] + 1
-		self.valid_sum[block] = self.valid_sum[block] + 1
+		try :
+			bmp[index] = (bmp[index] | mask) & 0xFFFFFFFF
+			self.valid_bitmap[way][block] = bmp
+	
+			self.valid_count[way][block] = self.valid_count[way][block] + 1
+			self.valid_sum[block] = self.valid_sum[block] + 1
+	
+		except :
+			print('way : %d, block : %d, chunk : %d, index : %d'%(way, block, chunk, index))		
 
 	def clear_valid_bitmap(self, way, block, chunk) :
 		bmp = self.valid_bitmap[way][block]
@@ -219,7 +223,7 @@ if __name__ == '__main__' :
 	print ('module ftl (flash translation layer) common')
 	
 	ftl_nand = ftl_nand_info(3, 8192*4, 256, 1024)
-	meta.config(NUM_LBA, NUM_WAYS, ftl_nand)
+	meta.config(NUM_LBA, ssd_param.NUM_WAYS, ftl_nand)
 
 	print('.....test mapping table')
 	start_lba = 40

@@ -59,7 +59,7 @@ class cmd_queue_context :
 # in order to communicate with Host via PCIe(or SATA), it has rx and tx sub logic.
 # hic is controlled by hil/ftl/fil layer 																																				
 class hic_manager :
-	def __init__(self, cet_size, queue_num = NUM_HOST_QUEUE) :
+	def __init__(self, cet_size, queue_num) :
 
 		print('hic_manager - cet %d, queue %d'%(cet_size, queue_num))
 

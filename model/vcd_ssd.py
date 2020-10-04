@@ -141,15 +141,15 @@ def ssd_vcd_set_nfc_state(way, state, cell, io, wait) :
 @enable_vcd								
 def ssd_vcd_open(filename, num_channels, ways_per_channel) :				
 	vcd.open(filename)
-	ssd_vcd_init(NUM_CHANNELS, WAYS_PER_CHANNELS)
-	ssd_vcd_make(NUM_CHANNELS)
+	ssd_vcd_init(ssd_param.NUM_CHANNELS, ssd_param.WAYS_PER_CHANNELS)
+	ssd_vcd_make(ssd_param.NUM_CHANNELS)
 
 @enable_vcd
 def ssd_vcd_close() :
 	vcd.close()
 								
 if __name__ == '__main__' :
-	ssd_vcd_open('ssd.vcd', NUM_CHANNELS, WAYS_PER_CHANNELS)
+	ssd_vcd_open('ssd.vcd', ssd_param.NUM_CHANNELS, ssd_param.WAYS_PER_CHANNELS)
 	
 	event_mgr.timetick = 2000
 	ssd_vcd_set_integer(VCD_SYMBOL_HOST_QD, 2)
