@@ -109,18 +109,26 @@ def host_run() :
 																								
 if __name__ == '__main__' :
 	log.open(None, False)
-		
-	global NUM_HOST_QUEUE
-	#NUM_HOST_QUEUE = 3
+															
+	load_ssd_config_xml('./config/ssd_config.xml')
+	print_setting_info('xml parameter value')
 
-	global NUM_CHANNELS
-	global WAYS_PER_CHANNELS
-	global NUM_WAYS	
-				
-	NUM_CHANNELS = 8
-	WAYS_PER_CHANNELS = 1
-	NUM_WAYS = (NUM_CHANNELS * WAYS_PER_CHANNELS) 
-		
+	NUM_HOST_QUEUE = ssd_param.NUM_HOST_QUEUE
+	NUM_CHANNELS = ssd_param.NUM_CHANNELS
+	WAYS_PER_CHANNELS = ssd_param.WAYS_PER_CHANNELS
+	NUM_WAYS = ssd_param.NUM_WAYS 
+	
+	'''
+	# don't use xml configuration'
+	nand_info = nand_config(nand_256gb_g4)
+	'''
+	# use xml configuration
+	nand_info = nand_config(None)
+	#ssd_param.NAND_MODEL = '256gb_g4'
+	nand_info.load_xml('./config/nand_config.xml', ssd_param.NAND_MODEL)
+	nand_info.print_type(report_title = 'xml nand type[%s]'%ssd_param.NAND_MODEL)
+	nand_info.print_param(report_title = 'xml nand parameter[%s]'%ssd_param.NAND_MODEL)	
+																							
 	report = report_manager()
 	ssd_vcd_open('ssd.vcd', NUM_CHANNELS, WAYS_PER_CHANNELS)
 	
@@ -128,9 +136,6 @@ if __name__ == '__main__' :
 	host_model = host_manager(NUM_HOST_CMD_TABLE, NUM_HOST_QUEUE, [NUM_LBA])
 	hic_model = hic_manager(NUM_CMD_EXEC_TABLE * NUM_HOST_QUEUE, NUM_HOST_QUEUE)
 	
-	#nand_info = nand_config(nand_256gb_mlc)		
-	nand_info = nand_config(nand_256gb_g3)
-	#nand_info = nand_config(nand_512gb_g5)	
 	nand_model = nand_manager(NUM_WAYS, nand_info)
 	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS, nand_info)
 
@@ -157,7 +162,7 @@ if __name__ == '__main__' :
 	set_fw('fil', fil_module)
 
 	blk_grp.add('meta', block_manager(NUM_WAYS, None, 1, 9, 1, 3, NAND_MODE_SLC, ftl_nand))
-	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 39, 1, 3, NAND_MODE_TLC, ftl_nand))
+	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 39, 1, 3, NAND_MODE_SLC, ftl_nand))
 	blk_grp.add('user', block_manager(NUM_WAYS, None, 40, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, nand_mode, ftl_nand))
 
 	ftl_module.start()

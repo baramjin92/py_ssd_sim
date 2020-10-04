@@ -103,15 +103,16 @@ def host_run() :
 if __name__ == '__main__' :
 	log.open(None, False)
 	
-	global NUM_HOST_QUEUE
-	global NUM_CHANNELS
-	global WAYS_PER_CHANNELS
-	global NUM_WAYS
+	load_ssd_config_xml('./config/ssd_config.xml')
+	print_setting_info('xml parameter value')
+
+	NUM_HOST_QUEUE = ssd_param.NUM_HOST_QUEUE
+	NUM_CHANNELS = ssd_param.NUM_CHANNELS
+	WAYS_PER_CHANNELS = ssd_param.WAYS_PER_CHANNELS
+	NUM_WAYS = ssd_param.NUM_WAYS 
 	
-	NUM_HOST_QUEUE = 3		
-	NUM_CHANNELS = 8
-	WAYS_PER_CHANNELS = 1
-	NUM_WAYS = (NUM_CHANNELS * WAYS_PER_CHANNELS) 
+	NUM_HOST_QUEUE = 3
+	print('change number of host queue : %d'%NUM_HOST_QUEUE)		
 	
 	report = report_manager()
 	

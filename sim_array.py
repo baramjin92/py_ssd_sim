@@ -3,7 +3,7 @@
 import os
 import sys
 
-import numpy as np
+#import numpy as np
 
 ENABLE_NUMPY = False
 

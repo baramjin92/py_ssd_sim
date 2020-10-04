@@ -71,15 +71,13 @@ def host_run() :
 if __name__ == '__main__' :
 	log.open(None, False)
 						
-	global NUM_HOST_QUEUE
-	global NUM_CHANNELS
-	global WAYS_PER_CHANNELS
-	global NUM_WAYS	
-	
-	NUM_HOST_QUEUE = 3
-	NUM_CHANNELS = 8
-	WAYS_PER_CHANNELS = 1
-	NUM_WAYS = (NUM_CHANNELS * WAYS_PER_CHANNELS) 
+	load_ssd_config_xml('./config/ssd_config.xml')
+	print_setting_info('xml parameter value')
+
+	NUM_HOST_QUEUE = ssd_param.NUM_HOST_QUEUE
+	NUM_CHANNELS = ssd_param.NUM_CHANNELS
+	WAYS_PER_CHANNELS = ssd_param.WAYS_PER_CHANNELS
+	NUM_WAYS = ssd_param.NUM_WAYS 
 						
 	if NUM_HOST_QUEUE > 1 :					
 		print('NUM_HOST_QUEUE should be 1')					
@@ -89,7 +87,7 @@ if __name__ == '__main__' :
 	
 	print('initialize model')
 	host_model = host_manager(NUM_HOST_CMD_TABLE, NUM_HOST_QUEUE, [NUM_LBA])
-	hic_model = hic_manager(NUM_CMD_EXEC_TABLE * NUM_HOST_QUEUE)
+	hic_model = hic_manager(NUM_CMD_EXEC_TABLE * NUM_HOST_QUEUE, NUM_HOST_QUEUE)
 	
 	#nand_info = nand_config(nand_256gb_mlc)
 	nand_info = nand_config(nand_256gb_g3)	
@@ -109,8 +107,8 @@ if __name__ == '__main__' :
 	meta.config(NUM_LBA, NUM_WAYS, ftl_nand)
 												
 	print('initialize fw module')
-	#num_zone_way = NUM_WAYS
-	num_zone_way = ZONE_NUM_WAYS
+	#num_zone_way = ssd_param.NUM_WAYS
+	num_zone_way = ssd_param.ZONE_NUM_WAYS
 				
 	hil_module = hil_manager()
 	ftl_module = ftl_zns_manager(num_zone_way)
