@@ -47,7 +47,7 @@ def convert_nand_time(value_str) :
 	
 	return value 		  			
 
-nand_256gb_mlc = {
+nand_128gb_mlc = {
 		'bits_per_cell' : 2,
 		'size' : 128, 									# Gb
 		'page_size' : 16384,					# byte
@@ -227,7 +227,7 @@ class nand_config :
 	def __init__(self, nand_param) :
 		if nand_param == None :
 			print('use default nand information')
-			self.set_data(nand_256gb_mlc)
+			self.set_data(nand_128gb_mlc)
 		else :
 			self.set_data(nand_param)
 												

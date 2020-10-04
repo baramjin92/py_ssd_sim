@@ -34,9 +34,6 @@ HOST_ZSA_CLOSE = 1
 HOST_ZSA_OPEN = 3
 HOST_ZSA_RESET = 4
 
-# define number of queue
-NUM_HOST_QUEUE = 1
-
 # define queue depth of host command
 NUM_HOST_CMD_TABLE = 512	#128			#32
 
@@ -65,16 +62,6 @@ NUM_CMD_EXEC_TABLE = 512	#128			#64
 # there are two priority queue
 FTL_CMD_QUEUE_DEPTH = 512
 
-# NFC (nand flash controller)
-# The nfc has channels, each channel can handle several dies of nand (using ce, lun adderss)
-# way is same term with nand die
-# if we use 32 dies of nand and nfc has 8 channels, the number of ways is 32, ways per channel is 4
-# if channle is own by one way,  the other way can not use channel. (?)  
-NUM_CHANNELS = 8
-WAYS_PER_CHANNELS = 4
-NUM_WAYS = (NUM_CHANNELS * WAYS_PER_CHANNELS) 
-NAND_MODEL = None
-
 # BM (buffer managerment)
 #Write Buffer : 1M Byte, Read Buffer : 3M Byte
 SSD_WRITE_BUFFER_SIZE = 4 * 1024 * 1024
@@ -97,36 +84,48 @@ NUM_LBA = 97696368 + (1953504 * (SSD_CAPACITY - 50))
 # OP 7% capacity
 #SSD_CAPACITY_ACTUAL = SSD_CAPACITY * 1953125 / 2097152
 
-# ZNS definition
-ZONE_SIZE = 32 * 1024 * 1024
-ZONE_NUM_WAYS = int(NUM_WAYS / 4)
-NUM_OPEN_ZONES = 3
-NUM_ZONES = int((NUM_LBA * BYTES_PER_SECTOR) / ZONE_SIZE)
-
-def load_ssd_config_xml(filename) :
-	global NUM_HOST_QUEUE
-	global NUM_CHANNELS
-	global WAYS_PER_CHANNELS
-	global NUM_WAYS
-	global NAND_MODEL
+class ssd_param_desc :
+	def __init__(self) :
+		# define number of queue
+		self.NUM_HOST_QUEUE = 1
 	
+		# NFC (nand flash controller)
+		# The nfc has channels, each channel can handle several dies of nand (using ce, lun adderss)
+		# way is same term with nand die
+		# if we use 32 dies of nand and nfc has 8 channels, the number of ways is 32, ways per channel is 4
+		# if channle is own by one way,  the other way can not use channel. (?)	 
+		self.NUM_CHANNELS = 8
+		self.WAYS_PER_CHANNELS = 4
+		self.NUM_WAYS = (self.NUM_CHANNELS * self.WAYS_PER_CHANNELS) 
+		self.NAND_MODEL = None
+
+		# ZNS definition
+		self.ZONE_SIZE = 32 * 1024 * 1024
+		self.ZONE_NUM_WAYS = int(self.NUM_WAYS / 4)
+		self.NUM_OPEN_ZONES = 3
+		self.NUM_ZONES = int((NUM_LBA * BYTES_PER_SECTOR) / self.ZONE_SIZE)
+		
+ssd_param = ssd_param_desc() 		
+		
+def load_ssd_config_xml(filename) :	
 	tree = elemTree.parse(filename)
 	ssd = tree.find('./ssd_configuration')
 
-	NUM_HOST_QUEUE = int(ssd.find('number_of_host_queue').text)
-	NUM_CHANNELS = int(ssd.find('channel').text)
-	WAYS_PER_CHANNELS = int(ssd.find('way_per_channel').text)
-	NUM_WAYS = (NUM_CHANNELS * WAYS_PER_CHANNELS) 
+	ssd_param.NUM_HOST_QUEUE = int(ssd.find('number_of_host_queue').text)
+	ssd_param.NUM_CHANNELS = int(ssd.find('channel').text)
+	ssd_param.WAYS_PER_CHANNELS = int(ssd.find('way_per_channel').text)
+	ssd_param.NUM_WAYS = (ssd_param.NUM_CHANNELS * ssd_param.WAYS_PER_CHANNELS)
 
-	NAND_MODEL = ssd.find('nand').text							
-	
-def default_setting_info(report_title = 'default parameter value') :
+	ssd_param.NAND_MODEL = ssd.find('nand').text							
+			
+def print_setting_info(report_title = 'default parameter value') :
 	table = []
-	table.append(['Number of Host Queue', NUM_HOST_QUEUE])
-	table.append(['Number of Nand Channel', NUM_CHANNELS])
-	table.append(['Number of Ways per Channel', WAYS_PER_CHANNELS])
-	table.append(['Number of All Ways', NUM_WAYS])	
-	table.append(['NAND Model', NAND_MODEL])	
+
+	table.append(['Number of Host Queue', ssd_param.NUM_HOST_QUEUE])
+	table.append(['Number of Nand Channel', ssd_param.NUM_CHANNELS])
+	table.append(['Number of Ways per Channel', ssd_param.WAYS_PER_CHANNELS])
+	table.append(['Number of All Ways', ssd_param.NUM_WAYS])	
+	table.append(['NAND Model', ssd_param.NAND_MODEL])	
 	table.append(['Number of Host Cmd Table', NUM_HOST_CMD_TABLE])
 	table.append(['Number of Cmd Execution Table', NUM_CMD_EXEC_TABLE])
 	table.append(['FTL Cmd Queue Depth', FTL_CMD_QUEUE_DEPTH])
@@ -142,6 +141,6 @@ def default_setting_info(report_title = 'default parameter value') :
 
 if __name__ == '__main__' :
 	
-	default_setting_info()
+	print_setting_info()
 	load_ssd_config_xml('ssd_config.xml')
-	default_setting_info('xml parameter value')											
+	print_setting_info('xml parameter value')											
