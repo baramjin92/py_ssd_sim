@@ -7,6 +7,7 @@ import time
 
 import csv
 import re
+import xml.etree.ElementTree as elemTree
 
 # in order to import module from parent path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
@@ -35,15 +36,6 @@ WL_TYPE_SIZE = 1
 WL_TYPE_TIME = 2
 WL_TYPE_COND = 3
 WL_TYPE_FOREVER = 4
-
-'''
-range_4MB = 4 * unit.scale_MiB
-range_16MB = 16 * unit.scale_MiB
-range_64MB = 64 * unit.scale_MiB
-range_256MB = 256 * unit.scale_MiB
-range_1GB = 1 * unit.scale_GiB
-range_16GB = 16 * unit.scale_GiB
-'''
 
 wl_type_str = {
 	WL_SEQ_READ : 'Sequential Read',
@@ -74,6 +66,13 @@ amount_type_str = {
 	WL_TYPE_TIME : 'time',
 	WL_TYPE_COND : 'continuous',
 	WL_TYPE_FOREVER : 'forever'
+}
+
+amount_type_conv = {
+	'capacity' : WL_TYPE_SIZE,
+	'time' : WL_TYPE_TIME,
+	'continuous' : WL_TYPE_COND,
+	'forever' : WL_TYPE_FOREVER
 }
 
 def log_print(message) :
@@ -398,7 +397,7 @@ class workload_manager() :
 		fp = open(filename, 'r')
 		rows = csv.reader(fp)
 				
-		wlm.reset()
+		self.reset()
 		for row in rows :
 			if row[0].find('#') != 0 :
 				group = int(row[0])
@@ -417,13 +416,46 @@ class workload_manager() :
 					align = False
 				
 				if group >= self.get_group_num() : 
-					wlm.add_group(group - self.get_group_num() + 1)
+					self.add_group(group - self.get_group_num() + 1)
 				
 				wl = workload(type, slba, range, min_kb, max_kb, total_size, WL_TYPE_SIZE, read_ratio, align, False)
-				wlm.set_workload(wl, group)
+				self.set_workload(wl, group)
 																																																																																		
 		fp.close()
+
+	def load_xml(self, filename, name) :
+		tree = elemTree.parse(filename)
+		wl_grp = tree.find('./workload_grp[@name=\'%s\']'%name)
+		
+		self.reset()		
+		for node in wl_grp :
+			for child in node.iter('workload') :
+				group = int(child.find('group').text)
+				type = wl_type_conv[child.find('type').text]
+				slba = int(child.find('start_lba').text)
+				range = child.find('range').text
+				min_kb = int(convert_size(child.find('min_size').text) / unit.scale_KiB)
+				max_kb = int(convert_size(child.find('max_size').text) / unit.scale_KiB)
+				amount = child.find('amount').text
+				amount_type = amount_type_conv[child.find('amount_type').text]
+				read_ratio = int(child.find('read_ratio').text)
+				align = child.find('align').text
+				if align.upper() == 'TRUE' :
+					align = True
+				else :
+					align = False
 				
+				#wl = [group, type, slba, range, min_kb, max_kb, amount, amount_type, read_ratio, align]
+				#print(wl)
+				if group >= self.get_group_num() : 
+					self.add_group(group - self.get_group_num() + 1)
+								
+				wl = workload(type, slba, range, min_kb, max_kb, amount, amount_type, read_ratio, align, False)
+				self.set_workload(wl, group)
+																														
+	def set_data_from_xml(self, wl_grp) :
+		print('...')
+										
 	def get_info(self) :
 		workload_index = []
 		workload_num = []
@@ -603,5 +635,8 @@ if __name__ == '__main__' :
 	print('\nrun time : %f'%(time.time()-start_time))
 		
 	wlm.load_csv('test_workload1.csv')
+	wlm.print_all()
+	
+	wlm.load_xml('../config/workload.xml', 'normal')
 	wlm.print_all()
 																			

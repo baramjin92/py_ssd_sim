@@ -344,6 +344,7 @@ class block_group :
 		fp = open(filename, 'r')
 		rows = csv.reader(fp)
 				
+		blk_grp = []		
 		for row in rows :
 			if row[0].find('#') != 0 :
 				name = row[0]
@@ -372,11 +373,27 @@ class block_group :
 				row[7] = row[7].strip()
 				cell_mode = cell_mode_conv[row[7]]
 
-				#print(name, num_way, num_list, cell_mode)
-				self.add(name, block_manager(num_way, num_list, sblk_no, eblk_no, threshold_low, threshold_high, cell_mode, self.nand_info))
+				blk = [name, num_way, num_list, sblk_no, eblk_no, threshold_low, threshold_high, cell_mode]
+				blk_grp.append(blk)
 																																																																									
 		fp.close()
 		
+		#print(blk_grp)
+		self.set_from_list(blk_grp)
+		
+	def set_from_list(self, blk_grp) :
+		for blk in blk_grp :
+			if type(blk[1]) != int :
+				if blk[1].upper() == 'ALL' :
+					num_way = self.num_way
+			else :
+				num_way = blk[1]
+			
+			if type(blk[7]) == int : 
+				self.add(blk[0], block_manager(num_way, blk[2], blk[3], blk[4], blk[5], blk[6], blk[7], self.nand_info))
+			else :
+				self.add(blk[0], block_manager(num_way, blk[2], blk[3], blk[4], blk[5], blk[6], cell_mode_conv[blk[7]], self.nand_info))
+						
 	@report_print																																																																																														
 	def print_info(self, report_title = 'block group info') :		
 		table = self.blk[0].get_table(self.blk[0].get_label())				
