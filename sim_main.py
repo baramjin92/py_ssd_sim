@@ -125,9 +125,9 @@ if __name__ == '__main__' :
 	# use xml configuration
 	nand_info = nand_config(None)
 	#ssd_param.NAND_MODEL = '256gb_g4'
-	nand_info.load_xml('./config/nand_config.xml', ssd_param.NAND_MODEL)
-	nand_info.print_type(report_title = 'xml nand type[%s]'%ssd_param.NAND_MODEL)
-	nand_info.print_param(report_title = 'xml nand parameter[%s]'%ssd_param.NAND_MODEL)	
+	nand_info.load_xml('./config/nand_config.xml', ssd_param.NAND_MODEL[1])
+	nand_info.print_type(report_title = 'xml nand type[%s]'%ssd_param.NAND_MODEL[1])
+	nand_info.print_param(report_title = 'xml nand parameter[%s]'%ssd_param.NAND_MODEL[1])	
 																							
 	report = report_manager()
 	ssd_vcd_open('ssd.vcd', NUM_CHANNELS, WAYS_PER_CHANNELS)
@@ -161,16 +161,23 @@ if __name__ == '__main__' :
 	set_fw('ftl', ftl_module)
 	set_fw('fil', fil_module)
 
+	'''
 	blk_grp.add('meta', block_manager(NUM_WAYS, None, 1, 9, 1, 3, NAND_MODE_SLC, ftl_nand))
 	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 39, 1, 3, NAND_MODE_SLC, ftl_nand))
 	blk_grp.add('user', block_manager(NUM_WAYS, None, 40, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, nand_mode, ftl_nand))
-
+	'''
+	blk_grp.set_physical_info(NUM_WAYS, ftl_nand)
+	blk_grp.set_from_list(ssd_param.BLK_GRP_INFO)
+	
 	ftl_module.start()
 
 	print('initialize workload')
+	'''
 	build_workload_gc()
 	#build_workload_multiqueue()
 	#build_workload_zns()
+	'''
+	wlm.load_xml('./config/workload.xml', ssd_param.WORKLOAD_MODEL[1])
 
 	host_run()
 	
