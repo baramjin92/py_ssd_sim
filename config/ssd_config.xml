@@ -3,7 +3,10 @@
 		<number_of_host_queue>1</number_of_host_queue>
 		<channel>8</channel>
 		<way_per_channel>1</way_per_channel>
-		<nand>256gb_g3</nand>	
+		<nand>
+			<file>nand_config.xml</file>
+			<name>256gb_g3</name>
+		</nand>	
 		<blk_grp>
 			<blk_manager>
 				<name>meta</name>
@@ -20,7 +23,7 @@
 				<number_of_way>ALL</number_of_way>
 				<list_of_way>None</list_of_way>
 				<start_block_no>10</start_block_no>
-				<end_block_no>29</end_block_no>
+				<end_block_no>39</end_block_no>
 				<threshold_low>1</threshold_low>
 				<threshold_high>3</threshold_high>
 				<cell_mode>SLC</cell_mode>
@@ -29,12 +32,16 @@
 				<name>user</name>
 				<number_of_way>ALL</number_of_way>
 				<list_of_way>None</list_of_way>
-				<start_block_no>30</start_block_no>
+				<start_block_no>40</start_block_no>
 				<end_block_no>100</end_block_no>
 				<threshold_low>1</threshold_low>
 				<threshold_high>3</threshold_high>
 				<cell_mode>TLC</cell_mode>
 			</blk_manager>		
 		</blk_grp>
+		<workload>
+			<file>workload.xml</file>
+			<name>normal</name>
+		</workload>
 	</ssd_configuration>
 	</ssd>

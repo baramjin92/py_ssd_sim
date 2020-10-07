@@ -96,8 +96,16 @@ class ssd_param_desc :
 		# if channle is own by one way,  the other way can not use channel. (?)	 
 		self.NUM_CHANNELS = 8
 		self.WAYS_PER_CHANNELS = 4
-		self.NUM_WAYS = (self.NUM_CHANNELS * self.WAYS_PER_CHANNELS) 
+		self.NUM_WAYS = (self.NUM_CHANNELS * self.WAYS_PER_CHANNELS)
+		
+		 # NAND 
 		self.NAND_MODEL = None
+
+		# Workload
+		self.WORKLOAD_MODEL = None
+		
+		# BLK GROUP
+		self.BLK_GRP_INFO = []
 
 		# ZNS definition
 		self.ZONE_SIZE = 32 * 1024 * 1024
@@ -116,8 +124,37 @@ def load_ssd_config_xml(filename) :
 	ssd_param.WAYS_PER_CHANNELS = int(ssd.find('way_per_channel').text)
 	ssd_param.NUM_WAYS = (ssd_param.NUM_CHANNELS * ssd_param.WAYS_PER_CHANNELS)
 
-	ssd_param.NAND_MODEL = ssd.find('nand').text							
-			
+	blk_grp = []
+	for node in ssd :
+		if node.tag == 'nand' :
+			ssd_param.NAND_MODEL = [node.find('file').text, node.find('name').text]		
+		if node.tag == 'workload' :
+			ssd_param.WORKLOAD_MODEL = [node.find('file').text, node.find('name').text]		
+		if node.tag == 'blk_grp' :
+			for child in node.iter('blk_manager') :
+				name = child.find('name').text
+				num_way = child.find('number_of_way').text
+				if num_way.upper() == 'ALL' :
+					num_way = 'ALL'
+				else :
+					num_way = int(row[1])
+					
+				list_way = child.find('list_of_way').text
+				if list_way.upper() == 'NONE' :
+					list_way = None
+				else :
+					ways = list_way.split(',')
+					list_way = [int(way) for way in ways]
+				start_no = int(child.find('start_block_no').text)
+				end_no = int(child.find('end_block_no').text)
+				threshold_low = int(child.find('threshold_low').text)
+				threshold_high = int(child.find('threshold_high').text)
+				cell_mode = 'NAND_MODE_' + child.find('cell_mode').text
+				blk = [name, num_way, list_way, start_no, end_no, threshold_low, threshold_high, cell_mode]
+				blk_grp.append(blk)
+				
+	ssd_param.BLK_GRP_INFO = blk_grp
+																									
 def print_setting_info(report_title = 'default parameter value') :
 	table = []
 
@@ -135,7 +172,8 @@ def print_setting_info(report_title = 'default parameter value') :
 #	table.append(['SSD Actual Capacity', '%d GB'%SSD_CAPACITY_ACTUAL])
 	table.append(['Number of lba (512 byte sector)', NUM_LBA])
 	table.append(['Number of Chunk (4K unit)', int(NUM_LBA/SECTORS_PER_CHUNK)])	
-
+	table.append(['NAND Model', ssd_param.WORKLOAD_MODEL])
+	
 	print(report_title)
 	print(tabulate.tabulate(table))	
 
@@ -143,4 +181,6 @@ if __name__ == '__main__' :
 	
 	print_setting_info()
 	load_ssd_config_xml('ssd_config.xml')
-	print_setting_info('xml parameter value')											
+	print_setting_info('xml parameter value')
+	
+	print(ssd_param.BLK_GRP_INFO)																						
