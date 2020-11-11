@@ -113,7 +113,7 @@
 		<t_prog_slc>320us</t_prog_slc>
 		<t_bers>10ms</t_bers>
 	</nand>
-	<nand name = "256gb_g5">
+	<nand name = "512gb_g5">
 		<bits_per_cell>3</bits_per_cell>
 		<size>512</size>
 		<page_size>16384</page_size>
@@ -150,5 +150,81 @@
 		<t_prog_avg>550us</t_prog_avg>
 		<t_prog_slc>300us</t_prog_slc>
 		<t_bers>10ms</t_bers>
-	</nand>							
+	</nand>
+	<nand name = "512gb_g6">
+		<bits_per_cell>3</bits_per_cell>
+		<size>512</size>
+		<page_size>16384</page_size>
+		<spare_size>2048</spare_size>
+		<page_num>1536</page_num>
+		<plane_num>4</plane_num>
+		<main_block_num>2732</main_block_num>
+		<add_block_num>140</add_block_num>
+		<ext_block_num>16</ext_block_num>
+		<spare_block_num>0</spare_block_num>
+	
+		<manufacture_badblock>0.02</manufacture_badblock>
+		<grown_badblock>0.005</grown_badblock>
+				
+		<nand_if>800</nand_if>
+	
+		<extra_data_size>4</extra_data_size>
+		<crc_size>8</crc_size>
+		<ecc_size>384</ecc_size>
+	
+		<t_cna_w>500ns</t_cna_w>
+		<t_cna_r>500ns</t_cna_r>
+		<t_cna_e>500ns</t_cna_e>
+		<t_chk>300ns</t_chk>
+	
+		<t_read_lsb>0</t_read_lsb>
+		<t_read_msb>0</t_read_msb>
+		<t_read_full>50us</t_read_full>
+		<t_read_half>40us</t_read_half>
+		<t_read_slc>37us</t_read_slc>
+		<t_prog_lsb>0</t_prog_lsb>
+		<t_prog_msb>0</t_prog_msb>
+		<t_prog>1440us</t_prog>
+		<t_prog_avg>480us</t_prog_avg>
+		<t_prog_slc>350us</t_prog_slc>
+		<t_bers>10ms</t_bers>
+	</nand>
+	<nand name = "1tb_g6">
+		<bits_per_cell>3</bits_per_cell>
+		<size>1024</size>
+		<page_size>16384</page_size>
+		<spare_size>2048</spare_size>
+		<page_num>1536</page_num>
+		<plane_num>4</plane_num>
+		<main_block_num>5464</main_block_num>
+		<add_block_num>272</add_block_num>
+		<ext_block_num>16</ext_block_num>
+		<spare_block_num>0</spare_block_num>
+	
+		<manufacture_badblock>0.02</manufacture_badblock>
+		<grown_badblock>0.005</grown_badblock>
+				
+		<nand_if>800</nand_if>
+	
+		<extra_data_size>4</extra_data_size>
+		<crc_size>8</crc_size>
+		<ecc_size>384</ecc_size>
+	
+		<t_cna_w>500ns</t_cna_w>
+		<t_cna_r>500ns</t_cna_r>
+		<t_cna_e>500ns</t_cna_e>
+		<t_chk>300ns</t_chk>
+	
+		<t_read_lsb>0</t_read_lsb>
+		<t_read_msb>0</t_read_msb>
+		<t_read_full>65us</t_read_full>
+		<t_read_half>45us</t_read_half>
+		<t_read_slc>40us</t_read_slc>
+		<t_prog_lsb>0</t_prog_lsb>
+		<t_prog_msb>0</t_prog_msb>
+		<t_prog>1455us</t_prog>
+		<t_prog_avg>485us</t_prog_avg>
+		<t_prog_slc>300us</t_prog_slc>
+		<t_bers>10ms</t_bers>
+	</nand>																															
 </nand_models>

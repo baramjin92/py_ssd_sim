@@ -5,6 +5,7 @@ import sys
 
 import csv
 import re
+import tabulate
 
 # pd is required for open excel file. it is temporary disable for pypy
 #import pandas as pd
@@ -223,6 +224,116 @@ nand_512gb_g5 = {
 		'nand_t_bers' : 10000*1000
 }
 
+def get_type_table() :													
+	bits_per_cell = ['bits_per_cell']
+	capacity = ['capacity[Gb]']
+	page_size = ['page size[KB]']
+	page_num = ['page_num']
+	plane_num = ['plane_num']
+	wordline_num = ['wordline_num']
+	block_num = ['block_num']
+	small_block = ['small block size[MB]']
+	big_block = ['big block size[MB]']
+
+	extra_data = ['extra data size']
+	crc = ['crc size']
+	ecc = ['ecc size']
+
+	type_table = [bits_per_cell, capacity, page_size, page_num, plane_num, wordline_num, block_num, small_block, big_block, extra_data, crc, ecc]
+	return type_table
+
+def make_type_table(nand, type_table = None) :
+	if type_table == None :
+		type_table = get_type_table()
+				
+	# calculate ssd information
+	small_block_size = nand.page_size * nand.page_num
+	big_block_size = small_block_size * nand.plane_num
+
+	type_table[0].append(nand.bits_per_cell)
+	type_table[1].append(nand.size)
+	type_table[2].append(int(nand.page_size / unit.scale_KB))
+	type_table[3].append(nand.page_num)
+	type_table[4].append(nand.plane_num)
+	type_table[5].append(int(nand.page_num / nand.bits_per_cell))
+	type_table[6].append(nand.main_block_num)
+	type_table[7].append(int(small_block_size / unit.scale_MB))
+	type_table[8].append(int(big_block_size / unit.scale_MB))
+
+	type_table[9].append(nand.extra_data_size)
+	type_table[10].append(nand.crc_size)
+	type_table[11].append(nand.ecc_size)
+		
+	return type_table
+
+def get_param_table() :
+	interface_speed = ['interface speed [MHz]']
+	t_xfer1 = ['nand_t_xfer(us/4KB)']
+	t_xfer2 = ['nand_t_xfer(us/multi-plane)']
+				
+	t_cna_w = ['nand_t_cna_w [ns]']
+	t_cna_r = ['nand_t_cna_r [ns]']
+	t_cna_e = ['nand_t_cna_e [ns]']
+	t_chk = ['nand_t_chk [ns]']
+
+	t_read_f = ['nand_t_read_full [us]']
+	t_read_h = ['nand_t_read_half [us]']
+	t_read_slc = ['nand_t_read_slc [us]']
+				
+	t_prog = ['nand_t_prog [us]']
+	t_prog_avg = ['nand_t_prog_avg [us]']
+	t_prog_slc = ['nand_t_prog_slc [us]']
+		
+	t_bers = ['nand_t_bers [ms]']
+
+	param_table = [interface_speed, t_xfer1, t_xfer2, t_cna_w, t_cna_r, t_cna_e, t_chk, t_read_f, t_read_h, t_read_slc, t_prog, t_prog_avg, t_prog_slc, t_bers]
+	return param_table
+																
+def make_param_table(nand, param_table = None) :
+	if param_table == None :
+		param_table = get_param_table()
+
+	param_table[0].append(nand.nand_if)
+	param_table[1].append(int(nand.nand_t_xfer/1000))
+		
+	num_chunks = nand.page_size / BYTES_PER_CHUNK * nand.plane_num		
+	param_table[2].append(int(nand.nand_t_xfer * num_chunks/1000))
+				
+	param_table[3].append(nand.nand_t_cna_w)
+	param_table[4].append(nand.nand_t_cna_r)
+	param_table[5].append(nand.nand_t_cna_e)
+	param_table[6].append(nand.nand_t_chk)
+
+	param_table[7].append(int(nand.nand_t_read_full/1000))
+	param_table[8].append(int(nand.nand_t_read_half/1000))
+	param_table[9].append(int(nand.nand_t_read_slc/1000))
+				
+	param_table[10].append(int(nand.nand_t_prog/1000))
+	param_table[11].append(int(nand.nand_t_prog_avg/1000))
+	param_table[12].append(int(nand.nand_t_prog_slc/1000))
+		
+	param_table[13].append(int(nand.nand_t_bers/1000000))
+				
+	return param_table																																																																		
+
+def print_all_nand(xml_file = 'nand_config.xml') :
+	nand_names = nand1.get_nand_name_in_xml(xml_file)
+	
+	type_table = get_type_table()
+	param_table = get_param_table()
+	
+	for nand_name in nand_names :	
+		nand1.load_xml('nand_config.xml', nand_name)		
+		
+		type_table = make_type_table(nand1, type_table)	
+		param_table = make_param_table(nand1, param_table)	
+
+	nand_names.insert(0, 'name')
+	type_table.insert(0, nand_names)
+	param_table.insert(0, nand_names)
+	print(tabulate.tabulate(type_table))
+	print(tabulate.tabulate(param_table))	
+
 class nand_config :
 	def __init__(self, nand_param) :
 		if nand_param == None :
@@ -256,12 +367,22 @@ class nand_config :
 		nand_param = data.loc
 		self.set_data(nand_param)
 		
+	def get_nand_name_in_xml(self, filename) :	
+		tree = elemTree.parse(filename)
+		nand_models = tree.getroot()
+		
+		nand_names = []
+		for nand in nand_models :
+			nand_names.append(nand.get('name'))
+			
+		return nand_names			
+			
 	def load_xml(self, filename, name) :
 		tree = elemTree.parse(filename)
 		#nand = tree.find('./nand')
 		nand = tree.find('./nand[@name=\'%s\']'%name)
 		
-		print(nand.get('name'))		
+		print('loading ' + nand.get('name'))		
 		self.set_data_from_xml(nand)
 		
 	def set_data(self, nand_param) :
@@ -361,62 +482,15 @@ class nand_config :
 		self.nand_t_prog_avg = int(self.nand_t_prog / self.bits_per_cell)
 		self.nand_t_prog_slc = convert_nand_time(nand.find('t_prog_slc').text)
 		self.nand_t_bers = convert_nand_time(nand.find('t_bers').text)
-																																																																																																											
-	def get_type_value(self) :
-		# calculate ssd information
-		small_block_size = self.page_size * self.page_num
-		big_block_size = small_block_size * self.plane_num
-													
-		bits_per_cell = ['bits_per_cell', self.bits_per_cell]
-		capacity = ['capacity[Gb]', self.size]
-		page_size = ['page size[KB]', int(self.page_size / unit.scale_KB)]
-		page_num = ['page_num', self.page_num]
-		plane_num = ['plane_num', self.plane_num]
-		wordline_num = ['wordline_num', int(self.page_num / self.bits_per_cell)]
-		block_num = ['block_num', self.main_block_num]
-		small_block = ['small block size[MB]', int(small_block_size / unit.scale_MB)]
-		big_block = ['big block size[MB]', int(big_block_size / unit.scale_MB)]
-
-		extra_data = ['extra data size', self.extra_data_size]
-		crc = ['crc size', self.crc_size]
-		ecc = ['ecc size', self.ecc_size]
-
-		nand_type = [bits_per_cell, capacity, page_size, page_num, plane_num, wordline_num, block_num, small_block, big_block, extra_data, crc, ecc]
-		return nand_type
-		
-	def get_param_value(self) :
-		interface_speed = ['interface speed [MHz]', self.nand_if]
-		t_xfer1 = ['nand_t_xfer(us/4KB)', int(self.nand_t_xfer/1000)]
-		
-		num_chunks = self.page_size / BYTES_PER_CHUNK * self.plane_num		
-		t_xfer2 = ['nand_t_xfer(us/multi-plane)', int(self.nand_t_xfer * num_chunks/1000)]
-				
-		t_cna_w = ['nand_t_cna_w [us]', self.nand_t_cna_w]
-		t_cna_r = ['nand_t_cna_r [us]', self.nand_t_cna_r]
-		t_cna_e = ['nand_t_cna_e [us]', self.nand_t_cna_e]
-		t_chk = ['nand_t_chk [us]', self.nand_t_chk]
-
-		t_read_f = ['nand_t_read_full [us]' , int(self.nand_t_read_full/1000)]
-		t_read_h = ['nand_t_read_half [us]', int(self.nand_t_read_half/1000)]
-		t_read_slc = ['nand_t_read_slc [us]', int(self.nand_t_read_slc/1000)]
-				
-		t_prog = ['nand_t_prog [us]', int(self.nand_t_prog/1000)]
-		t_prog_avg = ['nand_t_prog_avg [us]',  int(self.nand_t_prog_avg/1000)]
-		t_prog_slc = ['nand_t_prog_slc [us]', int(self.nand_t_prog_slc/1000)]
-		
-		t_bers = ['nand_t_bers [ms]', int(self.nand_t_bers/1000000)]
-
-		nand_param = [interface_speed, t_xfer1, t_xfer2, t_cna_w, t_cna_r, t_cna_e, t_chk, t_read_f, t_read_h, t_read_slc, t_prog, t_prog_avg, t_prog_slc, t_bers]
-		return nand_param																																																																																																							
-		
+																								
 	@report_print																								
 	def print_type(self, report_title = 'nand type') :		
-		table = self.get_type_value()						
+		table = make_type_table(self)						
 		return report_title, table
 		
 	@report_print																								
 	def print_param(self, report_title = 'nand parameter') :
-		table = self.get_param_value()
+		table = make_param_table(self)
 		return report_title, table
 															
 if __name__ == '__main__' :
@@ -441,8 +515,7 @@ if __name__ == '__main__' :
 	nand1.print_type(report_title = 'excel nand type[mlc]')
 	nand1.print_param(report_title = 'excel nand parameter[mlc]')
 	'''
-	
-	nand1.load_xml('nand_config.xml', '256gb_g3')		
-	nand1.print_type(report_title = 'xml nand type[mlc]')
-	nand1.print_param(report_title = 'xml nand parameter[mlc]')	
-															
+
+	print('\n\nshow all info of nand_config.xml')		
+	print_all_nand('nand_config.xml')
+																															
