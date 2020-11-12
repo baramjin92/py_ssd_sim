@@ -1,8 +1,10 @@
 <ssd>
 	<ssd_configuration>
+		<host_if>PCIe</host_if>
+		<host_speed>Gen3x4</host_speed>
 		<number_of_host_queue>1</number_of_host_queue>
 		<channel>8</channel>
-		<way_per_channel>1</way_per_channel>
+		<way_per_channel>4</way_per_channel>
 		<nand>
 			<file>nand_config.xml</file>
 			<name>256gb_g3</name>

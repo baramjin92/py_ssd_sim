@@ -3,6 +3,8 @@
 import os
 import sys
 
+import re
+
 import tabulate
 
 import xml.etree.ElementTree as elemTree
@@ -84,8 +86,20 @@ NUM_LBA = 97696368 + (1953504 * (SSD_CAPACITY - 50))
 # OP 7% capacity
 #SSD_CAPACITY_ACTUAL = SSD_CAPACITY * 1953125 / 2097152
 
+def convert_speed(host_speed) :
+	speed = re.findall('\d+', host_speed)
+	if len(speed) == 1 :
+		speed.append('1')
+		
+	return int(speed[0]), int(speed[1])
+	
 class ssd_param_desc :
 	def __init__(self) :
+		self.HOST_IF = 'PCIE'					# 'SATA', 'UFS'
+		self.HOST_SPEED = 'GEN3X4'		# 'GEN4x4''
+		
+		self.HOST_GEN, self.HOST_LANE = convert_speed(self.HOST_SPEED)
+									
 		# define number of queue
 		self.NUM_HOST_QUEUE = 1
 	
@@ -112,12 +126,16 @@ class ssd_param_desc :
 		self.ZONE_NUM_WAYS = int(self.NUM_WAYS / 4)
 		self.NUM_OPEN_ZONES = 3
 		self.NUM_ZONES = int((NUM_LBA * BYTES_PER_SECTOR) / self.ZONE_SIZE)
-		
+					
 ssd_param = ssd_param_desc() 		
-		
+				
 def load_ssd_config_xml(filename) :	
 	tree = elemTree.parse(filename)
 	ssd = tree.find('./ssd_configuration')
+
+	ssd_param.HOST_IF = ssd.find('host_if').text.upper()
+	ssd_param.HOST_SPEED = ssd.find('host_speed').text.upper()
+	ssd_param.HOST_GEN, ssd_param.HOST_LANE = convert_speed(ssd_param.HOST_SPEED)
 
 	ssd_param.NUM_HOST_QUEUE = int(ssd.find('number_of_host_queue').text)
 	ssd_param.NUM_CHANNELS = int(ssd.find('channel').text)
@@ -158,6 +176,8 @@ def load_ssd_config_xml(filename) :
 def print_setting_info(report_title = 'default parameter value') :
 	table = []
 
+	table.append(['Host Interface', ssd_param.HOST_IF])
+	table.append(['Host Speed', ssd_param.HOST_SPEED])
 	table.append(['Number of Host Queue', ssd_param.NUM_HOST_QUEUE])
 	table.append(['Number of Nand Channel', ssd_param.NUM_CHANNELS])
 	table.append(['Number of Ways per Channel', ssd_param.WAYS_PER_CHANNELS])
