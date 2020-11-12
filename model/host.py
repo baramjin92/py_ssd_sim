@@ -252,10 +252,10 @@ class host_manager :
 		cur_lba = host_cmd.lba + host_cmd.num_sectors_completed
 		self.generate_write_data(queue_id, cur_lba, self.tx_count)
 
-		num_sectors = min_packet_size(self.tx_count)
+		num_sectors = host_if.min_packet_size(self.tx_count)
 
 		# calcultae transfer time by number of sectors (transfer size)
-		num_packets, transfer_time = calculate_xfer_time(num_sectors)										
+		num_packets, transfer_time = host_if.calculate_xfer_time(num_sectors)										
 		
 		next_event = event_mgr.alloc_new_event(int(transfer_time))
 		next_event.code = event_id.EVENT_WRITE_DATA
@@ -288,10 +288,10 @@ class host_manager :
 				
 		self.tx_count = self.tx_count - num_sectors_sent
 		if self.tx_count > 0 :
-			num_sectors = min_packet_size(self.tx_count)
+			num_sectors = host_if.min_packet_size(self.tx_count)
 
 			# calcultae transfer time by number of sectors (transfer size)
-			num_packets, transfer_time = calculate_xfer_time(num_sectors)										
+			num_packets, transfer_time = host_if.calculate_xfer_time(num_sectors)										
 		
 			next_event = event_mgr.alloc_new_event(int(transfer_time))
 			next_event.code = event_id.EVENT_WRITE_DATA

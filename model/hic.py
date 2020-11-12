@@ -145,7 +145,7 @@ class hic_manager :
 		next_event.code = event_id.EVENT_READ_DATA_START
 		
 		# calculate transfer time with data size and transfer speed (in pcie_if.py)
-		num_packets, transfer_time = calculate_xfer_time(SECTORS_PER_CHUNK)
+		num_packets, transfer_time = host_if.calculate_xfer_time(SECTORS_PER_CHUNK)
 				
 		next_event = event_mgr.alloc_new_event(transfer_time)
 		next_event.dest = event_dst.MODEL_HOST | event_dst.MODEL_HIC

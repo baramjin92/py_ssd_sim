@@ -28,6 +28,12 @@ CPLD = 64										# Completion Data Size (Byte)
 
 class pcie :
 	def __init__(self, gen, lane) :
+		self.set_config(gen, lane)
+	
+		self.DATA_XFER_OVERHEAD = 224	# Header (16Bytes), Start + Sequence + End (4Bytes), ECRC+LCRC (8Bytes) = 28 Byte = 224Bit			
+		self.WDATA_PACKET_SIZE = 8			# use to calculate minimum packet size 
+	
+	def set_config(self, gen, lane) :
 		self.gen = gen
 		self.lane = lane
 		
@@ -35,11 +41,10 @@ class pcie :
 			self.HOST_IF_SPEED = 8 * lane
 		elif gen == 4 :
 			self.HOST_IF_SPEED = 16 * lane
+		elif gen == 5 :
+			self.HOST_IF_SPEED = 32 * lane			
 		else :
 			print('error : host if setting')
-
-		self.DATA_XFER_OVERHEAD = 224	# Header (16Bytes), Start + Sequence + End (4Bytes), ECRC+LCRC (8Bytes) = 28 Byte = 224Bit			
-		self.WDATA_PACKET_SIZE = 8			# use to calculate minimum packet size 
 	
 	def cmd_packet_xfer_time(self) :
 		transfer_time = (DOORBELL + CMD_MRD + CPLD) * 8 * 130 / 128 / self.HOST_IF_SPEED   # ns
@@ -85,4 +90,7 @@ if __name__ == '__main__' :
 	print ('module pcie interface')			
 
 	host_if = pcie(4, 4)										
-	host_if.info()																		
+	host_if.info()	
+	
+	host_if.set_config(3, 2)										
+	host_if.info()																	

@@ -253,7 +253,7 @@ class nand_manager :
 		self.nand_info = nand_info
 		
 		# set nand context
-		bar = Bar('nand init', max=nand_num)
+		###bar = Bar('nand init', max=nand_num)
 		
 		#block_num = nand_info.main_block_num + nand_info.spare_block_num
 		block_num = nand_info.main_block_num
@@ -262,8 +262,8 @@ class nand_manager :
 		self.nand_ctx = []
 		for index in range(nand_num) :
 			self.nand_ctx.append(nand_context(index, block_num, nand_info))
-			bar.index = index
-			bar.next()
+			###bar.index = index
+			###bar.next()
 			
 		print('\nnand init complete')
 															

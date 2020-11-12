@@ -78,14 +78,94 @@ nfc_seq_state = {
 	MWAY_M2_CNA : (0, 1, 0),
 }
 
+# read current
+nand_icc1 = 100
+#nand_iccq1 = 200+15
+nand_icc4r = 180			# 50/100/135/180 (under/200/400/800)
+nand_iccq4r = 235			# 150/200/235 (200/400/800)		
+		
+# write current
+nand_icc2 = 100
+#nand_iccq2 = 75+15
+nand_icc4w = 180			# 50/100/135/180 (under/200/400/800)
+nand_iccq4w = 235			# 150/200/235 (200/400/800)
+		
+# erase current
+nand_icc3 = 100
+nand_iccq3 = 75+15
+		
+# Bus Idle current
+nand_icc5 = 15
+
+nand_current = {
+	# icc, iccq
+	# icc1 = 100
+	# icc2 = 100
+	# icc3 = 100
+	# icc4 : 50/100/135/180 (under/200/400/800)
+	# iccq4 = 150/200/235 (200/400/800)
+	# icc5 = 15
+			
+	# read current
+	MWAY_IDLE : [15, 0],
+	MWAY_R1_WAIT : [15, 0],
+	MWAY_R2_CNA : [180, 235],
+	MWAY_R3_SENSE : [100, 0], 
+	MWAY_R4_WAIT : [15, 0],
+	MWAY_R5_XFER : [180, 235],
+
+	# write current
+	MWAY_W1_WAIT : [15, 0],
+	MWAY_W2_CNA : [180, 235],
+	MWAY_W3_XFER : [180, 235],
+	MWAY_W4_PROG : [100, 0],
+	MWAY_W5_WAIT : [15, 0],
+	MWAY_W6_CHK : [180, 235],
+	
+	# erase current
+	MWAY_E1_WAIT : [15, 0],
+	MWAY_E2_CNA : [180, 235],
+	MWAY_E3_ERAS : [100, 0],
+	MWAY_E4_WAIT : [15, 0],
+	MWAY_E5_CHK : [180, 235],
+	
+	# mode current
+	MWAY_M1_WAIT : [15, 0],
+	MWAY_M2_CNA : [180, 235],
+}
+
+def set_nand_current(icc1, icc2, icc3, icc4, iccq4, icc5) :
+	nand_current[MWAY_IDLE] = [icc5, 0]	
+	nand_current[MWAY_R1_WAIT] = [icc5, 0]
+	nand_current[MWAY_R2_CNA] = [icc4, iccq4]	
+	nand_current[MWAY_R3_SENSE] = [icc1, 0]
+	nand_current[MWAY_R4_WAIT] = [icc5, 0]	
+	nand_current[MWAY_R5_XFER] = [icc5, 0]
+
+	nand_current[MWAY_W1_WAIT] = [icc5, 0]
+	nand_current[MWAY_W2_CNA] = [icc4, iccq4]	
+	nand_current[MWAY_W3_XFER] = [icc4, iccq4]
+	nand_current[MWAY_W4_PROG] = [icc2, 0]	
+	nand_current[MWAY_W5_WAIT] = [icc5, 0]
+	nand_current[MWAY_W5_CHK] = [icc4, iccq4]
+
+	nand_current[MWAY_E1_WAIT] = [icc5, 0]
+	nand_current[MWAY_E2_CNA] = [icc4, iccq4]	
+	nand_current[MWAY_E3_ERAS] = [icc3, 0]
+	nand_current[MWAY_E4_WAIT] = [icc5, 0]	
+	nand_current[MWAY_E5_CHK] = [icc4, iccq4]
+
+	nand_current[MWAY_M1_WAIT] = [icc5, 0]	
+	nand_current[MWAY_M2_CNA] = [icc4, iccq4]
+
 class way_context :
 	def __init__(self) :
 		self.state = MWAY_IDLE
-		
+														
 		# nandcmd index & descriptor (they are required for management cmd operation, it is copied context)
 		self.nandcmd_index = 0
 		self.nandcmd_desc = nfc_desc()
-		self.nandcmd_count = 0
+		self.nandcmd_count = 0	
 
 # nand flash controller
 class nfc :
@@ -125,7 +205,11 @@ class nfc :
 		self.nand_t_cna_e = nand_info.nand_t_cna_e
 		self.nand_t_chk = nand_info.nand_t_chk
 		self.nand_t_xfer = nand_info.nand_t_xfer
-					
+		
+		# voltage
+		self.vcc = 3.3
+		self.vccq = 1.8
+							
 		# initialize fil2nfc queue
 		# each way has a separated queue for transfering command form fil to nfc
 		self.fil2nfc_queue = []
@@ -157,8 +241,7 @@ class nfc :
 			
 		###if channel == 0 :
 		###	print('request channel : %d, %d'%(channel, way))
-			
-			
+				
 	def begin_io(self, way) :
 		#log_print('begin io - way : %d'%(way))
 		
@@ -226,7 +309,7 @@ class nfc :
 			
 		elif old_state == MWAY_W5_WAIT : 
 			self.way_ctx[way].state = MWAY_W6_CHK
-			
+						
 			# alloc next event with time (0)
 			next_event = event_mgr.alloc_new_event(0)
 			next_event.code = event_id.EVENT_NAND_CHK_BEGIN
@@ -250,7 +333,7 @@ class nfc :
 			
 		elif old_state == MWAY_E1_WAIT :
 			self.way_ctx[way].state = MWAY_E2_CNA
-						
+									
 			# alloc next event with time (NAND_T_CNA_E)
 			next_event = event_mgr.alloc_new_event(self.nand_t_cna_e)
 			next_event.code = event_id.EVENT_NAND_CNA_END
@@ -264,7 +347,7 @@ class nfc :
 			
 		elif old_state == MWAY_M1_WAIT :
 			self.way_ctx[way].state = MWAY_M2_CNA
-						
+									
 			# alloc next event with time (NAND_T_CNA_E)
 			next_event = event_mgr.alloc_new_event(self.nand_t_cna_e)
 			next_event.code = event_id.EVENT_NAND_CNA_END
@@ -372,7 +455,7 @@ class nfc :
 			if self.channel_owner[channel] == way :
 				already_have = True
 			
-			self.way_ctx[way].state = MWAY_R1_WAIT
+			self.way_ctx[way].state = MWAY_R1_WAIT			
 			priority = True
 				
 		elif cmd_code == NFC_CMD_WRITE :
@@ -428,6 +511,7 @@ class nfc :
 			if event.code == event_id.EVENT_NAND_CNA_END :		
 				bstat.io_time = bstat.io_time + elapsed_time
 				self.way_ctx[way].state = MWAY_R3_SENSE
+				
 				self.release_channel(channel, way)
 						
 		elif current_state == MWAY_R3_SENSE :
@@ -436,6 +520,7 @@ class nfc :
 				bstat.read_count = bstat.read_count + 1
 				
 				self.way_ctx[way].state = MWAY_R4_WAIT
+				
 				self.request_channel(channel, way, False)
 				
 		elif current_state == MWAY_R5_XFER :
@@ -477,6 +562,7 @@ class nfc :
 				# if there is no additional data to transfer (check compare condition later in odd offset)
 				if self.way_ctx[way].nandcmd_count >= self.way_ctx[way].nandcmd_desc.chunk_num :
 					self.way_ctx[way].state = MWAY_IDLE
+					
 					self.release_channel_condition(channel, way)
 					self.end_command(way, True)
 				else :
@@ -502,7 +588,7 @@ class nfc :
 				bstat.io_time = bstat.io_time + elapsed_time
 				
 				self.way_ctx[way].state = MWAY_W3_XFER
-				
+							
 				# calculate transfer time by number of chunk (it is changed by single plane/multi plane write)
 				chunk_num = self.way_ctx[way].nandcmd_desc.chunk_num
 				xfer_time = chunk_num * self.nand_t_xfer
@@ -525,6 +611,7 @@ class nfc :
 				bstat.io_time = bstat.io_time + elapsed_time
 				
 				self.way_ctx[way].state = MWAY_W4_PROG
+				
 				self.release_channel(channel, way)
 				
 		elif current_state == MWAY_W4_PROG :
@@ -536,6 +623,7 @@ class nfc :
 				###	print('NAND PROG END %d %d'%(channel, way))
 				
 				self.way_ctx[way].state  = MWAY_W5_WAIT
+				
 				self.request_channel(channel, way, False)
 					
 		elif current_state == MWAY_W6_CHK or current_state == MWAY_E5_CHK :
@@ -544,7 +632,7 @@ class nfc :
 				
 				bstat.io_time = bstat.io_time + elapsed_time
 				self.way_ctx[way].state = MWAY_IDLE
-				
+								
 				self.release_channel(channel, way)
 				self.end_command(way, True)
 				
@@ -552,7 +640,7 @@ class nfc :
 			if event.code == event_id.EVENT_NAND_CNA_END :	
 				bstat.io_time = bstat.io_time + elapsed_time
 				self.way_ctx[way].state = MWAY_E3_ERAS
-				
+								
 				self.release_channel(channel, way)
 				
 		elif current_state == MWAY_E3_ERAS :
@@ -601,6 +689,20 @@ class nfc :
 				cell, io, wait, = nfc_seq_state[self.way_ctx[granted_way].state]
 				ssd_vcd_set_nfc_state(granted_way, self.way_ctx[granted_way].state, cell, io, wait)			
 				'''
+	
+	def get_nand_current(self, way) :
+		return nand_current[self.way_ctx[way].state]
+		
+	def get_nand_total_current(self) :
+		icc = 0
+		iccq = 0
+		
+		for nand in self.way_ctx :
+			current = nand_current[nand.state]
+			icc = icc + current[0]
+			iccq = iccq + current[1]
+			
+		return [icc, iccq]
 	
 	@report_print																
 	def print_cmd_descriptor(self, report_title = 'command descriptor') :
@@ -694,6 +796,9 @@ class way_statistics :
 if __name__ == '__main__' :
 	print ('module nfc(nand flash controller) main')
 	
+	NUM_CHANNELS = 8
+	WAYS_PER_CHANNELS = 1
+		
 	nand_info = nand_config(nand_256gb_g3)
 	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS, nand_info)
 				
