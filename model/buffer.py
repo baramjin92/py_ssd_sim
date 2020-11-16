@@ -14,6 +14,9 @@ from sim_event import *
 
 BM_WRITE = 0
 BM_READ = 1
+	
+def log_print(message) :
+	print('[bm] ' + message)
 
 # DDR bandwidth and bus width should be changed by controller specification
 # it affects sustained performance because it requires more bus access
@@ -23,14 +26,19 @@ DDR2_400_BW = 3200			# MB /s
 DDR3_800_BW = 6400			# MB /s
 DDR4_1600_BW = 12800		# MB /s
 
-#bandwidth = int(DDR2_400_BW * DDR_BUS_WIDTH / 8)
-bandwidth = int(DDR3_800_BW * DDR_BUS_WIDTH / 8)
-overhead = 40																							# DDR overhead (percentage)
-byte_latency = ((1 / bandwidth) * 1000)												# ns  
-chunk_latency = int((1 - overhead / 100) * 4096 * byte_latency)		# ns
-
-def log_print(message) :
-	print('[bm] ' + message)
+def calculate_chunk_latency(ddr_bandwidth, bus_width, show_info = False) :
+	bandwidth = int(ddr_bandwidth * bus_width / 8)
+	overhead = 40																							# DDR overhead (percentage)
+	byte_latency = ((1 / bandwidth) * 1000)												# ns  
+	chunk_latency = int((1 - overhead / 100) * 4096 * byte_latency)		# ns
+	
+	if show_info == True :
+		print('ddr bandwidth : %d MB/s'%bandwidth)
+		print('ddr overhead : %d %% '%overhead)
+		print('byte latency : %f ns'%byte_latency)
+		print('chunk latency with overhead : %f ns'%chunk_latency)
+			
+	return chunk_latency
 
 class buffer_slot :
 	def __init__(self, buffer_id) :
@@ -67,6 +75,11 @@ class buffer_manager :
 		self.max_write = write_buffer_num
 		self.max_read = read_buffer_num
 		self.max_num = buffer_num
+		
+		self.chunk_latency = 0
+		
+	def set_latency(self, ddr_bandwidth, bus_width) :
+		self.chunk_latency = calculate_chunk_latency(ddr_bandwidth, bus_width)	
 									
 	def get_buffer(self, buffer_id, queue_id = 0, cmd_tag = 0, length = 1) :
 		# allocate the one buffer id from free slots
@@ -114,10 +127,10 @@ class buffer_manager :
 		self.bm_slots[buffer_id].main_data = main_data
 		self.bm_slots[buffer_id].extra_data = extra_data											
 		
-		event_mgr.add_accel_time(chunk_latency)
+		event_mgr.add_accel_time(self.chunk_latency)
 																
 	def get_data(self, buffer_id, event_callback = None) :
-		event_mgr.add_accel_time(chunk_latency)
+		event_mgr.add_accel_time(self.chunk_latency)
 									
 		return (self.bm_slots[buffer_id].main_data, self.bm_slots[buffer_id].extra_data)																											
 	
@@ -137,12 +150,7 @@ class buffer_manager :
 			print('read free id : ')
 			print(self.read_free)
 				
-def unit_test_bm() :
-	print('ddr bandwidth : %d MB/s'%bandwidth)
-	print('ddr overhead : %d %% '%overhead)
-	print('byte latency : %f ns'%byte_latency)
-	print('chunk latency with overhead : %f ns'%chunk_latency)
-	
+def unit_test_bm() :	
 	bm = buffer_manager(20, 10)	
 		
 	print('write free slot num : %d'%(bm.get_num_free_slots(BM_WRITE)))	
@@ -189,6 +197,7 @@ def unit_test_bm() :
 # 5. 	
 
 bm = buffer_manager(SSD_WRITE_BUFFER_NUM, SSD_READ_BUFFER_NUM)
+bm.set_latency(DDR3_800_BW, DDR_BUS_WIDTH)
 																	
 if __name__ == '__main__' :
 	log_print ('module buffer manager main')
