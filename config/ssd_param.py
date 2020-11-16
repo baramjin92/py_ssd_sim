@@ -115,6 +115,10 @@ class ssd_param_desc :
 		 # NAND 
 		self.NAND_MODEL = None
 
+		# DRAM
+		self.DDR_BANDWIDTH = 3200
+		self.DDR_BUSWIDTH = 32
+
 		# Workload
 		self.WORKLOAD_MODEL = None
 		
@@ -145,10 +149,14 @@ def load_ssd_config_xml(filename) :
 	blk_grp = []
 	for node in ssd :
 		if node.tag == 'nand' :
-			ssd_param.NAND_MODEL = [node.find('file').text, node.find('name').text]		
-		if node.tag == 'workload' :
+			ssd_param.NAND_MODEL = [node.find('file').text, node.find('name').text]			
+		elif node.tag == 'dram' :
+			bandwidth = re.findall('\d+', node.find('bandwidth').text)
+			ssd_param.DDR_BANDWIDTH = int(bandwidth[0])
+			ssd_param.DDR_BUSWIDTH = int(node.find('buswidth').text)
+		elif node.tag == 'workload' :
 			ssd_param.WORKLOAD_MODEL = [node.find('file').text, node.find('name').text]		
-		if node.tag == 'blk_grp' :
+		elif node.tag == 'blk_grp' :
 			for child in node.iter('blk_manager') :
 				name = child.find('name').text
 				num_way = child.find('number_of_way').text
@@ -182,7 +190,9 @@ def print_setting_info(report_title = 'default parameter value') :
 	table.append(['Number of Nand Channel', ssd_param.NUM_CHANNELS])
 	table.append(['Number of Ways per Channel', ssd_param.WAYS_PER_CHANNELS])
 	table.append(['Number of All Ways', ssd_param.NUM_WAYS])	
-	table.append(['NAND Model', ssd_param.NAND_MODEL])	
+	table.append(['NAND Model', ssd_param.NAND_MODEL])
+	table.append(['DRAM Bandwidth', ssd_param.DDR_BANDWIDTH])
+	table.append(['DRAM Bus width', ssd_param.DDR_BUSWIDTH])			
 	table.append(['Number of Host Cmd Table', NUM_HOST_CMD_TABLE])
 	table.append(['Number of Cmd Execution Table', NUM_CMD_EXEC_TABLE])
 	table.append(['FTL Cmd Queue Depth', FTL_CMD_QUEUE_DEPTH])

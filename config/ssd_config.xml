@@ -1,6 +1,6 @@
 <ssd>
 	<ssd_configuration>
-		<host_if>PCIe</host_if>
+		<host_if>PCIE</host_if>
 		<host_speed>Gen3x4</host_speed>
 		<number_of_host_queue>1</number_of_host_queue>
 		<channel>8</channel>
@@ -8,7 +8,11 @@
 		<nand>
 			<file>nand_config.xml</file>
 			<name>256gb_g3</name>
-		</nand>	
+		</nand>
+		<dram>
+			<bandwidth>6400MB/s</bandwidth>
+			<buswidth>32</buswidth>
+		</dram>			
 		<blk_grp>
 			<blk_manager>
 				<name>meta</name>
