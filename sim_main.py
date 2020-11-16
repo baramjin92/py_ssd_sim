@@ -31,39 +31,13 @@ from sim_system import *
 from sim_eval import *
 from sim_log import *
 from sim_report import *
-
-from progress.bar import Bar
-
-bar = None
-progress_save = 0
-
-def init_progress() :
-	global progress_save
-	global bar
+from sim_util import *
 		
-	index, total_num = wlm.get_info()
-	workload_title = 'workload [%d/%d] processing'%(index+1, total_num)
-	bar = Bar(workload_title, max=100)
-	progress_save = 0
-
-	return index
-	
-def check_progress() :
-	global progress_save
-	
-	progress = wlm.get_progress(async_group = False)
-	if progress_save != progress :
-		progress_save = progress
-		bar.index = progress
-		bar.next()
-		
-	return progress+1
-		
-def build_workload_gc() :
+def build_workload_gc(num_host_queue) :
 	wlm.set_capacity('16GiB')
 	
-	if NUM_HOST_QUEUE >= 2 :
-		wlm.add_group(NUM_HOST_QUEUE - 1)
+	if num_host_queue >= 2 :
+		wlm.add_group(num_host_queue - 1)
 	
 	wlm.set_workload(workload(WL_SEQ_WRITE, 0, '1GiB', 128, 128, '1GiB', WL_TYPE_SIZE, 0, True, False))
 	#wlm.set_workload(workload(WL_SEQ_WRITE, 0, '1GiB', 128, 128, '1GiB', WL_TYPE_SIZE, 0, True, False))
@@ -79,11 +53,11 @@ def build_workload_gc() :
 	wlm.set_workload(workload(WL_RAND_WRITE, 0, '16MiB', 4, 4, '16MiB', WL_TYPE_SIZE, 0, True, False), 2)
 	wlm.set_workload(workload(WL_RAND_READ, 0, '16MiB', 64, 64, '16MiB', WL_TYPE_SIZE, 100, True, False), 2)
 
-def build_workload_multiqueue() :
+def build_workload_multiqueue(num_host_queue) :
 	wlm.set_capacity('16GiB')
 	
-	if NUM_HOST_QUEUE >= 2 :
-		wlm.add_group(NUM_HOST_QUEUE - 1)
+	if num_host_queue >= 2 :
+		wlm.add_group(num_host_queue - 1)
 	
 	wlm.set_workload(workload(WL_SEQ_WRITE, 0, '16MiB', 128, 128, '16MiB', WL_TYPE_SIZE, 0, True))
 	wlm.set_workload(workload(WL_SEQ_READ, 0, '16MiB', 128, 128, '16MiB', WL_TYPE_SIZE, 0, True))
@@ -106,8 +80,8 @@ def host_run() :
 	node = event_mgr.alloc_new_event(0)
 	node.dest = event_dst.MODEL_HOST
 	node.code = event_id.EVENT_SSD_READY
-																								
-if __name__ == '__main__' :
+
+def sim_main(progress_callback = None) :																								
 	log.open(None, False)
 															
 	load_ssd_config_xml('./config/ssd_config.xml')
@@ -117,6 +91,11 @@ if __name__ == '__main__' :
 	NUM_CHANNELS = ssd_param.NUM_CHANNELS
 	WAYS_PER_CHANNELS = ssd_param.WAYS_PER_CHANNELS
 	NUM_WAYS = ssd_param.NUM_WAYS 
+	
+	host_if.set_config(ssd_param.HOST_IF, ssd_param.HOST_GEN, ssd_param.HOST_LANE)
+	host_if.info()
+	
+	bm.set_latency(ssd_param.DDR_BANDWIDTH, ssd_param.DDR_BUSWIDTH)
 	
 	'''
 	# don't use xml configuration'
@@ -173,8 +152,8 @@ if __name__ == '__main__' :
 
 	print('initialize workload')
 	'''
-	build_workload_gc()
-	#build_workload_multiqueue()
+	build_workload_gc(num_host_queue)
+	#build_workload_multiqueue(num_host_queue)
 	#build_workload_zns()
 	'''
 	wlm.load_xml('./config/workload.xml', ssd_param.WORKLOAD_MODEL[1])
@@ -185,7 +164,9 @@ if __name__ == '__main__' :
 
 	wlm.set_group_active(NUM_HOST_QUEUE)
 	wlm.print_all()
-	index = init_progress()
+	
+	progress = util_progress(progress_callback)
+	index = progress.reset(wlm)
 		
 	report.open(index)
 	#node = event_mgr.alloc_new_event(1000000000)
@@ -245,7 +226,7 @@ if __name__ == '__main__' :
 						accel_num = accel_num + 1
 						
 						# show the progress status of current workload
-						if check_progress() == 100 and host_model.get_pending_cmd_num() == 0 :
+						if progress.check(wlm) == 100 and host_model.get_pending_cmd_num() == 0 :
 							ftl_module.flush_request()
 							ftl_module.disable_background()
 							report.disable()						
@@ -266,7 +247,7 @@ if __name__ == '__main__' :
 				report.build_html(True)
 				report.show_debug_info()
 										
-				bar.finish()
+				progress.done()
 				
 				key_wait = True 
 				while key_wait == True :			
@@ -277,7 +258,7 @@ if __name__ == '__main__' :
 					elif key_value == 'r' :
 						key_wait = False
 						if wlm.goto_next_workload(async_group = False) == True :
-							index = init_progress()
+							index = progress.reset(wlm)
 							
 							event_mgr.timetick = 0
 							host_model.host_stat.clear()
@@ -304,8 +285,10 @@ if __name__ == '__main__' :
 					elif key_value == 's':
 							print('save meta info')					
 									
-	bar.finish()
+	progress.done()
 	ssd_vcd_close()
 	log.close()
 	report.close()	
 			
+if __name__ == '__main__' :
+	sim_main()			

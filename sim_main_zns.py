@@ -29,33 +29,7 @@ from sim_system import *
 from sim_eval import *
 from sim_log import *
 from sim_report import *
-
-from progress.bar import Bar
-
-bar = None
-progress_save = 0
-
-def init_progress() :
-	global progress_save
-	global bar
-		
-	index, total_num = wlm.get_info()
-	workload_title = 'workload [%d/%d] processing'%(index+1, total_num)
-	bar = Bar(workload_title, max=100)
-	progress_save = 0
-
-	return index
-	
-def check_progress() :
-	global progress_save
-	
-	progress = wlm.get_progress(async_group = False)
-	if progress_save != progress :
-		progress_save = progress
-		bar.index = progress
-		bar.next()
-		
-	return progress+1
+from sim_util import *
 
 def build_workload_zns() :
 	wlm.set_capacity('16GiB')
@@ -68,7 +42,7 @@ def host_run() :
 	node.dest = event_dst.MODEL_HOST
 	node.code = event_id.EVENT_SSD_READY
 																								
-if __name__ == '__main__' :
+def sim_main_zns() :
 	log.open(None, False)
 						
 	load_ssd_config_xml('./config/ssd_config.xml')
@@ -142,7 +116,9 @@ if __name__ == '__main__' :
 
 	wlm.set_group_active(NUM_HOST_QUEUE)
 	wlm.print_all()
-	index = init_progress()
+
+	progress = util_progress()
+	index = progress.reset(wlm)
 	
 	report.open(index)
 	#node = event_mgr.alloc_new_event(1000000000)
@@ -199,7 +175,7 @@ if __name__ == '__main__' :
 						event_mgr.add_accel_time(node.time - event_mgr.timetick)
 						
 						# show the progress status of current workload
-						if check_progress() == 100 and host_model.get_pending_cmd_num() == 0 :
+						if progress.check(wlm) == 100 and host_model.get_pending_cmd_num() == 0 :
 							#ftl_module.flush_request()
 							ftl_module.disable_background()
 							report.disable()												
@@ -219,11 +195,11 @@ if __name__ == '__main__' :
 				report.build_html(True)
 				report.show_debug_info()
 										
-				bar.finish()			
+				progress.done()			
 				print('press the button to run next workload')									
 				name = input()
 				if wlm.goto_next_workload(async_group = False) == True :
-					index = init_progress()
+					index = progress.reset(wlm)
 					
 					event_mgr.timetick = 0
 					host_model.host_stat.clear()
@@ -241,7 +217,10 @@ if __name__ == '__main__' :
 				else :
 					exit = True
 									
-	bar.finish()
+	progress.done()
 	log.close()
 	report.close()	
+	
+if __name__ == '__main__' :
+	sim_main_zns()	
 			

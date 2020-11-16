@@ -16,7 +16,7 @@ from model.nand import *
 
 from model.workload import *
 
-from config.sim_config import unit
+from config.sim_config import *
 from config.ssd_param import *
 
 from model.buffer import *
@@ -27,8 +27,9 @@ from sim_event import *
 from sim_system import *
 from sim_eval import *
 from sim_log import *
+from sim_util import *
 
-from progress.bar import Bar
+test_gui_status = sim_status()
 
 def test_ftl_write() :
 	qid = 0
@@ -78,7 +79,7 @@ def test_ftl_read() :
 	way = 0
 	block = 1
 	page = 1
-	address = way * CHUNKS_PER_WAY + block * CHUNKS_PER_BLOCK + page * CHUNKS_PER_PAGE
+	address = way * meta.CHUNKS_PER_WAY + block * meta.CHUNKS_PER_BLOCK + page * meta.CHUNKS_PER_PAGE
 
 	meta.map_table[0] = address 
 	meta.map_table[1] = address + 1
@@ -86,7 +87,7 @@ def test_ftl_read() :
 	way = 1
 	block = 1
 	page = 1
-	address = way * CHUNKS_PER_WAY + block * CHUNKS_PER_BLOCK + page * CHUNKS_PER_PAGE
+	address = way * meta.CHUNKS_PER_WAY + block * meta.CHUNKS_PER_BLOCK + page * meta.CHUNKS_PER_PAGE
 		
 	meta.map_table[2] = address
 	meta.map_table[3] = address + 1
@@ -110,7 +111,7 @@ def test_nfc() :
 	way = 0
 	block = 1
 	page = 10
-	address = block * CHUNKS_PER_BLOCK + page * CHUNKS_PER_PAGE
+	address = block * meta.CHUNKS_PER_BLOCK + page * meta.CHUNKS_PER_PAGE
 
 	cmd_index = 0
 	cmd_desc = nandcmd_table.table[cmd_index]
@@ -137,7 +138,7 @@ def test_nfc() :
 	way = 1
 	block = 0
 	page = 128
-	address = block * CHUNKS_PER_BLOCK + page * CHUNKS_PER_PAGE
+	address = block * meta.CHUNKS_PER_BLOCK + page * meta.CHUNKS_PER_PAGE
 
 	cmd_index = 1
 	cmd_desc = nandcmd_table.table[cmd_index]
@@ -156,7 +157,7 @@ def test_nfc() :
 def test_fil_erase() :	
 	way = 1
 	block = 1
-	address = block * CHUNKS_PER_BLOCK
+	address = block * meta.CHUNKS_PER_BLOCK
 	
 	cmd_index = nandcmd_table.get_free_slot()
 	cmd_desc = nandcmd_table.table[cmd_index]
@@ -184,7 +185,7 @@ def test_fil_program_read() :
 	way = 0
 	block = 1
 	page = 10
-	address = block * CHUNKS_PER_BLOCK + page * CHUNKS_PER_PAGE	
+	address = block * meta.CHUNKS_PER_BLOCK + page * meta.CHUNKS_PER_PAGE	
 
 	qid = 0
 	cid = 0
@@ -208,7 +209,7 @@ def test_fil_program_read() :
 	way = 0
 	block = 0
 	page = 128
-	address = block * CHUNKS_PER_BLOCK + page * CHUNKS_PER_PAGE
+	address = block * meta.CHUNKS_PER_BLOCK + page * meta.CHUNKS_PER_PAGE
 
 	cmd_index = nandcmd_table.get_free_slot()
 	cmd_desc = nandcmd_table.table[cmd_index]
@@ -219,15 +220,20 @@ def test_fil_program_read() :
 	cmd_desc.seq_num = 1
 
 	ftl2fil_queue.push(cmd_index)
-																								
-if __name__ == '__main__' :
+	
+def sim_test_main() :
 	log.open(None, True)
 	
+	NUM_HOST_QUEUE = 1
+	NUM_CHANNELS = 4
+	WAYS_PER_CHANNELS = 1
+	NUM_WAYS = 4 
+		
 	print('initialize model')
 	host_model = host_manager(NUM_HOST_CMD_TABLE, NUM_HOST_QUEUE, [NUM_LBA])
 	hic_model = hic_manager(NUM_CMD_EXEC_TABLE * NUM_HOST_QUEUE, NUM_HOST_QUEUE)
 	
-	nand_info = nand_config(nand_256gb_mlc)		
+	nand_info = nand_config(nand_128gb_mlc)		
 	#nand_info = nand_config(nand_256gb_g3)
 	#nand_info = nand_config(nand_512gb_g5)	
 	nand_model = nand_manager(NUM_WAYS, nand_info)
@@ -273,7 +279,9 @@ if __name__ == '__main__' :
 	node = event_mgr.alloc_new_event(0)
 	node.dest = event_dst.MODEL_KERNEL
 	node.code = event_id.EVENT_TICK
-										
+
+	init_eval_time()
+																																						
 	while exit is False :
 		event_mgr.increase_time()
 		
@@ -298,6 +306,8 @@ if __name__ == '__main__' :
 					nand_model.event_handler(node)
 				if node.dest & event_dst.MODEL_NFC :
 					nfc_model.event_handler(node)
+					iccs = nfc_model.get_nand_total_current()
+					test_gui_status.debug = '%d : icc : %d, iccq : %d'%(event_mgr.timetick, iccs[0], iccs[1])
 				if node.dest & event_dst.MODEL_KERNEL :
 					#node = event_mgr.alloc_new_event(1000000000)
 					#node.dest = event_dst.MODEL_HOST | event_dst.MODEL_KERNEL
@@ -325,9 +335,12 @@ if __name__ == '__main__' :
 			nfc_model.print_ch_statistics()
 			nfc_model.print_way_statistics()
 			
-			print('\npress the button to run next test')									
-			name = input()
+			#print('\npress the button to run next test')									
+			#name = input()
 			exit = True
 								
-	log.close()	
+	log.close()
+	
+if __name__ == '__main__' :
+	sim_test_main()	
 			
