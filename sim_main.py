@@ -92,8 +92,9 @@ def sim_main(progress_callback = None) :
 	WAYS_PER_CHANNELS = ssd_param.WAYS_PER_CHANNELS
 	NUM_WAYS = ssd_param.NUM_WAYS 
 	
-	host_if.set_config(ssd_param.HOST_IF, ssd_param.HOST_GEN, ssd_param.HOST_LANE)
+	host_if.set_config(ssd_param.HOST_IF, ssd_param.HOST_GEN, ssd_param.HOST_LANE, ssd_param.HOST_MPS)
 	host_if.info()
+	#host_if.set_latency_callback(False)
 	
 	bm.set_latency(ssd_param.DDR_BANDWIDTH, ssd_param.DDR_BUSWIDTH)
 	
@@ -226,19 +227,31 @@ def sim_main(progress_callback = None) :
 						accel_num = accel_num + 1
 						
 						# show the progress status of current workload
-						if progress.check(wlm) == 100 and host_model.get_pending_cmd_num() == 0 :
-							ftl_module.flush_request()
-							ftl_module.disable_background()
-							report.disable()						
+						if progress.check(wlm) == 100 :
+							pending_cmds = host_model.get_pending_cmd_num()
+							if pending_cmds > 0 :
+								#print('\npending command : %d'%pending_cmds)
+								hil_module.handler()
+								ftl_module.handler()
+								fil_module.handler()								
+							else :
+								ftl_module.flush_request()
+								ftl_module.disable_background()
+								report.disable()						
 		else :
 			pending_cmds = host_model.get_pending_cmd_num()
 			
 			if pending_cmds > 0 :
-				print('\npending command : %d'%pending_cmds)
+				print('\nno event and pending command : %d'%pending_cmds)
+			#	hil_module.handler()
+			#	ftl_module.handler()
+			#	fil_module.handler()												
+			#else :
 				host_model.debug()
+				hic_model.debug()
 				ftl_module.debug()
-				
-			if True:
+
+			if True :
 				print_eval_time()
 				#print('acceleration num : %d'%accel_num)
 		
@@ -262,6 +275,7 @@ def sim_main(progress_callback = None) :
 							
 							event_mgr.timetick = 0
 							host_model.host_stat.clear()
+							hic_model.hic_stat.clear()
 							nfc_model.clear_statistics()
 							
 							if wlm.get_force_gc() == True :
