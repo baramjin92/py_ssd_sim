@@ -205,6 +205,13 @@ class nfc :
 		self.nand_t_cna_e = nand_info.nand_t_cna_e
 		self.nand_t_chk = nand_info.nand_t_chk
 		self.nand_t_xfer = nand_info.nand_t_xfer
+		'''
+		self.nand_t_cna_w = 1 
+		self.nand_t_cna_r = 1
+		self.nand_t_cna_e = 1
+		self.nand_t_chk = 1
+		self.nand_t_xfer = 1
+		'''
 		
 		# voltage
 		self.vcc = 3.3

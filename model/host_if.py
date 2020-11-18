@@ -16,30 +16,39 @@ class host_interface :
 	def __init__(self) :
 		self.interface = None
 
-	def set_config(self, host_if, gen, lane) :
+	def set_config(self, host_if, gen, lane, mps) :
 		if host_if == 'PCIE' :
-			self.interface = pcie(gen, lane)
+			self.interface = pcie(gen, lane, mps)
 		elif host_if == 'SATA' :
 			self.interface = sata()
 		
-		self.calculate_xfer_time = self.interface.calculate_xfer_time
-		self.min_packet_size = self.interface.min_packet_size
+		self.set_latency_callback(True)
+		self.min_packet_size = self.interface.min_packet_size	
 		
+	def use_no_latency(self, num_sectors) :
+		return 1, 1
+				
+	def set_latency_callback(self, enable = True) :
+		if enable == True :
+			self.calculate_xfer_time = self.interface.calculate_xfer_time
+		else :																						
+			self.calculate_xfer_time = self.use_no_latency
+												
 	def info(self) :
 		self.interface.info()
 							
 host_if = host_interface()
-host_if.set_config('PCIE', 3, 4)																																													
+host_if.set_config('PCIE', 3, 4, 256)																																													
 
 # register callback funtion
 #calculate_xfer_time = host_if.calculate_xfer_time
 #min_packet_size = host_if.min_packet_size
 
 if __name__ == '__main__' :
-	host_if.set_config('PCIE', 4, 4)																																													
+	host_if.set_config('PCIE', 4, 4, 256)																																													
 	host_if.info()
 	
-	host_if.set_config('SATA', 3, 1)
+	host_if.set_config('SATA', 3, 1, 0)
 	host_if.info()
 	
 																																			

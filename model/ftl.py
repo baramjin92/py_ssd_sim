@@ -81,7 +81,7 @@ class ftl_manager :
 		hic = get_ctrl('hic')
 				
 		# check high priority queue
-		if hil2ftl_high_queue.length() > 0 :
+		if hil2ftl_high_queue.length() > 0 and self.num_chunks_to_read == 0 :
 			# check write content of previous cmd and run do_write()
 
 			# fetch ftl command and parse lba and sector count for chunk 
@@ -793,10 +793,15 @@ class ftl_manager :
 		print('buffer')
 		print('    num of read free slots : %d'%(bm.get_num_free_slots(BM_READ)))																																	
 		print('    num of write free slots : %d'%(bm.get_num_free_slots(BM_WRITE)))
+		
+		print('\n')
+		self.ftl_stat.print()
 																																																													
 class ftl_statistics :
-	def __init__(self) :
-		print('statstics init')
+	def __init__(self) :		
+		self.num_read = 0
+		self.num_write = 0
+		self.num_unmap = 0
 		
 		self.num_gc_victims = 0
 		self.sum_gc_cost = 0
@@ -804,8 +809,11 @@ class ftl_statistics :
 		self.max_gc_cose = 0
 																															
 	def print(self) :
-		print('statstics')
-												
+		print('ftl statstics')
+		print('num host read cmd : %d'%self.num_read)
+		print('num host write cmd : %d'%self.num_write)
+		print('num host unmap read cmd : %d'%self.num_unmap)
+														
 if __name__ == '__main__' :
 	print ('module ftl (flash translation layer)')
 
@@ -818,9 +826,9 @@ if __name__ == '__main__' :
 	print('num of lba (512 byte sector) : %d'%NUM_LBA)
 	print('num of logical chunk (4K unit) : %d'%(NUM_LBA/SECTORS_PER_CHUNK))	
 	
-	blk_grp.add('meta', block_manager(NUM_WAYS, None, 1, 9, 1, 2, NAND_MODE_SLC, ftl_nand))
-	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, 1, 2, NAND_MODE_MLC, ftl_nand))
-	blk_grp.add('user', block_manager(NUM_WAYS, None, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, NAND_MODE_MLC, ftl_nand))
+	blk_grp.add('meta', block_manager(ssd_param.NUM_WAYS, None, 1, 9, 1, 2, NAND_MODE_SLC, ftl_nand))
+	blk_grp.add('slc_cache', block_manager(ssd_param.NUM_WAYS, None, 10, 19, 1, 2, NAND_MODE_MLC, ftl_nand))
+	blk_grp.add('user', block_manager(ssd_param.NUM_WAYS, None, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, NAND_MODE_MLC, ftl_nand))
 	
 	ftl.start()
 	ftl.debug()

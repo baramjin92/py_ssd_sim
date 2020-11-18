@@ -69,29 +69,32 @@ class ftl_iod_manager :
 		if hil2ftl_high_queue.length() > 0 :
 			# check write content of previous cmd and run do_write()
 
-			# fetch ftl command and parse lba and sector count for chunk 
-			ftl_cmd = hil2ftl_high_queue.pop()
-			
+			ftl_cmd = hil2ftl_high_queue.get_entry_1st()
 			ns = self.namespace_mgr.get(ftl_cmd.qid)
-		
-			# ftl_cmd.code should be HOST_CMD_READ				
-			lba_start = self.namespace_mgr.lba2meta_addr(ftl_cmd.qid, ftl_cmd.lba)
-			lba_end = lba_start + ftl_cmd.sector_count - 1
-
-			# in order to read from nand, read command information is updated			
-			ns.num_chunks_to_read = ftl_cmd.sector_count / SECTORS_PER_CHUNK
-			ns.read_start_chunk = lba_start / SECTORS_PER_CHUNK
-			#ns.read_end_chunk = lba_end / SECTORS_PER_CHUNK			
-			ns.read_queue_id = ftl_cmd.qid
-			ns.read_cmd_tag = ftl_cmd.cmd_tag
+			if ns.num_chunks_to_read == 0 :
+				# fetch ftl command and parse lba and sector count for chunk 
+				ftl_cmd = hil2ftl_high_queue.pop()
+				
+				ns = self.namespace_mgr.get(ftl_cmd.qid)
+			
+				# ftl_cmd.code should be HOST_CMD_READ				
+				lba_start = self.namespace_mgr.lba2meta_addr(ftl_cmd.qid, ftl_cmd.lba)
+				lba_end = lba_start + ftl_cmd.sector_count - 1
 	
-			ns.read_cur_chunk = ns.read_start_chunk 			
-
-			log_print('host cmd read - qid : %d, cid : %d'%(ftl_cmd.qid, ftl_cmd.cmd_tag))
-										
-			# set fetch flag of hic (it will be move from hil to ftl, because hil code is temporary one)
-			hic.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)				 	 	 	 	 	
-				 	 	 	 	 			 	 	 	 	 			 	 	 	 	 	
+				# in order to read from nand, read command information is updated			
+				ns.num_chunks_to_read = ftl_cmd.sector_count / SECTORS_PER_CHUNK
+				ns.read_start_chunk = lba_start / SECTORS_PER_CHUNK
+				#ns.read_end_chunk = lba_end / SECTORS_PER_CHUNK			
+				ns.read_queue_id = ftl_cmd.qid
+				ns.read_cmd_tag = ftl_cmd.cmd_tag
+		
+				ns.read_cur_chunk = ns.read_start_chunk 			
+	
+				log_print('host cmd read - qid : %d, cid : %d'%(ftl_cmd.qid, ftl_cmd.cmd_tag))
+											
+				# set fetch flag of hic (it will be move from hil to ftl, because hil code is temporary one)
+				hic.set_cmd_fetch_flag(ftl_cmd.qid, ftl_cmd.cmd_tag)				 	 	 	 	 	
+					 	 	 	 	 			 	 	 	 	 			 	 	 	 	 	
 		# check low priority queue
 		if hil2ftl_low_queue.length() > 0 :
 			# we will change sequeuce of poping command from low queue, because we need to check the remained command 

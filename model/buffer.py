@@ -26,6 +26,8 @@ DDR2_400_BW = 3200			# MB /s
 DDR3_800_BW = 6400			# MB /s
 DDR4_1600_BW = 12800		# MB /s
 
+SRAM_LATENCY = 10
+
 def calculate_chunk_latency(ddr_bandwidth, bus_width, show_info = False) :
 	bandwidth = int(ddr_bandwidth * bus_width / 8)
 	overhead = 40																							# DDR overhead (percentage)
@@ -127,10 +129,18 @@ class buffer_manager :
 		self.bm_slots[buffer_id].main_data = main_data
 		self.bm_slots[buffer_id].extra_data = extra_data											
 		
-		event_mgr.add_accel_time(self.chunk_latency)
+		# Write Buffer is DRAM, Read Buffer is SRAM (we ignore SRAM latency') 
+		if buffer_id == BM_WRITE :
+			event_mgr.add_accel_time(self.chunk_latency)
+		elif buffer_id == BM_READ :
+			event_mgr.add_accel_time(SRAM_LATENCY)
 																
 	def get_data(self, buffer_id, event_callback = None) :
-		event_mgr.add_accel_time(self.chunk_latency)
+		# Write Buffer is DRAM, Read Buffer is SRAM (we ignore SRAM latency') 
+		if buffer_id == BM_WRITE :
+			event_mgr.add_accel_time(self.chunk_latency)
+		elif buffer_id == BM_READ :
+			event_mgr.add_accel_time(SRAM_LATENCY)
 									
 		return (self.bm_slots[buffer_id].main_data, self.bm_slots[buffer_id].extra_data)																											
 	

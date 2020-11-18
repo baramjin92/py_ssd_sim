@@ -322,7 +322,7 @@ class ftl_zns_manager :
 		hic = get_ctrl('hic')
 		
 		# check high priority queue
-		if hil2ftl_high_queue.length() > 0 :
+		if hil2ftl_high_queue.length() > 0 and self.num_chunks_to_read == 0 :
 			# check write content of previous cmd and run do_write()
 
 			# fetch ftl command and parse lba and sector count for chunk 
@@ -724,8 +724,8 @@ if __name__ == '__main__' :
 	print('size of zone : %d MB'%(ssd_param.ZONE_SIZE / 1024 / 1024))
 	print('num of zone : %d'%ssd_param.NUM_ZONES)
 
-	blk_grp.add('slc_cache', block_manager(NUM_WAYS, None, 10, 19, 1, 2, NAND_MODE_SLC, ftl_nand))
-	blk_grp.add('user', block_manager(NUM_WAYS, None, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, NAND_MODE_MLC, ftl_nand))
+	blk_grp.add('slc_cache', block_manager(ssd_param.NUM_WAYS, None, 10, 19, 1, 2, NAND_MODE_SLC, ftl_nand))
+	blk_grp.add('user', block_manager(ssd_param.NUM_WAYS, None, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, NAND_MODE_MLC, ftl_nand))
 
 	print('\ntest zone operation')
 

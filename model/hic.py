@@ -34,7 +34,8 @@ class cmd_exec_desc :
 		self.flags = 0												
 
 class cmd_queue_context :
-	def __init__(self, cet_size) :
+	def __init__(self, queue_id, cet_size) :
+		self.queue_id = queue_id
 		self.cet_size = cet_size
 		
 		# cmd_exec_table manages command operation (update num_requested_sectors and num_completed_sectors)
@@ -65,16 +66,18 @@ class hic_manager :
 
 		self.cmd_queue = []
 		for index in range(queue_num) :
-			self.cmd_queue.append(cmd_queue_context(cet_size))
-						
+			self.cmd_queue.append(cmd_queue_context(index, cet_size))
+		
+		cmd_exec_depth = cet_size * queue_num				
+														
 		# cmd_exec_queue is used for sending host cmd to hil
 		# cmd_exec_queue is global queue
 		# queue entry is pair of queue id and cmd_tag(host_id) : [queue_id, cmd_tag]				
-		self.cmd_exec_queue = queue(cet_size)
+		self.cmd_exec_queue = queue(cmd_exec_depth)
 		
 		# cmd_cmpl_queue is local queue in hic
 		# queue entry is pair of queue id and cmd_tag(host_id) : [queue_id, cmd_tag]
-		self.cmd_cmpl_queue = queue(cet_size)
+		self.cmd_cmpl_queue = queue(cmd_exec_depth)
 					
 		self.rx_count = 0
 		self.rx_buffer_prep = []
@@ -131,6 +134,8 @@ class hic_manager :
 				
 		# send cmd_tag to (hil) command queue												
 		self.cmd_exec_queue.push([queue_id, cmd_tag])
+		
+		self.hic_stat.issued_cmds = self.hic_stat.issued_cmds + 1
 														
 		return True
 	
@@ -245,7 +250,9 @@ class hic_manager :
 		next_event.host_id = cmd_tag
 
 		self.cmd_queue[queue_id].decrease_pending_cmd()
-				
+		
+		self.hic_stat.completed_cmds = self.hic_stat.completed_cmds + 1
+						
 		return True
 		
 	def handle_incoming_data(self, event) :
@@ -358,20 +365,38 @@ class hic_manager :
 			self.uplink_busy = True
 			 															
 		return True
-																										
+
+	def debug(self) :
+		print('hic debug')																																																				
+		for cmd_queue in self.cmd_queue :
+			print('queue id : %d - pendind cmds : %d'%(cmd_queue.queue_id, cmd_queue.num_pending_commands))
+				
+		print('\n')				
+		print('cmd_exec_queue - length : %d'%(self.cmd_exec_queue.length()))
+		print('cmd_cmpl_queue - length : %d'%(self.cmd_cmpl_queue.length()))
+		
+		self.hic_stat.print()
+																																					
 class hic_statistics :
 	def __init__(self) :
-		print('hic statstics init')
-																												
+		self.clear()
+							
+	def clear(self) :
+		self.issued_cmds = 0
+		self.completed_cmds = 0
+																																																																																																		
 	def print(self) :
-		print('hic statstics')
+		print('\nhic statstics')
+		print('issued cmds  : %d'%(self.issued_cmds))
+		print('completed cmds : %d'%(self.completed_cmds))
+		print('unfinished cmds : %d'%(self.issued_cmds - self.completed_cmds))
 				
 if __name__ == '__main__' :
 	print ('module hic(host interface controller)')
 
 	host_if.info()
 
-	hic = hic_manager(NUM_CMD_EXEC_TABLE)		
-		
+	hic = hic_manager(NUM_CMD_EXEC_TABLE, 1)		
+	hic.debug()	
 	hic.hic_stat.print()			
 																			

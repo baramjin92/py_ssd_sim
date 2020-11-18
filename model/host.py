@@ -454,6 +454,7 @@ class host_manager :
 		for index, cmd_queue in enumerate(self.host_cmd_queue) :
 			print('queue %d - free slot num : %d'%(index, cmd_queue.get_num_free_slot()))
 		
+		print('pending cmds : %d'%self.num_pending_cmds)
 		print('link status - uplink : %d, downlink : %d'%(self.uplink_state, self.downlink_state))			
 		
 	def print_host_data(self, lba, num_sectors) :
@@ -554,8 +555,8 @@ class host_statistics :
 				
 		for index, perf_param in enumerate(self.perf) :																																	
 			if time_seconds > 0 :	
-				read_throughput = (perf_param.num_read_sectors * BYTES_PER_SECTOR / (1024*1024)) / time_seconds																				
-				write_throughput = (perf_param.num_write_sectors * BYTES_PER_SECTOR / (1024*1024)) / time_seconds
+				read_throughput = (perf_param.num_read_sectors * BYTES_PER_SECTOR / unit.scale_MB) / time_seconds																				
+				write_throughput = (perf_param.num_write_sectors * BYTES_PER_SECTOR / unit.scale_MB) / time_seconds
 				read_iops = perf_param.num_read_cmd / time_seconds
 				write_iops = perf_param.num_write_cmd / time_seconds							
 			else :
@@ -611,8 +612,8 @@ class host_statistics :
 				table[11].append(int(perf_param.min_write_latency))
 																					
 			if time_seconds > 0 :	
-				read_throughput = (perf_param.num_read_sectors * BYTES_PER_SECTOR / (1024*1024)) / time_seconds																				
-				write_throughput = (perf_param.num_write_sectors * BYTES_PER_SECTOR / (1024*1024)) / time_seconds
+				read_throughput = (perf_param.num_read_sectors * BYTES_PER_SECTOR / unit.scale_MB) / time_seconds																				
+				write_throughput = (perf_param.num_write_sectors * BYTES_PER_SECTOR / unit.scale_MB) / time_seconds
 				read_iops = perf_param.num_read_cmd / time_seconds
 				write_iops = perf_param.num_write_cmd / time_seconds							
 			else :
