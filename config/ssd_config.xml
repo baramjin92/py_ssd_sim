@@ -2,6 +2,7 @@
 	<ssd_configuration>
 		<host_if>PCIE</host_if>
 		<host_speed>Gen3x4</host_speed>
+		<max_payload_size>512</max_payload_size>
 		<number_of_host_queue>1</number_of_host_queue>
 		<channel>8</channel>
 		<way_per_channel>4</way_per_channel>
@@ -10,7 +11,7 @@
 			<name>256gb_g3</name>
 		</nand>
 		<dram>
-			<bandwidth>6400MB/s</bandwidth>
+			<bandwidth>12800MB/s</bandwidth>
 			<buswidth>32</buswidth>
 		</dram>			
 		<blk_grp>

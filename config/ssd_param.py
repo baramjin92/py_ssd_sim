@@ -37,7 +37,7 @@ HOST_ZSA_OPEN = 3
 HOST_ZSA_RESET = 4
 
 # define queue depth of host command
-NUM_HOST_CMD_TABLE = 512	#128			#32
+NUM_HOST_CMD_TABLE = 512+256	#128			#32
 
 # Nand
 # define command type
@@ -57,12 +57,12 @@ NAND_MODE_QLC = 0x03
 # SSD controller parameter
 # HIC (host interface controller)
 # define queue depth of host command (it is same with NUM_HOST_CMD_TABLE, however it is changed by HIC architecture)
-NUM_CMD_EXEC_TABLE = 512	#128			#64
+NUM_CMD_EXEC_TABLE = 512+256	#128			#64
 
 # Global queue depth definition
 # ftl cmd queue communication between ftl and fil
 # there are two priority queue
-FTL_CMD_QUEUE_DEPTH = 512
+FTL_CMD_QUEUE_DEPTH = 512+256
 
 # BM (buffer managerment)
 #Write Buffer : 1M Byte, Read Buffer : 3M Byte
@@ -96,9 +96,9 @@ def convert_speed(host_speed) :
 class ssd_param_desc :
 	def __init__(self) :
 		self.HOST_IF = 'PCIE'					# 'SATA', 'UFS'
-		self.HOST_SPEED = 'GEN3X4'		# 'GEN4x4''
-		
+		self.HOST_SPEED = 'GEN3X4'		# 'GEN4x4''		
 		self.HOST_GEN, self.HOST_LANE = convert_speed(self.HOST_SPEED)
+		self.HOST_MPS = 256
 									
 		# define number of queue
 		self.NUM_HOST_QUEUE = 1
@@ -130,6 +130,9 @@ class ssd_param_desc :
 		self.ZONE_NUM_WAYS = int(self.NUM_WAYS / 4)
 		self.NUM_OPEN_ZONES = 3
 		self.NUM_ZONES = int((NUM_LBA * BYTES_PER_SECTOR) / self.ZONE_SIZE)
+		
+		# Acceleration
+		self.Acceleration = False
 					
 ssd_param = ssd_param_desc() 		
 				
@@ -140,7 +143,8 @@ def load_ssd_config_xml(filename) :
 	ssd_param.HOST_IF = ssd.find('host_if').text.upper()
 	ssd_param.HOST_SPEED = ssd.find('host_speed').text.upper()
 	ssd_param.HOST_GEN, ssd_param.HOST_LANE = convert_speed(ssd_param.HOST_SPEED)
-
+	ssd_param.HOST_MPS = int(ssd.find('max_payload_size').text)
+		
 	ssd_param.NUM_HOST_QUEUE = int(ssd.find('number_of_host_queue').text)
 	ssd_param.NUM_CHANNELS = int(ssd.find('channel').text)
 	ssd_param.WAYS_PER_CHANNELS = int(ssd.find('way_per_channel').text)
@@ -186,6 +190,7 @@ def print_setting_info(report_title = 'default parameter value') :
 
 	table.append(['Host Interface', ssd_param.HOST_IF])
 	table.append(['Host Speed', ssd_param.HOST_SPEED])
+	table.append(['Max Payload Size', ssd_param.HOST_MPS])	
 	table.append(['Number of Host Queue', ssd_param.NUM_HOST_QUEUE])
 	table.append(['Number of Nand Channel', ssd_param.NUM_CHANNELS])
 	table.append(['Number of Ways per Channel', ssd_param.WAYS_PER_CHANNELS])
