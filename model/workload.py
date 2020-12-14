@@ -340,6 +340,7 @@ class workload_manager() :
 		self.group = []
 		self.group.append(workload_group())
 		self.group_active = 1			# default group 0 is always active
+		self.max_wl = 0
 															
 	def set_capacity(self, capacity) :	
 		self.ssd_capacity = convert_size(capacity)
@@ -363,6 +364,12 @@ class workload_manager() :
 		
 		wl_group = self.group[group_id]
 		wl_group.wl.append(wl)
+		
+		num = len(wl_group.wl)
+		if self.max_wl < num :
+			self.max_wl = num
+			
+		return (num-1)
 			
 	def goto_next_workload(self, group_id = 0, async_group = True) :
 		if async_group == False and self.group_active > 1:
@@ -430,6 +437,7 @@ class workload_manager() :
 		self.reset()		
 		for node in wl_grp :
 			for child in node.iter('workload') :
+				# these settings are mandetory 
 				group = int(child.find('group').text)
 				type = wl_type_conv[child.find('type').text]
 				slba = int(child.find('start_lba').text)
@@ -444,8 +452,19 @@ class workload_manager() :
 					align = True
 				else :
 					align = False
+					
+				# these settings are optional	
+				if child.find('gc') == True :
+					gc = child.find('gc').text
+				else :
+					gc = False
+					
+				if child.find('zone_no') == True :
+					zone_no = int(child.find('zone_no').text)
+				else :
+					zone_no = 0	
 				
-				#wl = [group, type, slba, range, min_kb, max_kb, amount, amount_type, read_ratio, align]
+				#wl = [group, type, slba, range, min_kb, max_kb, amount, amount_type, read_ratio, align, gc, zone_no]
 				#print(wl)
 				if group >= self.get_group_num() : 
 					self.add_group(group - self.get_group_num() + 1)

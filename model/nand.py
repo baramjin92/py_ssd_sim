@@ -107,7 +107,13 @@ class nand_context :
 		self.main_data = main_data
 		self.meta_data = meta_data
 		self.chunks_num = len(main_data)
-						
+
+	def set_rawinfo1(self, addr, main_data = [], meta_data = []) :
+		self.set_address(addr) 
+		self.main_data = main_data
+		self.meta_data = meta_data
+		self.chunks_num = len(main_data)
+												
 	def set_address(self, addr) :
 		self.nand_addr = addr
 
@@ -296,6 +302,9 @@ class nand_manager :
 															
 	def get_nand_info(self) :
 		return self.nand_info																									
+	
+	def get_nand_ctx(self, nand_id = 0) :
+		return self.nand_ctx[nand_id]
 	
 	def get_nand_dimension(self, nand_id = 0) :
 		nand_ctx = self.nand_ctx[nand_id]

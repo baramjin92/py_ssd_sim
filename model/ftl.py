@@ -140,7 +140,7 @@ class ftl_manager :
 		if nandcmd_table.get_free_slot_num() < num_remain_chunks :
 			return		
 		
-		if ENABLE_RAMDISK_MODE == True and bm.get_num_free_slots(BM_READ) < self.min_chunks_for_page : 			
+		if ssd_param.ENABLE_RAMDISK_MODE == True and bm.get_num_free_slots(BM_READ) < self.num_chunks_to_read : 			
 			return		
 
 		hic = get_ctrl('hic')
@@ -191,7 +191,7 @@ class ftl_manager :
 				print('unmap read - lba : %d, entry : %x'%(lba_index*SECTORS_PER_CHUNK, map_entry))
 											
 			# issue command to fil								
-			if ENABLE_RAMDISK_MODE == False :
+			if ssd_param.ENABLE_RAMDISK_MODE == False :
 				# if we use buffer cache, we will check buffer id from cache instead of sending command to fil
 				cache_hit = False
 				if ENABLE_BUFFER_CACHE == True :
@@ -235,9 +235,15 @@ class ftl_manager :
 			else :
 				# In the ramdisk mode, buffer is allocated at ftl, and send event to hic 
 				buffer_ids, ret_val = bm.get_buffer(BM_READ, self.read_queue_id, self.read_cmd_tag, num_chunks_to_read)
-		
+				
 				if ret_val == True :
-					for buffer_id in buffer_ids :
+					nand = get_ctrl('nand').get_nand_ctx(way)
+					nand.set_address(nand_addr)
+					nand.read_page()
+										
+					for index, buffer_id in enumerate(buffer_ids) :
+						nand_chunk_index = start_chunk_offset + index
+						bm.set_data(buffer_id, nand.main_data[nand_chunk_index], nand.meta_data[nand_chunk_index])
 						hic.add_tx_buffer(self.read_queue_id, buffer_id)
 				
 					next_event = event_mgr.alloc_new_event(0)
@@ -249,9 +255,6 @@ class ftl_manager :
 			# reset variable for checking next chunk																																								
 			next_map_entry = 0xFFFFFFFF
 			num_chunks_to_read = 0
-
-			if ENABLE_RAMDISK_MODE == True and bm.get_num_free_slots(BM_READ) < self.min_chunks_for_page : 			
-				break		
 
 		# check remain chunk, if do_read can't finish because of lack of resource of buffer/controller
 		self.read_cur_chunk = int(lba_index)
@@ -331,9 +334,9 @@ class ftl_manager :
 			
 		self.seq_num = self.seq_num + 1
 
-		if ENABLE_RAMDISK_MODE == False :
-			nand_addr = get_nand_addr(map_entry)
-	
+		nand_addr = get_nand_addr(map_entry)
+
+		if ssd_param.ENABLE_RAMDISK_MODE == False :	
 			# change cell mode command
 			cmd_index = nandcmd_table.get_free_slot()
 			cmd_desc = nandcmd_table.table[cmd_index]
@@ -365,10 +368,20 @@ class ftl_manager :
 			if num_dummy > 0 :
 				print('program dummy')
 		else :
+			# In the ramdisk mode, buffer is released at ftl, and data is written to nant directly
+			nand_main = []
+			nand_meta = [] 
 			for index in range(num_chunks) :
 				# buffer_id is allocated by hil, and data is saved by hic
-				buffer_id = hic.rx_buffer_done.pop(0)	
+				buffer_id = hic.rx_buffer_done.pop(0)
+				main_data, extra_data = bm.get_data(buffer_id)
+				nand_main.append(main_data)
+				nand_meta.append(extra_data)	
 				bm.release_buffer(buffer_id)
+							
+			nand = get_ctrl('nand').get_nand_ctx(way)
+			nand.set_rawinfo1(nand_addr, nand_main, nand_meta)
+			nand.program_page()
 							
 		# update super page index and check status of closing block (end of super block)
 		is_close, block_addr, way_list = sb.update_page()

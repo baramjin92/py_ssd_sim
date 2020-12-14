@@ -334,9 +334,8 @@ class host_manager :
 		# calculated lba of transferred read data
 		lba_index = int(event.host_lba / SECTORS_PER_CHUNK)
 		
-		# verify read data
-		
-		if ENABLE_RAMDISK_MODE == False :
+		# verify read data for check ftl functionality
+		if True :
 			data = event.main_data.pop(0)
 			
 			nsid = self.get_nsid(queue_id)
