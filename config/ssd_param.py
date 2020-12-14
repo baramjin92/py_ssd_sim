@@ -9,7 +9,6 @@ import tabulate
 
 import xml.etree.ElementTree as elemTree
 
-ENABLE_RAMDISK_MODE = False
 ENABLE_NAND_EXERCISE_MODE = False
 ENABLE_BUFFER_CACHE = False
 
@@ -37,7 +36,7 @@ HOST_ZSA_OPEN = 3
 HOST_ZSA_RESET = 4
 
 # define queue depth of host command
-NUM_HOST_CMD_TABLE = 512+256	#128			#32
+NUM_HOST_CMD_TABLE = 512	#128			#32
 
 # Nand
 # define command type
@@ -57,12 +56,12 @@ NAND_MODE_QLC = 0x03
 # SSD controller parameter
 # HIC (host interface controller)
 # define queue depth of host command (it is same with NUM_HOST_CMD_TABLE, however it is changed by HIC architecture)
-NUM_CMD_EXEC_TABLE = 512+256	#128			#64
+NUM_CMD_EXEC_TABLE = 512	#128			#64
 
 # Global queue depth definition
 # ftl cmd queue communication between ftl and fil
 # there are two priority queue
-FTL_CMD_QUEUE_DEPTH = 512+256
+FTL_CMD_QUEUE_DEPTH = 512
 
 # BM (buffer managerment)
 #Write Buffer : 1M Byte, Read Buffer : 3M Byte
@@ -95,6 +94,8 @@ def convert_speed(host_speed) :
 	
 class ssd_param_desc :
 	def __init__(self) :
+		self.ENABLE_RAMDISK_MODE = True
+		
 		self.HOST_IF = 'PCIE'					# 'SATA', 'UFS'
 		self.HOST_SPEED = 'GEN3X4'		# 'GEN4x4''		
 		self.HOST_GEN, self.HOST_LANE = convert_speed(self.HOST_SPEED)

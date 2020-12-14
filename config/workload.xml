@@ -4,10 +4,10 @@
 			<group>0</group>
 			<type>WL_SEQ_WRITE</type>
 			<start_lba>0</start_lba>
-			<range>1GiB</range>
+			<range>2GiB</range>
 			<min_size>128KiB</min_size>
 			<max_size>128KiB</max_size>
-			<amount>1GiB</amount>
+			<amount>3GiB</amount>
 			<amount_type>capacity</amount_type>
 			<read_ratio>0</read_ratio>
 			<align>TRUE</align>
@@ -16,10 +16,10 @@
 			<group>0</group>
 			<type>WL_SEQ_READ</type>
 			<start_lba>0</start_lba>
-			<range>1GiB</range>
+			<range>2GiB</range>
 			<min_size>128KiB</min_size>
 			<max_size>128KiB</max_size>
-			<amount>1GiB</amount>
+			<amount>3GiB</amount>
 			<amount_type>capacity</amount_type>
 			<read_ratio>100</read_ratio>
 			<align>TRUE</align>

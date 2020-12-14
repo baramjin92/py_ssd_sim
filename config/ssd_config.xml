@@ -1,7 +1,7 @@
 <ssd>
 	<ssd_configuration>
 		<host_if>PCIE</host_if>
-		<host_speed>Gen3x4</host_speed>
+		<host_speed>Gen4x4</host_speed>
 		<max_payload_size>512</max_payload_size>
 		<number_of_host_queue>1</number_of_host_queue>
 		<channel>8</channel>
