@@ -94,7 +94,13 @@ def convert_speed(host_speed) :
 	
 class ssd_param_desc :
 	def __init__(self) :
-		self.ENABLE_RAMDISK_MODE = True
+		self.ENABLE_PERF_MONITOR = False
+		self.ENABLE_VCD = False
+
+		self.ENABLE_RAMDISK_MODE = False
+		self.ENABLE_NAND_EXERCISE_MODE = False
+		
+		self.ENABLE_BUFFER_CACHE = False
 		
 		self.HOST_IF = 'PCIE'					# 'SATA', 'UFS'
 		self.HOST_SPEED = 'GEN3X4'		# 'GEN4x4''		
