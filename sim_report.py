@@ -42,27 +42,21 @@ def check_perf_monitor(func) :
 
 	return check_perf_monitor
 
-html_fp = None
-
-def html_open(filename) :
-	global html_fp
-	
+def html_open(filename) :	
 	if os.path.isfile(filename) :
 		os.remove(filename)
 	
-	html_fp = open(filename, 'w')
+	return open(filename, 'w')
 	
-def html_close() :
-	global html_fp
+def html_close(fp) :	
+	if fp != None :
+		fp.close()
+		fp = None
 	
-	if html_fp != None :
-		html_fp.close()
-		html_fp = None
-	
-def html_put_str(str) :
-	html_fp.write(str)
+def html_put_str(fp, str) :
+	fp.write(str)
 		
-def html_put_header(title) :
+def html_put_header(fp, title) :
 	html_string_start = '''
 	<html>
 		<head><title>Report Title</title></head>
@@ -70,18 +64,16 @@ def html_put_header(title) :
 		<body>
 	'''
 	
-	html_fp.write(html_string_start)
+	fp.write(html_string_start)
 	
-def html_put_end() :		
+def html_put_end(fp) :		
 	html_string_end = '''
 		</body>
 	</html>
 	'''
-	html_fp.write(html_string_end)	
+	fp.write(html_string_end)	
 
-def html_put_table(dataframe) :
-	fp = html_fp
-
+def html_put_table(fp, dataframe) :
 	if type(dataframe) is str :
 		str1 = '<h5>'+dataframe
 		fp.write(str1)
@@ -98,9 +90,7 @@ def html_put_table(dataframe) :
 		fp.write('</table>')
 		fp.write('</center>')
 								
-def html_put_table_pd(dataframe) :
-	fp = html_fp
-
+def html_put_table_pd(fp, dataframe) :
 	if type(dataframe) is str :
 		str1 = '<h5>'+dataframe
 		fp.write(str1)
@@ -119,13 +109,13 @@ def html_put_table_pd(dataframe) :
 		fp.write('</center>')
 
 @check_perf_monitor
-def plot_result(filename):	
+def html_plot_result(fp, src_filename):	
 	times = []
 	write_throughput = []
 	read_throughput = []
 
 	unit = BYTES_PER_SECTOR / (1024*1024)	
-	with open(filename, newline='') as csvfile :
+	with open(src_filename, newline='') as csvfile :
 		performances = csv.reader(csvfile, delimiter=',')
 
 		# heading information
@@ -154,7 +144,7 @@ def plot_result(filename):
 		plt.legend(loc='upper right')
 		plt.xlabel('time')
 		plt.ylabel('throughput [MB/s]')
-		plt.title('performance :' + filename)
+		plt.title('performance :' + src_filename)
 		
 		tmpfile = BytesIO()
 		
@@ -166,13 +156,15 @@ def plot_result(filename):
 			encoded = base64.b64encode(tmpfile.getvalue()).decode('utf-8')
 			html = '<img src=\'data:image/png;base64, {}\'>'.format(encoded)
 			
-			#with open('test.html', 'w') as f :
-			#	html_put_header(f, None)
-			#	f.write(html)
-			#	html_put_end(f)
-			html_fp.write('<center>')																								
-			html_fp.write(html)
-			html_fp.write('</center>')
+			'''
+			with open('test.html', 'w') as f :
+				html_put_header(f, None)
+				f.write(html)
+				html_put_end(f)
+			'''	
+			fp.write('<center>')																								
+			fp.write(html)
+			fp.write('</center>')
 
 class report_manager :
 	def __init__(self) :
@@ -185,8 +177,6 @@ class report_manager :
 		self.csv_wr = None
 		self.log_list = []
 		
-		self.html_fp = None
-
 	@check_perf_monitor											
 	def open(self, seq_no) :								
 		# prepare the csv file for recoding workload
@@ -323,104 +313,69 @@ class report_manager :
 		nfc_model = get_ctrl('nfc')
 		nand_model = get_ctrl('nand')
 		
-		html_open('ssd_sim_report.html')
-		html_put_header(None)
+		fp = html_open('ssd_sim_report.html')
+		html_put_header(fp, None)
 
 		if nand_model != None :
-			html_put_str('<h2> nand information')
-			html_put_str('<hr>')
-			html_put_str('<h3> type')
+			html_put_str(fp, '<h2> nand information')
+			html_put_str(fp, '<hr>')
+			html_put_str(fp, '<h3> type')
 			title, table = nand_model.nand_info.print_type(None)
-			html_put_table(table)
-			html_put_str('<h3> parameter')
+			html_put_table(fp, table)
+			html_put_str(fp, '<h3> parameter')
 			title, table = nand_model.nand_info.print_param(None)
-			html_put_table(table)
+			html_put_table(fp, table)
 																				
 		if workload != None :
-			html_put_str('<h2> workload')
-			html_put_str('<hr>')
+			html_put_str(fp, '<h2> workload')
+			html_put_str(fp, '<hr>')
 			index, num = workload.get_info()
 			title, table = workload.print_current(index, None)			
-			html_put_table(table)
+			html_put_table(fp, table)
 											
 		if host_model != None :
-			html_put_str('<h2> performance')
-			html_put_str('<hr>')
+			html_put_str(fp, '<h2> performance')
+			html_put_str(fp, '<hr>')
 			title, table = host_model.host_stat.show_performance(event_mgr.timetick, None)			
-			html_put_table(table)
+			html_put_table(fp, table)
 			
 			if include_graph == True :
-				html_put_str('<br>')
-				plot_result(self.log_filename)
-				html_put_str('<br>')
+				html_put_str(fp, '<br>')
+				html_plot_result(fp, self.log_filename)
+				html_put_str(fp, '<br>')
 				
-			html_put_str('<h2> host statistics')
-			html_put_str('<hr>')
+			html_put_str(fp, '<h2> host statistics')
+			html_put_str(fp, '<hr>')
 			title, table = host_model.host_stat.print(event_mgr.timetick, None)			
-			html_put_table(table)
+			html_put_table(fp, table)
 				
 		if nfc_model != None :
 			#self.nfc_model.print_cmd_descriptor()
-			html_put_str('<h2> nand channel statistics')
-			html_put_str('<hr>')
+			html_put_str(fp, '<h2> nand channel statistics')
+			html_put_str(fp, '<hr>')
 			title, table = nfc_model.print_ch_statistics(None)
-			html_put_table(table)
+			html_put_table(fp, table)
 				
-			html_put_str('<h2> nand way statistics')
-			html_put_str('<hr>')
+			html_put_str(fp, '<h2> nand way statistics')
+			html_put_str(fp, '<hr>')
 			title, table = nfc_model.print_way_statistics(None)
-			html_put_table(table)
+			html_put_table(fp, table)
 
-		html_put_end()
-		html_close()
-																																																								
-report = report_manager()
-																														
+		html_put_end(fp)
+		html_close(fp)
+																																											
 if __name__ == '__main__' :
 	print ('sim result init')
+					
+	host_stat = host_statistics(1)
 	
-	host_model = host_manager(NUM_HOST_CMD_TABLE, NUM_HOST_QUEUE, [NUM_LBA])
-	hic_model = hic_manager(NUM_CMD_EXEC_TABLE * NUM_HOST_QUEUE)
-	
-	nand_info = nand_config(nand_256gb_g3)		
-	nand_model = nand_manager(NUM_WAYS, nand_info)
-	nfc_model = nfc(NUM_CHANNELS, WAYS_PER_CHANNELS, nand_info)
-
-	set_ctrl('workload', wlm)
-	set_ctrl('host', host_model)
-	set_ctrl('hic', hic_model)
-	set_ctrl('nfc', nfc_model)
-	set_ctrl('nand', nand_model)
-
-	bits_per_cell, bytes_per_page, pages_per_block, blocks_per_way = nand_model.get_nand_dimension()
-	ftl_nand = ftl_nand_info(bits_per_cell, bytes_per_page, pages_per_block, blocks_per_way)
-
-	meta.config(NUM_WAYS, ftl_nand)
-	
-	hil_module = hil_manager()
-	ftl_module = ftl_manager(NUM_WAYS)
-	fil_module = fil_manager()
-
-	set_fw('hil', hil_module)
-	set_fw('ftl', ftl_module)
-	set_fw('fil', fil_module)
-								
-	blk_grp.add('meta', block_manager(NUM_WAYS, 1, 9, 1, 2, NAND_MODE_SLC, ftl_nand))
-	blk_grp.add('slc_cache', block_manager(NUM_WAYS, 10, 19, 1, 2, NAND_MODE_SLC, ftl_nand))
-	blk_grp.add('user', block_manager(NUM_WAYS, 20, 100, FREE_BLOCKS_THRESHOLD_LOW, FREE_BLOCKS_THRESHOLD_HIGH, NAND_MODE_TLC, ftl_nand))
-				
-	host_stat = host_statistics(2)
-
+	report = report_manager()
 	report.open(0)
 								
-	node = event_mgr.alloc_new_event(10)
-	node.dest = event_dst.MODEL_KERNEL
-	node.code = event_id.EVENT_RESULT												
+	host_stat.perf[0].update_write(8, 100)							
 	report.log(node, host_stat)
 	
-	node = event_mgr.alloc_new_event(100)
-	node.dest = event_dst.MODEL_KERNEL
-	node.code = event_id.EVENT_RESULT									
+	host_stat.perf[0].update_write(8, 100)
 	report.log(node, host_stat)
 		
 	report.show_result()
