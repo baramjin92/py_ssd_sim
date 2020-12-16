@@ -10,6 +10,8 @@ sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 from config.ssd_param import *
 from config.sim_config import *
 
+from model.vcd_ssd import *
+
 from model.buffer import *
 from model.queue import *
 from model.nandcmd import *
@@ -402,7 +404,7 @@ class nfc :
 		# start io operation
 		self.begin_io(way)
 		
-		#ssd_vcd_set_nfc_busy(channel, 1)
+		ssd_vcd_set_nfc_busy(channel, 1)
 		
 		return way
 		
@@ -425,7 +427,7 @@ class nfc :
 		cstat = self.channel_stat[channel]
 		cstat.release_time = current_time
 		
-		#ssd_vcd_set_nfc_busy(channel, 0)
+		ssd_vcd_set_nfc_busy(channel, 0)
 		
 	def release_channel_condition(self, channel, way) :
 		#log_print('%s'%self.__class__.__name__)
@@ -676,12 +678,10 @@ class nfc :
 			bstat.prev_time = current_time
 			
 			self.begin_new_command(channel, way)
-		
-		'''		
+				
 		if self.way_ctx[way].state != current_state :
 			cell, io, wait, = nfc_seq_state[self.way_ctx[way].state]
 			ssd_vcd_set_nfc_state(way, self.way_ctx[way].state, cell, io, wait)
-		'''
 		
 		# check channel owner and grant channel
 		if self.channel_owner[channel] == 0xFFFFFFFF :
@@ -691,12 +691,10 @@ class nfc :
 				#print('....................................................%d'%(self.debug[channel]))
 				self.debug[channel] = 0
 				granted_way = self.grant_channel(channel)
-					
-				'''
+				
 				cell, io, wait, = nfc_seq_state[self.way_ctx[granted_way].state]
 				ssd_vcd_set_nfc_state(granted_way, self.way_ctx[granted_way].state, cell, io, wait)			
-				'''
-	
+				
 	def get_nand_current(self, way) :
 		return nand_current[self.way_ctx[way].state]
 		

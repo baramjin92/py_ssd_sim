@@ -12,11 +12,9 @@ from config.ssd_param import *
 from sim_event import *
 from sim_vcd import *
 
-ENABLE_VCD = True
-
 def enable_vcd(func) :
 	def enable_vcd(*args, **kwargs) :
-		if ENABLE_VCD == False :
+		if ssd_param.ENABLE_VCD == False :
 			return 0
 
 		result = func(*args, **kwargs)
