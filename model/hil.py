@@ -37,7 +37,7 @@ class write_cmd :
 class hil_manager :
 	def __init__(self) :
 		# write_cmd_queue manage write buffer allocation
-		self.write_cmd_queue = queue(NUM_HOST_CMD_TABLE)
+		self.write_cmd_queue = queue(ssd_param.NUM_HOST_CMD_TABLE)
 																																	
 		self.hil_stat = hil_statistics()											
 

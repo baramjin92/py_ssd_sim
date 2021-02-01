@@ -41,7 +41,7 @@ class sata :
 		total_transfer_bits = (num_bytes * 8 + (self.DATA_XFER_OVERHEAD * num_packets))
 		transfer_time = total_transfer_bits * 10 / 8 / self.HOST_IF_SPEED # ns
 	
-		if ENABLE_NAND_EXERCISE_MODE == True :
+		if ssd_param.ENABLE_NAND_EXERCISE_MODE == True :
 			transfer_time = 1
 	
 		return num_packets, transfer_time					

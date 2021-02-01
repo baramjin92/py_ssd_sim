@@ -206,7 +206,7 @@ def unit_test_bm() :
 # 4. ftl add buffer_id to nandcmd_desc
 # 5. 	
 
-bm = buffer_manager(SSD_WRITE_BUFFER_NUM, SSD_READ_BUFFER_NUM)
+bm = buffer_manager(ssd_param.SSD_WRITE_BUFFER_NUM, ssd_param.SSD_READ_BUFFER_NUM)
 bm.set_latency(DDR3_800_BW, DDR_BUS_WIDTH)
 																	
 if __name__ == '__main__' :

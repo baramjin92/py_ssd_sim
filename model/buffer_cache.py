@@ -222,7 +222,7 @@ def unit_test_cache() :
 
 		lba = lba + 8
 
-bm_cache = buffer_cache(SSD_BUFFER_CACHE_NUM)
+bm_cache = buffer_cache(ssd_param.SSD_BUFFER_CACHE_NUM)
 																				
 if __name__ == '__main__' :
 	print ('module buffer cache')

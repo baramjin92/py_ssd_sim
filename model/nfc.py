@@ -578,9 +578,9 @@ class nfc :
 					# allocate buffer_id and get data from nand
 					queue_id = self.way_ctx[way].nandcmd_desc.queue_id
 					cmd_tag = self.way_ctx[way].nandcmd_desc.cmd_tag
-					buffer_id, ret_val = bm.get_buffer(BM_READ, queue_id, cmd_tag)										
+					buffer_id, ret_val = bm.get_buffer(BM_READ, queue_id, cmd_tag)						
 					self.way_ctx[way].nandcmd_desc.buffer_ids.append(buffer_id[0]) 
-										
+											
 					# alloc next event with time (NAND_T_XFER)
 					next_event = event_mgr.alloc_new_event(self.nand_t_xfer)
 					next_event.code = event_id.EVENT_NAND_DOUT_END

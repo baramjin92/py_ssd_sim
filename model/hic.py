@@ -176,7 +176,7 @@ class hic_manager :
 		
 		# release buffer
 		# if we use buffer cache, we will check or add buffer list to cache instead of releasing buffer
-		if ENABLE_BUFFER_CACHE == True :
+		if ssd_param.ENABLE_BUFFER_CACHE == True :
 			lba_index = bm.get_meta_data(buffer_id)
 			index, result = bm_cache.check_hit(lba_index)
 			if result == False :

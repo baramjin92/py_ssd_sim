@@ -184,7 +184,7 @@ class ftl_iod_manager :
 			# issue command to fil								
 			# if we use buffer cache, we will check buffer id from cache instead of sending command to fil
 			cache_hit = False
-			if ENABLE_BUFFER_CACHE == True :
+			if ssd_param.ENABLE_BUFFER_CACHE == True :
 				cache_lba_index = ns.read_cur_chunk
 				cache_results = []
 				for index in range(num_chunks_to_read) :
@@ -279,7 +279,7 @@ class ftl_iod_manager :
 			old_physical_addr = meta.map_table[lba_index]
 			
 			# if we use buffer cache, we should check and evict buffer id from cache, in order to avoid mismatch of data
-			if ENABLE_BUFFER_CACHE == True :		 
+			if ssd_param.ENABLE_BUFFER_CACHE == True :		 
 				bm_cache.evict(lba_index)
 																																																					
 			# validate "valid chunk bitmap", "valid chunk count", "map table" with new physical address
