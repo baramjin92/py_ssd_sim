@@ -1,11 +1,11 @@
-<ssd>
+<ufs>
 	<main_configuration>
-		<host_if>PCIE</host_if>
-		<host_speed>Gen3x4</host_speed>
+		<host_if>UFS</host_if>
+		<host_speed>Gen3x2</host_speed>
 		<max_payload_size>512</max_payload_size>
 		<number_of_host_queue>1</number_of_host_queue>
-		<depth_of_host_queue>512</depth_of_host_queue>
-		<channel>8</channel>
+		<depth_of_host_queue>128</depth_of_host_queue>
+		<channel>4</channel>
 		<way_per_channel>1</way_per_channel>
 		<nand>
 			<file>nand_config.xml</file>
@@ -31,7 +31,7 @@
 				<number_of_way>ALL</number_of_way>
 				<list_of_way>None</list_of_way>
 				<start_block_no>10</start_block_no>
-				<end_block_no>39</end_block_no>
+				<end_block_no>49</end_block_no>
 				<threshold_low>1</threshold_low>
 				<threshold_high>3</threshold_high>
 				<cell_mode>SLC</cell_mode>
@@ -40,7 +40,7 @@
 				<name>user</name>
 				<number_of_way>ALL</number_of_way>
 				<list_of_way>None</list_of_way>
-				<start_block_no>40</start_block_no>
+				<start_block_no>50</start_block_no>
 				<end_block_no>100</end_block_no>
 				<threshold_low>1</threshold_low>
 				<threshold_high>3</threshold_high>
@@ -52,4 +52,4 @@
 			<name>normal</name>
 		</workload>
 	</main_configuration>
-</ssd>
+</ufs>

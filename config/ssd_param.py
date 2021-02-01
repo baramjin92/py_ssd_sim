@@ -9,9 +9,6 @@ import tabulate
 
 import xml.etree.ElementTree as elemTree
 
-ENABLE_NAND_EXERCISE_MODE = False
-ENABLE_BUFFER_CACHE = False
-
 # slice or chunk are mapping unit. we use 4K mapping usually. 
 # instead of slice, I will use chunk
 
@@ -34,9 +31,6 @@ HOST_CMD_ZONE_RECV = 7
 HOST_ZSA_CLOSE = 1
 HOST_ZSA_OPEN = 3
 HOST_ZSA_RESET = 4
-
-# define queue depth of host command
-NUM_HOST_CMD_TABLE = 512	#128			#32
 
 # Nand
 # define command type
@@ -74,8 +68,6 @@ SSD_READ_BUFFER_NUM = int(SSD_READ_BUFFER_SIZE / BYTES_PER_CHUNK)
 
 SSD_BUFFER_NUM = (SSD_WRITE_BUFFER_NUM + SSD_READ_BUFFER_NUM)
 
-SSD_BUFFER_CACHE_NUM = int(SSD_READ_BUFFER_NUM / 2)
-
 # SSD capacity unit is GB (advertised capacity)
 SSD_CAPACITY = 15
 NUM_LBA = 97696368 + (1953504 * (SSD_CAPACITY - 50))
@@ -100,7 +92,7 @@ class ssd_param_desc :
 		self.ENABLE_RAMDISK_MODE = False
 		self.ENABLE_NAND_EXERCISE_MODE = False
 		
-		self.ENABLE_BUFFER_CACHE = False
+		self.ENABLE_BUFFER_CACHE = True
 		
 		self.HOST_IF = 'PCIE'					# 'SATA', 'UFS'
 		self.HOST_SPEED = 'GEN3X4'		# 'GEN4x4''		
@@ -109,6 +101,9 @@ class ssd_param_desc :
 									
 		# define number of queue
 		self.NUM_HOST_QUEUE = 1
+		
+		# define queue depth of host command
+		self.NUM_HOST_CMD_TABLE = 512
 	
 		# NFC (nand flash controller)
 		# The nfc has channels, each channel can handle several dies of nand (using ce, lun adderss)
@@ -125,6 +120,10 @@ class ssd_param_desc :
 		# DRAM
 		self.DDR_BANDWIDTH = 3200
 		self.DDR_BUSWIDTH = 32
+
+		self.SSD_WRITE_BUFFER_NUM = int(SSD_WRITE_BUFFER_SIZE / BYTES_PER_CHUNK)
+		self.SSD_READ_BUFFER_NUM = int(SSD_READ_BUFFER_SIZE / BYTES_PER_CHUNK)		
+		self.SSD_BUFFER_CACHE_NUM = int(SSD_READ_BUFFER_NUM / 2)
 
 		# Workload
 		self.WORKLOAD_MODEL = None
@@ -145,7 +144,7 @@ ssd_param = ssd_param_desc()
 				
 def load_ssd_config_xml(filename) :	
 	tree = elemTree.parse(filename)
-	ssd = tree.find('./ssd_configuration')
+	ssd = tree.find('./main_configuration')
 
 	ssd_param.HOST_IF = ssd.find('host_if').text.upper()
 	ssd_param.HOST_SPEED = ssd.find('host_speed').text.upper()
@@ -153,6 +152,7 @@ def load_ssd_config_xml(filename) :
 	ssd_param.HOST_MPS = int(ssd.find('max_payload_size').text)
 		
 	ssd_param.NUM_HOST_QUEUE = int(ssd.find('number_of_host_queue').text)
+	ssd_param.NUM_HOST_CMD_TABLE = int(ssd.find('depth_of_host_queue').text)
 	ssd_param.NUM_CHANNELS = int(ssd.find('channel').text)
 	ssd_param.WAYS_PER_CHANNELS = int(ssd.find('way_per_channel').text)
 	ssd_param.NUM_WAYS = (ssd_param.NUM_CHANNELS * ssd_param.WAYS_PER_CHANNELS)
@@ -199,17 +199,19 @@ def print_setting_info(report_title = 'default parameter value') :
 	table.append(['Host Speed', ssd_param.HOST_SPEED])
 	table.append(['Max Payload Size', ssd_param.HOST_MPS])	
 	table.append(['Number of Host Queue', ssd_param.NUM_HOST_QUEUE])
+	table.append(['Depth of Host Queue', ssd_param.NUM_HOST_CMD_TABLE])
 	table.append(['Number of Nand Channel', ssd_param.NUM_CHANNELS])
 	table.append(['Number of Ways per Channel', ssd_param.WAYS_PER_CHANNELS])
 	table.append(['Number of All Ways', ssd_param.NUM_WAYS])	
 	table.append(['NAND Model', ssd_param.NAND_MODEL])
 	table.append(['DRAM Bandwidth', ssd_param.DDR_BANDWIDTH])
 	table.append(['DRAM Bus width', ssd_param.DDR_BUSWIDTH])			
-	table.append(['Number of Host Cmd Table', NUM_HOST_CMD_TABLE])
+	table.append(['Number of Write Buffer', ssd_param.SSD_WRITE_BUFFER_NUM])
+	table.append(['Number of Read Buffer', ssd_param.SSD_READ_BUFFER_NUM])
+	table.append(['Enable Read Buffer Cache', ssd_param.ENABLE_BUFFER_CACHE])
+	table.append(['Number of Read Buffer Cache', ssd_param.SSD_BUFFER_CACHE_NUM])	
 	table.append(['Number of Cmd Execution Table', NUM_CMD_EXEC_TABLE])
 	table.append(['FTL Cmd Queue Depth', FTL_CMD_QUEUE_DEPTH])
-	table.append(['Number of Write Buffer', SSD_WRITE_BUFFER_NUM])
-	table.append(['Number of Read Buffer', SSD_READ_BUFFER_NUM])
 	table.append(['SSD Capacity', '%d GB'%SSD_CAPACITY])
 #	table.append(['SSD Actual Capacity', '%d GB'%SSD_CAPACITY_ACTUAL])
 	table.append(['Number of lba (512 byte sector)', NUM_LBA])
@@ -221,8 +223,16 @@ def print_setting_info(report_title = 'default parameter value') :
 
 if __name__ == '__main__' :
 	
+	print('test 1')
 	print_setting_info()
+
+	print('\n\ntest 2')
 	load_ssd_config_xml('ssd_config.xml')
 	print_setting_info('xml parameter value')
 	
-	print(ssd_param.BLK_GRP_INFO)																						
+	print(ssd_param.BLK_GRP_INFO)
+
+	print('\n\ntest 3')		
+	load_ssd_config_xml('ufs_config.xml')
+	print_setting_info('xml parameter value')
+																																													
