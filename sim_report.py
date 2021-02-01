@@ -29,11 +29,9 @@ from config.ssd_param import *
 from sim_event import *
 from sim_system import *
 
-ENABLE_PERF_MONITOR = False
-
 def check_perf_monitor(func) :
 	def check_perf_monitor(*args, **kwargs) :
-		if ENABLE_PERF_MONITOR == False :
+		if ssd_param.ENABLE_PERF_MONITOR == False :
 			return 0
 			
 		result = func(*args, **kwargs)
@@ -167,7 +165,7 @@ def html_plot_result(fp, src_filename):
 			fp.write('</center>')
 
 class report_manager :
-	def __init__(self) :
+	def __init__(self, today = None) :
 		# 0.0001 sec
 		self.interval = 1000000
 
@@ -176,11 +174,17 @@ class report_manager :
 		self.fp = None
 		self.csv_wr = None
 		self.log_list = []
-		
+
+		self.today = today
+		if self.today == None :
+			self.today = datetime.datetime.today()				 
+		self.seq_no = 0
+						
 	@check_perf_monitor											
 	def open(self, seq_no) :								
 		# prepare the csv file for recoding workload
-		today = datetime.datetime.today()
+		self.seq_no = seq_no
+		today = self.today
 		#self.log_filename = 'sim_%04d%02d%02d_%08d_%02d.csv'%(today.year, today.month, today.day, (today.hour*today.minute*today.second), seq_no)
 		self.log_filename = 'sim_%04d%02d%02d_%02d.csv'%(today.year, today.month, today.day, seq_no)
 		
@@ -216,7 +220,7 @@ class report_manager :
 	def log(self, event, host_stat) :					
 		if event.code == event_id.EVENT_RESULT:	
 			if self.fp == None :
-					open()
+				open()
 
 			perf_sum = host_stat_param()
 			queue_depth = len(host_stat.perf)
@@ -313,7 +317,11 @@ class report_manager :
 		nfc_model = get_ctrl('nfc')
 		nand_model = get_ctrl('nand')
 		
-		fp = html_open('ssd_sim_report.html')
+		today = self.today
+		#html_filename = 'sim_report_%04d%02d%02d_%08d_%02d.html'%(today.year, today.month, today.day, (today.hour*today.minute*today.second), self.seq_no)
+		html_filename = 'sim_report_%04d%02d%02d_%02d.html'%(today.year, today.month, today.day, self.seq_no)
+		
+		fp = html_open(html_filename)
 		html_put_header(fp, None)
 
 		if nand_model != None :
@@ -373,10 +381,10 @@ if __name__ == '__main__' :
 	report.open(0)
 								
 	host_stat.perf[0].update_write(8, 100)							
-	report.log(node, host_stat)
+	report.log(None, host_stat)
 	
 	host_stat.perf[0].update_write(8, 100)
-	report.log(node, host_stat)
+	report.log(None, host_stat)
 		
 	report.show_result()
 	

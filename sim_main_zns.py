@@ -48,6 +48,7 @@ def sim_main_zns() :
 	load_ssd_config_xml('./config/ssd_config.xml')
 	print_setting_info('xml parameter value')
 
+	NUM_HOST_CMD_TABLE = ssd_param.NUM_HOST_CMD_TABLE
 	NUM_HOST_QUEUE = ssd_param.NUM_HOST_QUEUE
 	NUM_CHANNELS = ssd_param.NUM_CHANNELS
 	WAYS_PER_CHANNELS = ssd_param.WAYS_PER_CHANNELS
