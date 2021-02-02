@@ -37,6 +37,9 @@ class host_interface :
 		else :																						
 			self.calculate_xfer_time = self.use_no_latency
 												
+		self.cmd_packet_xfer_time = self.interface.cmd_packet_xfer_time
+		self.rqt_packet_xfer_time = self.interface.rqt_packet_xfer_time												
+												
 	def info(self) :
 		self.interface.info()
 							

@@ -211,7 +211,7 @@ class hic_manager :
 		next_event.code = event_id.EVENT_REQ_DATA_START
 		
 		# calculate transfer time with data size and transfer speed 
-		transfer_time = 1
+		transfer_time = host_if.rqt_packet_xfer_time()
 
 		# in the actual system, we don't need to send buffer slot id to host.
 		# in this sumulation, we share first id of buffer between host and hic in order to write data to buffer.

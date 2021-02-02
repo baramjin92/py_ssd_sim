@@ -55,7 +55,11 @@ class pcie :
 		return transfer_time
 	
 	def rqt_packet_xfer_time(self) :
-		transfer_time = PRPMRD * 8 * 130 / 128 / self.HOST_IF_SPEED   # ns
+		# we need to consider PRPMRD is correct value 
+		# current value is 4096, it is not measured. it assume the maximum case
+		# 512 is temporary value, it doesn't affect the simulation time'
+		transfer_time = 512 * 8 * 130 / 128 / self.HOST_IF_SPEED   # ns
+		#transfer_time = PRPMRD * 8 * 130 / 128 / self.HOST_IF_SPEED   # ns
 		
 		return transfer_time
 		
@@ -87,7 +91,10 @@ class pcie :
 								
 		transfer_time = self.cmd_packet_xfer_time()								
 		table.append(['cmd packet transfter time', '%d ns'%(transfer_time)])
-		
+
+		transfer_time = self.rqt_packet_xfer_time()								
+		table.append(['rqt packet transfter time', '%d ns'%(transfer_time)])
+				
 		return report_title, table							
 																																															
 if __name__ == '__main__' :
@@ -96,5 +103,5 @@ if __name__ == '__main__' :
 	host_if = pcie(4, 4, 512)										
 	host_if.info()	
 	
-	host_if.set_config(3, 2, 256)										
+	host_if.set_config(3, 4, 256)										
 	host_if.info()																	

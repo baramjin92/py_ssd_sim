@@ -165,7 +165,8 @@ class host_manager :
 		next_event.queue_id = queue_id								
 												
 		# calculate this value later										
-		cmd_packet_delivery_time = 100										
+		# cmd_packet_delivery_time = 100
+		cmd_packet_delivery_time = host_if.cmd_packet_xfer_time()										
 
 		next_event = event_mgr.alloc_new_event(cmd_packet_delivery_time)
 		next_event.code = event_id.EVENT_COMMAND_END

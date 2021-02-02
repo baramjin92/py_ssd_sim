@@ -62,6 +62,9 @@ class sata :
 		transfer_time = self.cmd_packet_xfer_time()								
 		table.append(['cmd packet transfter time', '%d ns'%(transfer_time)])
 		
+		transfer_time = self.rqt_packet_xfer_time()								
+		table.append(['rqt packet transfter time', '%d ns'%(transfer_time)])
+				
 		return report_title, table							
 																							
 if __name__ == '__main__' :
