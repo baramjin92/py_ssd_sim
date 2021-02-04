@@ -83,7 +83,7 @@ def convert_speed(host_speed) :
 		speed.append('1')
 		
 	return int(speed[0]), int(speed[1])
-	
+			
 class ssd_param_desc :
 	def __init__(self) :
 		self.ENABLE_PERF_MONITOR = False
@@ -120,9 +120,10 @@ class ssd_param_desc :
 		# DRAM
 		self.DDR_BANDWIDTH = 3200
 		self.DDR_BUSWIDTH = 32
-
-		self.SSD_WRITE_BUFFER_NUM = int(SSD_WRITE_BUFFER_SIZE / BYTES_PER_CHUNK)
-		self.SSD_READ_BUFFER_NUM = int(SSD_READ_BUFFER_SIZE / BYTES_PER_CHUNK)		
+		
+		self.SSD_WRITE_BUFFER_SIZE = SSD_WRITE_BUFFER_SIZE
+		self.SSD_READ_BUFFER_SIZE = SSD_READ_BUFFER_SIZE
+		self.calculate_buffer_info(self.SSD_WRITE_BUFFER_SIZE, self.SSD_READ_BUFFER_SIZE)
 		self.SSD_BUFFER_CACHE_NUM = int(SSD_READ_BUFFER_NUM / 2)
 
 		# Workload
@@ -139,7 +140,15 @@ class ssd_param_desc :
 		
 		# Acceleration
 		self.Acceleration = False
-					
+
+	def calculate_buffer_info(self, write_buffer_size, read_buffer_size) :
+		self.SSD_BUFFER_SIZE = (write_buffer_size + read_buffer_size) 
+	
+		self.SSD_WRITE_BUFFER_NUM = int(write_buffer_size / BYTES_PER_CHUNK)
+		self.SSD_READ_BUFFER_NUM = int(read_buffer_size / BYTES_PER_CHUNK)
+	
+		self.SSD_BUFFER_NUM = (self.SSD_WRITE_BUFFER_NUM + self.SSD_READ_BUFFER_NUM)
+															
 ssd_param = ssd_param_desc() 		
 				
 def load_ssd_config_xml(filename) :	
@@ -165,6 +174,12 @@ def load_ssd_config_xml(filename) :
 			bandwidth = re.findall('\d+', node.find('bandwidth').text)
 			ssd_param.DDR_BANDWIDTH = int(bandwidth[0])
 			ssd_param.DDR_BUSWIDTH = int(node.find('buswidth').text)
+		elif node.tag == 'buffer' :
+			write_buffer = re.findall('\d+', node.find('write').text)
+			ssd_param.SSD_WRITE_BUFFER_SIZE = int(write_buffer[0])*1024*1024
+			read_buffer = re.findall('\d+', node.find('read').text)
+			ssd_param.SSD_READ_BUFFER_SIZE = int(read_buffer[0])*1024*1024
+			ssd_param.calculate_buffer_info(ssd_param.SSD_WRITE_BUFFER_SIZE, ssd_param.SSD_READ_BUFFER_SIZE)			
 		elif node.tag == 'workload' :
 			ssd_param.WORKLOAD_MODEL = [node.find('file').text, node.find('name').text]		
 		elif node.tag == 'blk_grp' :

@@ -14,7 +14,11 @@
 		<dram>
 			<bandwidth>12800MB/s</bandwidth>
 			<buswidth>32</buswidth>
-		</dram>			
+		</dram>
+		<buffer>
+			<write>1MB</write>
+			<read>1MB</read>		
+		</buffer>								
 		<blk_grp>
 			<blk_manager>
 				<name>meta</name>
