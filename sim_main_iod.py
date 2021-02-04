@@ -89,6 +89,13 @@ def sim_main_iod() :
 	NUM_HOST_QUEUE = 3
 	print('change number of host queue : %d'%NUM_HOST_QUEUE)		
 	
+	host_if.set_config(ssd_param.HOST_IF, ssd_param.HOST_GEN, ssd_param.HOST_LANE, ssd_param.HOST_MPS)
+	host_if.info()
+	#host_if.set_latency_callback(False)
+	
+	bm.config(ssd_param.SSD_WRITE_BUFFER_NUM, SSD_READ_BUFFER_NUM)
+	bm.set_latency(ssd_param.DDR_BANDWIDTH, ssd_param.DDR_BUSWIDTH)
+		
 	report = report_manager()
 	
 	print('initialize model')

@@ -57,7 +57,14 @@ def sim_main_zns() :
 	if NUM_HOST_QUEUE > 1 :					
 		print('NUM_HOST_QUEUE should be 1')					
 		NUM_HOST_QUEUE = 1
-						
+
+	host_if.set_config(ssd_param.HOST_IF, ssd_param.HOST_GEN, ssd_param.HOST_LANE, ssd_param.HOST_MPS)
+	host_if.info()
+	#host_if.set_latency_callback(False)
+	
+	bm.config(ssd_param.SSD_WRITE_BUFFER_NUM, SSD_READ_BUFFER_NUM)
+	bm.set_latency(ssd_param.DDR_BANDWIDTH, ssd_param.DDR_BUSWIDTH)
+																								
 	report = report_manager()
 	
 	print('initialize model')

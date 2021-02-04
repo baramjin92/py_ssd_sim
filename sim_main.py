@@ -84,8 +84,8 @@ def host_run() :
 def sim_main(progress_callback = None) :																								
 	log.open(None, False)
 															
-#	load_ssd_config_xml('./config/ssd_config.xml')
-	load_ssd_config_xml('./config/ufs_config.xml')
+	load_ssd_config_xml('./config/ssd_config.xml')
+#	load_ssd_config_xml('./config/ufs_config.xml')
 	
 	print_setting_info('xml parameter value')
 
@@ -99,6 +99,7 @@ def sim_main(progress_callback = None) :
 	host_if.info()
 	#host_if.set_latency_callback(False)
 	
+	bm.config(ssd_param.SSD_WRITE_BUFFER_NUM, SSD_READ_BUFFER_NUM)
 	bm.set_latency(ssd_param.DDR_BANDWIDTH, ssd_param.DDR_BUSWIDTH)
 	
 	'''
