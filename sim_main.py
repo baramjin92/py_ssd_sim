@@ -99,7 +99,7 @@ def sim_main(progress_callback = None) :
 	host_if.info()
 	#host_if.set_latency_callback(False)
 	
-	bm.config(ssd_param.SSD_WRITE_BUFFER_NUM, SSD_READ_BUFFER_NUM)
+	bm.config(ssd_param.SSD_WRITE_BUFFER_NUM, ssd_param.SSD_READ_BUFFER_NUM)
 	bm.set_latency(ssd_param.DDR_BANDWIDTH, ssd_param.DDR_BUSWIDTH)
 	
 	'''
