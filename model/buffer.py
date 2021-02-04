@@ -58,11 +58,17 @@ class buffer_slot :
 # buffer manager doesn't care the allocated buffer id
 # allocated buffer id should be saved for release buffer id.								
 class buffer_manager :
-	def __init__(self, write_buffer_num, read_buffer_num) :
+	def __init__(self, write_buffer_num = 0, read_buffer_num = 0) :
 		self.bm_slots = []
 		self.write_free = []
 		self.read_free = []
+						
+		if write_buffer_num > 0 or read_buffer_num > 0 :				
+			self.config(write_buffer_num, read_buffer_num)
 		
+		self.chunk_latency = 0
+
+	def config(self, write_buffer_num, read_buffer_num) :
 		buffer_num = write_buffer_num + read_buffer_num
 		
 		for index in range(buffer_num) : 
@@ -76,9 +82,7 @@ class buffer_manager :
 		
 		self.max_write = write_buffer_num
 		self.max_read = read_buffer_num
-		self.max_num = buffer_num
-		
-		self.chunk_latency = 0
+		self.max_num = buffer_num			
 		
 	def set_latency(self, ddr_bandwidth, bus_width) :
 		self.chunk_latency = calculate_chunk_latency(ddr_bandwidth, bus_width)	
@@ -161,7 +165,7 @@ class buffer_manager :
 			print(self.read_free)
 				
 def unit_test_bm() :	
-	bm = buffer_manager(20, 10)	
+	bm.config(20, 10)	
 		
 	print('write free slot num : %d'%(bm.get_num_free_slots(BM_WRITE)))	
 	print('read free slot num : %d'%(bm.get_num_free_slots(BM_READ)))	
@@ -206,7 +210,7 @@ def unit_test_bm() :
 # 4. ftl add buffer_id to nandcmd_desc
 # 5. 	
 
-bm = buffer_manager(ssd_param.SSD_WRITE_BUFFER_NUM, ssd_param.SSD_READ_BUFFER_NUM)
+bm = buffer_manager()
 bm.set_latency(DDR3_800_BW, DDR_BUS_WIDTH)
 																	
 if __name__ == '__main__' :
